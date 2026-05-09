@@ -64,6 +64,7 @@ def is_vague_next_action(text: str, prefixes: Iterable[str] = VAGUE_NEXT_ACTION_
 APP_SPECIFIC_VERIFY_SHAPES = {
     "business_idea_scorer": "business idea scorer",
     "budget_calculator": "budget calculator",
+    "decision_matrix": "decision matrix",
     "flashcard_helper": "flashcard helper",
     "quiz_recommender": "quiz recommender",
     "waitlist_page": "landing page",
@@ -225,6 +226,8 @@ def infer_static_app_shape(
 
     if _has_any(signal, ("budget-income", "budget calculator", "budget snapshot")):
         return "budget_calculator"
+    if _has_any(signal, ("decision-options", "decision-criteria", "compare-options", "decision-ranking", "decision matrix")):
+        return "decision_matrix"
     if _has_any(signal, ("notes-input", "build-cards", "card-output", "flashcard helper", "study card builder")):
         return "flashcard_helper"
     if _has_any(signal, ("idea-input", "score-idea", "business idea scorer", "business idea scorecard")):
@@ -237,6 +240,8 @@ def infer_static_app_shape(
     project_signal = _lower_join(project_text, metadata_text)
     if _has_any(project_signal, ("budget", "expense", "expenses", "income", "savings", "spending")):
         return "budget_calculator"
+    if _has_any(project_signal, ("decision matrix", "compare options", "choose between", "tradeoff", "tradeoffs", "criteria")):
+        return "decision_matrix"
     if _has_any(project_signal, ("flashcard", "flash card", "study notes", "exam", "memorize", "revision")):
         return "flashcard_helper"
     if _has_any(project_signal, ("business idea", "startup idea", "idea scorer", "idea scoring", "score my idea", "validate idea")):
@@ -332,6 +337,40 @@ def static_app_shape_verification_checks(
             check("breakdown output updates", has_breakdown_update, "Budget calculator updates the spending breakdown.", "Budget calculator needs app.js to update `budget-breakdown`."),
             check("recommendation output exists", has_recommendation, "Budget calculator has the recommendation output.", "Budget calculator needs a `budget-recommendation` output."),
             check("recommendation output updates", has_recommendation_update, "Budget calculator updates the recommendation.", "Budget calculator needs app.js to update `budget-recommendation`."),
+        ]
+
+    if shape == "decision_matrix":
+        has_options = _html_has_id(index_html, "decision-options") and _html_id_has_data_marker(index_html, "decision-options", "main-input")
+        reads_options = _js_reads_element_value(app_js, "decision-options")
+        has_criteria = _html_has_id(index_html, "decision-criteria")
+        reads_criteria = _js_reads_element_value(app_js, "decision-criteria")
+        has_compare_action = _html_has_id(index_html, "compare-options") and _html_id_has_data_marker(index_html, "compare-options", "primary-action")
+        has_event_handler = _js_handles_action(app_js, index_html, "compare-options")
+        has_ranking = _html_has_id(index_html, "decision-ranking") and _html_has_data_marker(index_html, "result-output")
+        has_ranking_update = _js_updates_element(app_js, "decision-ranking", ("textContent", "innerHTML"))
+        has_recommendation = _html_has_id(index_html, "decision-recommendation") and _html_id_has_data_marker(index_html, "decision-recommendation", "recommendation")
+        has_recommendation_update = _js_updates_element(app_js, "decision-recommendation")
+        has_tradeoffs = _html_has_id(index_html, "decision-tradeoffs") and _html_id_has_data_marker(index_html, "decision-tradeoffs", "tradeoffs")
+        has_tradeoffs_update = _js_updates_element(app_js, "decision-tradeoffs", ("textContent", "innerHTML"))
+        has_ranking_logic = _has_any(app_js, ("sort(", ".sort", "scoreoption", "ranked=")) and _has_any(app_js, ("score", "criteria"))
+        has_empty_state = _has_any(combined, ("empty", "add at least", "enter at least", "not enough", "paste options"))
+        has_local_note = _has_any(combined, ("ranks options locally", "simple deterministic rules", "does not call live ai", "external services inside the browser"))
+        return [
+            check("options input marker exists", has_options, "Decision matrix has the canonical options input.", "Decision matrix needs `decision-options` marked as the main input."),
+            check("options input is read", reads_options, "Decision matrix reads options before comparing.", "Decision matrix needs app.js to read the `decision-options` value."),
+            check("criteria input exists", has_criteria, "Decision matrix has the canonical criteria input.", "Decision matrix needs a `decision-criteria` input surface."),
+            check("criteria input is read", reads_criteria, "Decision matrix reads criteria before comparing.", "Decision matrix needs app.js to read the `decision-criteria` value."),
+            check("compare action marker exists", has_compare_action, "Decision matrix has the canonical Compare Options action.", "Decision matrix needs the `compare-options` button marked as the primary action."),
+            check("compare action is wired", has_event_handler, "Decision matrix wires the Compare Options action in app.js.", "Decision matrix needs app.js to handle the `compare-options` action."),
+            check("ranking output exists", has_ranking, "Decision matrix has the ranking output.", "Decision matrix needs a `decision-ranking` output in the result area."),
+            check("ranking output updates", has_ranking_update, "Decision matrix updates the ranking output.", "Decision matrix needs app.js to update `decision-ranking`."),
+            check("recommendation output exists", has_recommendation, "Decision matrix has the recommendation output.", "Decision matrix needs a `decision-recommendation` output."),
+            check("recommendation output updates", has_recommendation_update, "Decision matrix updates the recommendation output.", "Decision matrix needs app.js to update `decision-recommendation`."),
+            check("tradeoffs output exists", has_tradeoffs, "Decision matrix has the tradeoffs output.", "Decision matrix needs a `decision-tradeoffs` output."),
+            check("tradeoffs output updates", has_tradeoffs_update, "Decision matrix updates the tradeoffs output.", "Decision matrix needs app.js to update `decision-tradeoffs`."),
+            check("ranking logic exists", has_ranking_logic, "Decision matrix includes deterministic ranking logic.", "Decision matrix needs concrete local ranking logic, not placeholder text."),
+            check("empty state exists", has_empty_state, "Decision matrix handles empty or weak input.", "Decision matrix should explain what to enter when options or criteria are missing.", status="warn"),
+            check("local limitation note exists", has_local_note, "Decision matrix explains local deterministic limits.", "Decision matrix should explain that ranking is local and deterministic.", status="warn"),
         ]
 
     if shape == "flashcard_helper":

@@ -3310,6 +3310,16 @@ class PrototypeBuilderTests(SprintOSTestCase):
                 "codex": ["Codex Build Prompt — Budget Snapshot", "Improve Budget Snapshot", "`budget-income`", "`budget-breakdown`"],
             },
             {
+                "idea": "Build a decision matrix to compare options against criteria and explain tradeoffs.",
+                "prototype_type": "landing_page",
+                "name": "Decision Matrix",
+                "html": ["Decision Matrix", "Compare Options", "decision-options", "decision-criteria", "decision-ranking", "This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser.", 'data-app-shape="decision_matrix"', 'data-template-marker="tradeoffs"'],
+                "js": ["compareDecisionOptions", "scoreOption", "decisionTradeoffs"],
+                "readme": ["Decision Matrix compares", "This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser.", "ranking, recommendation, and tradeoff notes", "No OpenAI, DeepSeek"],
+                "test_plan": ["Test Plan — Decision Matrix", "ranked list, recommendation, and tradeoff notes update"],
+                "codex": ["Codex Build Prompt — Decision Matrix", "Improve Decision Matrix", "`decision-options`", "`decision-tradeoffs`"],
+            },
+            {
                 "idea": "Build a study flashcard helper where students paste notes and get cards.",
                 "prototype_type": "ai_text_tool",
                 "name": "Study Card Builder",
@@ -3406,6 +3416,22 @@ class PrototypeBuilderTests(SprintOSTestCase):
                 "calculate savings/surplus/deficit",
                 "visible local/demo limitation note",
             ],
+            "decision_matrix": [
+                "Decision matrix contract",
+                "exact id `decision-options`",
+                "`data-template-marker=\"main-input\"`",
+                "exact id `decision-criteria`",
+                "exact id `compare-options`",
+                "`data-template-marker=\"primary-action\"`",
+                "exact id `decision-ranking`",
+                "exact id `decision-recommendation`",
+                "`data-template-marker=\"recommendation\"`",
+                "exact id `decision-tradeoffs`",
+                "`data-template-marker=\"tradeoffs\"`",
+                "read `decision-options`",
+                "read `decision-criteria`",
+                "This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser.",
+            ],
             "flashcard_helper": [
                 "Flashcard helper contract",
                 "question/answer cards",
@@ -3471,6 +3497,12 @@ class PrototypeBuilderTests(SprintOSTestCase):
                 ["budget-income", "budget-breakdown", "budget-recommendation", "calculateBudget"],
             ),
             (
+                "Build a decision matrix to compare options against criteria and choose a recommended option.",
+                "landing_page",
+                "decision_matrix",
+                ["decision-options", "decision-criteria", "decision-ranking", "decision-recommendation", "decision-tradeoffs"],
+            ),
+            (
                 "Build a study flashcard helper where students paste notes and get cards.",
                 "ai_text_tool",
                 "flashcard_helper",
@@ -3508,6 +3540,18 @@ class PrototypeBuilderTests(SprintOSTestCase):
                 self.assertEqual(metadata["offline_template_shape"], shape)
                 for marker in markers:
                     self.assertIn(marker, combined)
+
+    def test_decision_matrix_offline_template_passes_app_specific_verification(self) -> None:
+        project = self.create_project(raw_idea="Build a decision matrix to compare options against criteria.")
+        prototype = self.generate_prototype(project, "landing_page", generation_mode="offline")
+
+        verification = self.run_verification(project, verification_scope="prototype", prototype_id=prototype["id"])
+
+        self.assertEqual(verification["status"], "passed")
+        self.assertEqual(verification["metadata"].get("app_shape"), "decision_matrix")
+        self.assertTrue(
+            any(item["name"] == "decision matrix: ranking output updates" and item["status"] == "pass" for item in verification["metadata"]["checks"])
+        )
 
     def test_fake_deepseek_app_generation_writes_actual_app_files(self) -> None:
         os.environ["SPRINTOS_AI_PROVIDER"] = "deepseek"
@@ -6099,6 +6143,28 @@ class _MovedVerificationRunTests:
         self.assertTrue(any(item["name"] == "budget calculator: income and expense input markers exist" and item["status"] == "fail" for item in checks))
         self.assertTrue(any("Budget calculator needs `budget-income` and expense input markers" in item for item in failed["blockers"]))
 
+    def test_app_specific_verification_checks_decision_matrix_shape(self) -> None:
+        project = self.create_project(raw_idea="Build a decision matrix to compare options against criteria.")
+        prototype = self.generate_prototype(project, "landing_page", generation_mode="offline")
+        passed = self.run_verification(project, verification_scope="prototype", prototype_id=prototype["id"])
+        passed_checks = passed["metadata"]["checks"]
+
+        self.assertEqual(passed["metadata"].get("app_shape"), "decision_matrix")
+        self.assertTrue(any(item["name"] == "decision matrix: ranking output updates" and item["status"] == "pass" for item in passed_checks))
+
+        package_dir = Path(prototype["path"])
+        (package_dir / "app.js").write_text(
+            "document.getElementById('compare-options').addEventListener('click', function(){document.getElementById('decision-ranking').textContent='Coming soon';document.getElementById('decision-recommendation').textContent='Coming soon';document.getElementById('decision-tradeoffs').textContent='Coming soon';});",
+            encoding="utf-8",
+        )
+
+        failed = self.run_verification(project, verification_scope="prototype", prototype_id=prototype["id"])
+        failed_checks = failed["metadata"]["checks"]
+
+        self.assertEqual(failed["status"], "failed")
+        self.assertTrue(any(item["name"] == "decision matrix: options input is read" and item["status"] == "fail" for item in failed_checks))
+        self.assertTrue(any("Decision matrix needs app.js to read the `decision-options` value" in item for item in failed["blockers"]))
+
     def test_app_specific_verification_checks_flashcard_helper_outputs_and_local_note(self) -> None:
         project = self.create_project(raw_idea="Build a study flashcard helper where students paste notes and get cards.")
         prototype = self.generate_prototype(project, "ai_text_tool", generation_mode="offline")
@@ -6221,6 +6287,18 @@ class _MovedVerificationRunTests:
             app_js=flashcard_js.replace("document.getElementById('card-output').innerHTML=", "document.getElementById('other-output').innerHTML="),
         )
         self.assertTrue(any(item["name"] == "flashcard helper: card output updates" and item["status"] == "fail" for item in no_card_output_checks))
+
+        decision_html = """<!doctype html><html><body><textarea id="decision-options" data-template-marker="main-input"></textarea><textarea id="decision-criteria"></textarea><button id="compare-options" data-template-marker="primary-action">Compare Options</button><section data-template-marker="result-output"><ol id="decision-ranking"></ol></section><div id="decision-recommendation" data-template-marker="recommendation"></div><div id="decision-tradeoffs" data-template-marker="tradeoffs"></div><p>This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser.</p></body></html>"""
+        decision_js = """function compareOptions(){const options=document.getElementById('decision-options').value.trim().split('\n');const criteria=document.getElementById('decision-criteria').value.trim().split('\n');const ranked=options.map((option,index)=>({option,score:criteria.length+index})).sort((a,b)=>b.score-a.score);document.getElementById('decision-ranking').innerHTML=ranked.map(item=>'<li>'+item.option+'</li>').join('');document.getElementById('decision-recommendation').textContent='Recommendation: '+ranked[0].option;document.getElementById('decision-tradeoffs').textContent='Tradeoffs depend on '+criteria.join(', ');}document.getElementById('compare-options').addEventListener('click',compareOptions);"""
+        decision_checks = static_app_shape_verification_checks("decision_matrix", index_html=decision_html, app_js=decision_js)
+        self.assertFalse([item for item in decision_checks if item["status"] == "fail"])
+
+        no_criteria_checks = static_app_shape_verification_checks(
+            "decision_matrix",
+            index_html=decision_html,
+            app_js=decision_js.replace("document.getElementById('decision-criteria').value", "document.getElementById('other-criteria').value"),
+        )
+        self.assertTrue(any(item["name"] == "decision matrix: criteria input is read" and item["status"] == "fail" for item in no_criteria_checks))
 
     def test_custom_app_shape_is_not_subject_to_canonical_behavior_checks(self) -> None:
         html = """<!doctype html><html><body><textarea id="idea-input" data-template-marker="main-input"></textarea><button id="score-idea" data-template-marker="primary-action">Score Idea</button><div id="idea-score" data-template-marker="result-output"></div></body></html>"""

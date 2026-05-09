@@ -142,6 +142,7 @@ class AIProviderTests(SprintOSTestCase):
         cases = {
             "business_idea_scorer.json": "business_idea_scorer",
             "budget_calculator.json": "budget_calculator",
+            "decision_matrix.json": "decision_matrix",
             "flashcard_helper.json": "flashcard_helper",
         }
         for filename, shape in cases.items():
@@ -154,6 +155,7 @@ class AIProviderTests(SprintOSTestCase):
         cases = {
             "business_idea_scorer.json": "business_idea_scorer",
             "budget_calculator.json": "budget_calculator",
+            "decision_matrix.json": "decision_matrix",
             "flashcard_helper.json": "flashcard_helper",
         }
         for filename, shape in cases.items():
@@ -215,6 +217,28 @@ class AIProviderTests(SprintOSTestCase):
         self.assertIn("budget-reset", files["index.html"])
         self.assertIn("This is not financial advice", files["README.md"])
 
+    def test_decision_matrix_fixture_has_ranking_recommendation_and_tradeoffs(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        files = self.app_file_contents(payload)
+        app_js = files["app.js"]
+        limitation = "This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser."
+
+        checks = static_app_shape_verification_checks(
+            "decision_matrix",
+            index_html=files["index.html"],
+            app_js=app_js,
+            readme_text=files["README.md"],
+        )
+
+        self.assertIn(limitation, files["index.html"])
+        self.assertIn(limitation, files["README.md"])
+        self.assertFalse([item for item in checks if item["status"] != "pass"], checks)
+        self.assertIn("scoreOption", app_js)
+        self.assertIn("sort(", app_js)
+        self.assertIn("renderEmpty", app_js)
+        self.assertIn("clearDecision", app_js)
+        self.assertIn("Tradeoff notes", app_js)
+
     def test_flashcard_helper_fixture_has_visible_local_ai_limitation_note(self) -> None:
         payload = self.app_file_fixture("flashcard_helper.json")
         files = self.app_file_contents(payload)
@@ -248,7 +272,7 @@ class AIProviderTests(SprintOSTestCase):
         self.assertIn("Empty state", app_js)
 
     def test_improved_canonical_fixtures_do_not_use_network_or_provider_calls(self) -> None:
-        for filename in ("business_idea_scorer.json", "budget_calculator.json", "flashcard_helper.json"):
+        for filename in ("business_idea_scorer.json", "budget_calculator.json", "decision_matrix.json", "flashcard_helper.json"):
             with self.subTest(filename=filename):
                 self.assert_no_external_network_or_provider_calls(self.app_file_contents(self.app_file_fixture(filename)))
 
@@ -318,6 +342,87 @@ class AIProviderTests(SprintOSTestCase):
         self.assertTrue(
             any("recommendation_output_updates" in item for item in provider.validation_details["app_shape_failures"])
         )
+
+    def test_decision_matrix_with_ids_but_no_options_read_fails(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        payload["files"][2]["content"] = (
+            "function compareOptions(){const options=['A','B'];const criteria=document.getElementById('decision-criteria').value.trim();"
+            "document.getElementById('decision-ranking').innerHTML='<li>A</li><li>B</li>';"
+            "document.getElementById('decision-recommendation').textContent='Recommendation: A from '+criteria;"
+            "document.getElementById('decision-tradeoffs').textContent='Tradeoffs depend on local criteria.';}"
+            "document.getElementById('compare-options').addEventListener('click',compareOptions);"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="decision_matrix")
+
+        self.assertTrue(any("options_input_is_read" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_decision_matrix_reads_options_but_not_criteria_fails(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        payload["files"][2]["content"] = (
+            "function compareOptions(){const options=document.getElementById('decision-options').value.trim().split('\\n');"
+            "const ranked=options.map((option,index)=>({option,score:index})).sort((a,b)=>b.score-a.score);"
+            "document.getElementById('decision-ranking').innerHTML=ranked.map(item=>'<li>'+item.option+'</li>').join('');"
+            "document.getElementById('decision-recommendation').textContent='Recommendation: '+ranked[0].option;"
+            "document.getElementById('decision-tradeoffs').textContent='Tradeoffs are local.';}"
+            "document.getElementById('compare-options').addEventListener('click',compareOptions);"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="decision_matrix")
+
+        self.assertTrue(any("criteria_input_is_read" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_decision_matrix_without_compare_action_handler_fails(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace(
+            "document.getElementById('compare-options').addEventListener('click',compareOptions);",
+            "",
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="decision_matrix")
+
+        self.assertTrue(any("compare_action_is_wired" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_decision_matrix_without_ranking_update_fails(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace("rankingNode.innerHTML=", "const skippedRanking=")
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="decision_matrix")
+
+        self.assertTrue(any("ranking_output_updates" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_decision_matrix_without_recommendation_update_fails(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace("recommendationNode.textContent=", "const skippedRecommendation=")
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="decision_matrix")
+
+        self.assertTrue(any("recommendation_output_updates" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_decision_matrix_without_tradeoffs_update_fails(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace("tradeoffsNode.textContent=", "const skippedTradeoffs=")
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="decision_matrix")
+
+        self.assertTrue(any("tradeoffs_output_updates" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_placeholder_only_decision_matrix_fails(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        payload["files"][2]["content"] = (
+            "document.getElementById('compare-options').addEventListener('click',function(){"
+            "document.getElementById('decision-ranking').textContent='Ranking coming soon';"
+            "document.getElementById('decision-recommendation').textContent='Recommendation coming soon';"
+            "document.getElementById('decision-tradeoffs').textContent='Tradeoffs coming soon';"
+            "});"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="decision_matrix")
+        failures = provider.validation_details["app_shape_failures"]
+
+        self.assertTrue(any("options_input_is_read" in item for item in failures))
+        self.assertTrue(any("criteria_input_is_read" in item for item in failures))
+        self.assertTrue(any("ranking_logic_exists" in item for item in failures))
 
     def test_mocked_ai_budget_output_uses_improved_generation_contract(self) -> None:
         payload = self.app_file_fixture("budget_calculator.json")

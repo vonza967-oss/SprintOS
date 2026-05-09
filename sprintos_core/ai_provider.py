@@ -694,6 +694,14 @@ def _app_file_generation_retry_instructions(instructions: str, retry_reason: str
                 "for example document.getElementById('budget-income').value and document.getElementById('budget-food').value, "
                 "then update budget-savings, budget-breakdown, and budget-recommendation with surplus/deficit, savings rate, breakdown, and a number-based recommendation."
             )
+        if any("decision_matrix" in item or "decision_matrix" in item.replace(" ", "_") for item in missing_surfaces):
+            missing_surface_note += (
+                "\n        - For decision_matrix repairs, index.html must include decision-options, decision-criteria, compare-options, "
+                "decision-ranking, decision-recommendation, and decision-tradeoffs. app.js must explicitly read "
+                "document.getElementById('decision-options').value and document.getElementById('decision-criteria').value, "
+                "wire compare-options, rank options locally from the user's options/criteria, and update all three output surfaces. "
+                "Include the exact visible limitation note about simple deterministic local ranking."
+            )
         if any("flashcard_helper" in item or "flashcard_helper" in item.replace(" ", "_") for item in missing_surfaces):
             missing_surface_note += (
                 "\n        - For flashcard_helper repairs, index.html must visibly include this exact limitation note near the flashcard UI: "

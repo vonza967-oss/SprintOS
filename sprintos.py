@@ -10112,6 +10112,8 @@ def offline_app_template_shape(project: Dict[str, Any], prototype_type: str) -> 
     text = project_core_text(project)
     if any(marker in text for marker in ("budget", "expense", "expenses", "income", "savings", "save money", "spending")):
         return "budget_calculator"
+    if any(marker in text for marker in ("decision matrix", "compare options", "choose between", "tradeoff", "tradeoffs", "criteria")):
+        return "decision_matrix"
     if any(marker in text for marker in ("flashcard", "flash card", "study notes", "study", "student", "students", "exam", "memorize", "revision")):
         return "flashcard_helper"
     if any(marker in text for marker in ("business idea", "idea scorer", "idea scoring", "score my idea", "startup idea", "validate idea")):
@@ -10136,6 +10138,7 @@ def offline_app_template_name(shape: str) -> str:
     return {
         "business_idea_scorer": "Idea Scorecard",
         "budget_calculator": "Budget Snapshot",
+        "decision_matrix": "Decision Matrix",
         "flashcard_helper": "Study Card Builder",
         "quiz_recommender": "Quiz Recommender",
         "waitlist_page": "Waitlist Launch Page",
@@ -10757,7 +10760,7 @@ def prototype_app_file_type(project: Dict[str, Any], prototype_type: str) -> str
         return "quiz"
     if shape == "waitlist_page":
         return "landing_page"
-    if shape in {"business_idea_scorer", "flashcard_helper"}:
+    if shape in {"business_idea_scorer", "decision_matrix", "flashcard_helper"}:
         return "static_app"
     normalized = normalize_prototype_type(prototype_type)
     if normalized == "calculator":
@@ -10783,6 +10786,11 @@ def prototype_default_user_flow(ctx: Dict[str, Any]) -> List[str]:
             "Enter monthly income and expenses.",
             "Click Calculate Budget.",
             "Review savings, breakdown, and the local recommendation.",
+        ],
+        "decision_matrix": [
+            "Enter options and decision criteria.",
+            "Click Compare Options.",
+            "Review the ranked list, recommendation, and tradeoff notes.",
         ],
         "flashcard_helper": [
             "Paste study notes.",
@@ -10840,7 +10848,7 @@ def prototype_primary_files_for_app_payload(ctx: Dict[str, Any]) -> Dict[str, st
 
 def prototype_app_title(ctx: Dict[str, Any]) -> str:
     shape = str(ctx.get("offline_template_shape") or "")
-    if shape in {"business_idea_scorer", "budget_calculator", "flashcard_helper"}:
+    if shape in {"business_idea_scorer", "budget_calculator", "decision_matrix", "flashcard_helper"}:
         return offline_app_template_name(shape)
     return str(ctx.get("title") or "Local Prototype")
 
@@ -10861,6 +10869,8 @@ def prototype_offline_app_file_generation_payload(
         mocked_parts.append("The AI-like output is a deterministic local mock.")
     if str(ctx.get("offline_template_shape") or "") == "flashcard_helper":
         mocked_parts.append("Flashcards are created with local text-splitting rules, not live AI.")
+    if str(ctx.get("offline_template_shape") or "") == "decision_matrix":
+        mocked_parts.append("Decision rankings are simple deterministic local rules, not live AI.")
     return {
         "app_name": offline_app_template_name(str(ctx.get("offline_template_shape") or "")),
         "app_type": prototype_app_file_type(project, prototype_type),
@@ -10915,6 +10925,24 @@ def app_shape_prompt_contract(shape: str) -> str:
             - Treat blank, invalid, and negative values gracefully by using 0 for math and showing a short validation note instead of failing.
             - Include a simple reset or clear action when it can be done without extra complexity.
             - Include a clear local/demo limitation note and do not call external URLs, fetch, XMLHttpRequest, sendBeacon, providers, or browser-side APIs.
+            """
+        ).strip(),
+        "decision_matrix": textwrap.dedent(
+            """\
+            Decision matrix contract:
+            - index.html must expose a textarea or text input with exact id `decision-options` and `data-template-marker="main-input"` for options, one option per line.
+            - index.html must expose a textarea or text input with exact id `decision-criteria` for criteria, one criterion per line.
+            - index.html must expose a Compare Options button with exact id `compare-options` and `data-template-marker="primary-action"`.
+            - index.html must expose a visible result area marked with `data-template-marker="result-output"` and a visible ranked list output with exact id `decision-ranking`.
+            - index.html must expose a visible recommendation with exact id `decision-recommendation` and `data-template-marker="recommendation"`.
+            - index.html must expose visible tradeoff notes with exact id `decision-tradeoffs` and `data-template-marker="tradeoffs"`.
+            - app.js must wire a click handler to `compare-options`, read `decision-options`, read `decision-criteria`, create a ranked list of options, and update `decision-ranking`, `decision-recommendation`, and `decision-tradeoffs`.
+            - Ranking must depend on user input and use concrete deterministic logic, such as scoring every option against every criterion with simple local rules. Do not return fixed canned rankings.
+            - Handle empty or weak input gracefully with a useful empty state, for example asking for at least two options and at least one criterion.
+            - Include helper text explaining how to enter options and criteria, a recommendation explanation, tradeoff notes, and a simple reset or clear action when useful.
+            - Include this visible limitation note near the decision UI: "This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser."
+            - Do not call external URLs, fetch, XMLHttpRequest, sendBeacon, providers, APIs, OpenAI, DeepSeek, or any browser-side network path.
+            - The files array must contain exactly five files and no extra entries: index.html, style.css, app.js, README.md, TEST_PLAN.md. Do not include sample data files, manifests, package files, or any sixth file.
             """
         ).strip(),
         "flashcard_helper": textwrap.dedent(
@@ -10986,6 +11014,7 @@ def app_file_generation_instructions(shape: str = "") -> str:
         - Do not include any sixth file, nested folder, lowercase `test-plan.md`, sample data file, package file, manifest, or duplicate documentation file.
         - For a business-idea scoring app, include a textarea input, score calculation, risk breakdown, smallest testable version, next action, and a visible result state.
         - For a budget calculator app, include numeric income and expense inputs, a Calculate Budget action, savings/surplus/deficit math, a spending breakdown, a recommendation, graceful handling for empty or invalid numbers, and a visible local/demo limitation note.
+        - For a decision matrix app, include options and criteria inputs, a Compare Options action, deterministic ranking logic, a ranked list, recommendation explanation, tradeoff notes, graceful empty states, and the exact visible local/demo limitation note from the shape contract.
         - For a study-card or flashcard app, include the exact visible limitation note: "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser."
         {shape_contract}
         """
@@ -11764,6 +11793,60 @@ def budget_calculator_html(ctx: Dict[str, Any]) -> str:
     ).strip() + "\n"
 
 
+def decision_matrix_html(ctx: Dict[str, Any]) -> str:
+    app_title = prototype_app_title(ctx)
+    feedback_section = prototype_feedback_section_html(ctx)
+    return textwrap.dedent(
+        f"""\
+        <!doctype html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>{html.escape(app_title)}</title>
+          <link rel="stylesheet" href="style.css" />
+        </head>
+        <body>
+          <div class="shell" data-app-shape="decision_matrix">
+            <div class="label">SprintOS prototype · Offline app template · deterministic local ranking</div>
+            <section class="hero">
+              <h1>{html.escape(app_title)}</h1>
+              <p>Compare options against criteria and get a local first-pass recommendation.</p>
+              <p class="notice" id="decision-local-note">This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser.</p>
+            </section>
+            <div class="grid two">
+              <section class="panel template-section" data-template-section="decision-inputs">
+                <h2>Options and criteria</h2>
+                <p class="muted">Enter one option per line, then enter the criteria that matter most. Add weights with a colon if useful, such as <code>cost: 2</code>.</p>
+                <label>Options
+                  <textarea id="decision-options" class="app-main-input" data-template-marker="main-input" placeholder="Option A&#10;Option B&#10;Option C"></textarea>
+                </label>
+                <label>Criteria
+                  <textarea id="decision-criteria" placeholder="cost: 2&#10;speed&#10;confidence"></textarea>
+                </label>
+                <div class="button-row" style="margin-top:12px">
+                  <button id="compare-options" data-template-marker="primary-action">Compare Options</button>
+                  <button id="clear-decision" type="button">Clear</button>
+                </div>
+              </section>
+              <section class="panel template-section" data-template-section="decision-output">
+                <h2>Decision output</h2>
+                <div id="decision-recommendation" class="notice" data-template-marker="recommendation">Add at least two options and one criterion, then compare.</div>
+                <ol id="decision-ranking" class="result" data-template-marker="result-output">
+                  <li>Ranking will appear here.</li>
+                </ol>
+                <div id="decision-tradeoffs" class="result" data-template-marker="tradeoffs">Tradeoff notes will appear here.</div>
+              </section>
+            </div>
+            {feedback_section}
+          </div>
+          <script src="app.js"></script>
+        </body>
+        </html>
+        """
+    ).strip() + "\n"
+
+
 def flashcard_helper_html(ctx: Dict[str, Any]) -> str:
     app_title = prototype_app_title(ctx)
     feedback_section = prototype_feedback_section_html(ctx)
@@ -11872,6 +11955,8 @@ def prototype_index_html(ctx: Dict[str, Any]) -> str:
         return business_idea_scorer_html(ctx)
     if shape == "budget_calculator":
         return budget_calculator_html(ctx)
+    if shape == "decision_matrix":
+        return decision_matrix_html(ctx)
     if shape == "flashcard_helper":
         return flashcard_helper_html(ctx)
     if shape == "quiz_recommender":
@@ -12086,6 +12171,70 @@ def prototype_app_js(ctx: Dict[str, Any]) -> str:
             """
         ).strip() + "\n"
         return base_js + "\n" + feedback_js
+    if shape == "decision_matrix":
+        base_js = textwrap.dedent(
+            """\
+            const decisionOptions = document.getElementById('decision-options');
+            const decisionCriteria = document.getElementById('decision-criteria');
+            const decisionRanking = document.getElementById('decision-ranking');
+            const decisionRecommendation = document.getElementById('decision-recommendation');
+            const decisionTradeoffs = document.getElementById('decision-tradeoffs');
+            function lines(value) {
+              return String(value || '').split(/\\n+/).map((item) => item.trim()).filter(Boolean);
+            }
+            function parseCriteria(value) {
+              const parsed = lines(value).map((item) => {
+                const parts = item.split(':');
+                const label = parts[0].trim();
+                const weight = Math.max(1, Math.min(5, Number(parts[1]) || 1));
+                return { label, weight };
+              }).filter((item) => item.label);
+              return parsed.length ? parsed : [{ label: 'overall fit', weight: 1 }];
+            }
+            function scoreOption(option, criteria, index) {
+              const normalized = option.toLowerCase();
+              return criteria.reduce((total, criterion, criterionIndex) => {
+                const words = criterion.label.toLowerCase().split(/\\s+/).filter(Boolean);
+                const keywordHits = words.filter((word) => normalized.includes(word)).length;
+                const lengthSignal = Math.min(3, Math.ceil(option.length / 18));
+                const tieBreak = ((index + 1) * (criterionIndex + 2)) % 3;
+                return total + criterion.weight * (keywordHits * 3 + lengthSignal + tieBreak);
+              }, 0);
+            }
+            function compareDecisionOptions() {
+              const options = lines(decisionOptions.value);
+              const criteria = parseCriteria(decisionCriteria.value);
+              if (options.length < 2 || !criteria.length) {
+                decisionRanking.innerHTML = '<li>Empty state: enter at least two options and one criterion to compare.</li>';
+                decisionRecommendation.textContent = 'Add options and criteria before choosing a recommendation.';
+                decisionTradeoffs.textContent = 'Tradeoffs will appear after the comparison has enough input.';
+                return;
+              }
+              const ranked = options.map((option, index) => ({
+                option,
+                score: scoreOption(option, criteria, index)
+              })).sort((a, b) => b.score - a.score || a.option.localeCompare(b.option));
+              const best = ranked[0];
+              const second = ranked[1];
+              decisionRanking.innerHTML = ranked.map((item, index) => '<li><strong>#' + (index + 1) + ' ' + item.option + '</strong> - local score ' + item.score + '</li>').join('');
+              decisionRecommendation.textContent = 'Recommendation: choose ' + best.option + ' first. It scored highest against ' + criteria.map((item) => item.label).join(', ') + '.';
+              decisionTradeoffs.textContent = second
+                ? 'Tradeoff: ' + best.option + ' leads by ' + (best.score - second.score) + ' point(s) over ' + second.option + '. If that gap is small, run a quick real-world test before committing.'
+                : 'Tradeoff: add another option to make the comparison meaningful.';
+            }
+            function clearDecision() {
+              decisionOptions.value = '';
+              decisionCriteria.value = '';
+              decisionRanking.innerHTML = '<li>Ranking will appear here.</li>';
+              decisionRecommendation.textContent = 'Add at least two options and one criterion, then compare.';
+              decisionTradeoffs.textContent = 'Tradeoff notes will appear here.';
+              decisionOptions.focus();
+            }
+            document.getElementById('compare-options').addEventListener('click', compareDecisionOptions);
+            document.getElementById('clear-decision').addEventListener('click', clearDecision);
+            """
+        ).strip() + "\n"
+        return base_js + "\n" + feedback_js
     if shape == "flashcard_helper":
         base_js = textwrap.dedent(
             """\
@@ -12292,6 +12441,7 @@ def prototype_readme(ctx: Dict[str, Any]) -> str:
     shape_manual_steps = {
         "business_idea_scorer": "Paste a business idea, click Score Idea, and confirm the score, risks, smallest testable version, and next action update.",
         "budget_calculator": "Enter income and expense numbers, click Calculate Budget, and confirm savings, breakdown, and recommendation update.",
+        "decision_matrix": "Enter options and criteria, click Compare Options, and confirm the ranking, recommendation, and tradeoff notes update.",
         "flashcard_helper": "Paste study notes, click Build Flashcards, and confirm question/answer cards are created from the notes.",
         "quiz_recommender": "Answer the quiz, click Show Recommendation, and confirm the recommendation changes from local inputs.",
         "waitlist_page": "Open the page, read the message, fill the mock CTA, and sanity-check whether the promise is clear.",
@@ -12301,6 +12451,7 @@ def prototype_readme(ctx: Dict[str, Any]) -> str:
     local_logic_notes = {
         "business_idea_scorer": "The score is deterministic. It checks for target-user clarity, pain language, and money/budget signals.",
         "budget_calculator": "Budget output is deterministic arithmetic over the income and expense fields.",
+        "decision_matrix": "This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser.",
         "flashcard_helper": "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.",
         "quiz_recommender": "The recommendation is a small deterministic score from the selected quiz answers.",
         "waitlist_page": "The waitlist confirmation is a mock local state change. It does not submit data.",
@@ -12308,6 +12459,7 @@ def prototype_readme(ctx: Dict[str, Any]) -> str:
     what_it_does = {
         "business_idea_scorer": "Idea Scorecard scores a rough business idea, shows the main risks, suggests the smallest testable version, and gives one next action.",
         "budget_calculator": "Budget Snapshot calculates monthly savings from income and expense inputs, shows a spending breakdown, and gives a practical recommendation.",
+        "decision_matrix": "Decision Matrix compares options against criteria, ranks them locally, and explains the recommendation and tradeoffs.",
         "flashcard_helper": "Study Card Builder turns pasted study notes into local question/answer cards for quick review.",
         "quiz_recommender": "Quiz Recommender turns a few local answers into a deterministic recommendation.",
         "waitlist_page": "Waitlist Launch Page tests a simple signup promise with a local-only mock confirmation.",
@@ -12380,6 +12532,7 @@ def prototype_test_plan(ctx: Dict[str, Any]) -> str:
     shape_extra_step = {
         "business_idea_scorer": "In Idea Scorecard, paste a business idea and confirm the output includes a score, risks, smallest testable version, and next action.",
         "budget_calculator": "In Budget Snapshot, enter income and expenses and confirm monthly savings, spending breakdown, and recommendation update.",
+        "decision_matrix": "In Decision Matrix, enter at least two options and one criterion, then confirm the ranked list, recommendation, and tradeoff notes update.",
         "flashcard_helper": "In Study Card Builder, paste study notes and confirm question/answer cards appear with the visible note: This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.",
         "quiz_recommender": "Change quiz answers and confirm the recommendation text changes deterministically.",
         "waitlist_page": "Enter a fake name/email/note and confirm the page shows a local-only confirmation message.",
@@ -12406,13 +12559,14 @@ def prototype_test_plan(ctx: Dict[str, Any]) -> str:
 def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
     app_title = prototype_app_title(ctx)
     shape = str(ctx.get("offline_template_shape") or "")
-    effective_key = shape if shape in {"business_idea_scorer", "budget_calculator", "flashcard_helper"} else str(ctx["prototype_type"])
+    effective_key = shape if shape in {"business_idea_scorer", "budget_calculator", "decision_matrix", "flashcard_helper"} else str(ctx["prototype_type"])
     files = "\n".join(f"- `{name}`" for name in PROTOTYPE_FILES)
     feature_lines = "\n".join(f"- {item}" for item in ctx["feature_bullets"])
     screen_lines = "\n".join(f"- {item}" for item in ctx["screens"])
     data_model_lines = {
         "business_idea_scorer": "- `idea_runs`: idea text, score, risk breakdown, smallest testable version, next action, created_at if local history is later added.",
         "budget_calculator": "- `budget_snapshots`: income, expenses, monthly savings, spending breakdown, recommendation, created_at if local history is later added.",
+        "decision_matrix": "- `decision_runs`: options, criteria, ranked results, recommendation, tradeoff notes, created_at if local browser or file persistence is later added.",
         "flashcard_helper": "- `flashcard_sets`: source notes, generated question/answer cards, created_at if local browser or file persistence is later added.",
         "landing_page": "- `interest_signals`: optional local capture shape with `name`, `email`, `note`, `created_at` if persistence is later added.",
         "ai_text_tool": "- `runs`: input text, deterministic output, created_at if the real app later saves runs locally.",
@@ -12423,6 +12577,7 @@ def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
     api_route_lines = {
         "business_idea_scorer": "- No API route is required for v1; keep scoring in `app.js` unless a later local save endpoint is added.",
         "budget_calculator": "- No API route is required for v1; keep budget math in `app.js` unless snapshots need local persistence.",
+        "decision_matrix": "- No API route is required for v1; keep option ranking in `app.js` unless a later local save endpoint is added.",
         "flashcard_helper": "- No API route is required for v1; keep card building in `app.js` unless a later local import/export endpoint is added.",
         "landing_page": "- Avoid API routes unless you later add a real local save endpoint for feedback.",
         "ai_text_tool": "- One local generation route only if the real build moves mocked logic to a backend process.",
@@ -12433,6 +12588,7 @@ def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
     test_lines = {
         "business_idea_scorer": "- Test `index.html` + `app.js`: paste an idea, click Score Idea, and assert score, risks, smallest testable version, and next action update.",
         "budget_calculator": "- Test `index.html` + `app.js`: change income/expenses, click Calculate Budget, and assert monthly savings, spending breakdown, and recommendation update.",
+        "decision_matrix": "- Test `index.html` + `app.js`: enter options and criteria, click Compare Options, and assert ranking, recommendation, and tradeoff notes update from local input.",
         "flashcard_helper": "- Test `index.html` + `app.js`: paste notes, click Build Flashcards, and assert visible question/answer cards appear while this note remains visible: \"This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.\"",
         "landing_page": "- Test the main CTA state change and confirm no network is required.",
         "ai_text_tool": "- Test deterministic output for the same input and an empty-input fallback.",
@@ -12443,6 +12599,7 @@ def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
     next_improvement_lines = {
         "business_idea_scorer": "Improve Idea Scorecard by making the risk breakdown more specific while preserving the existing `idea-input`, `score-idea`, `idea-score`, `idea-risks`, `idea-smallest-test`, and `idea-next-action` surfaces.",
         "budget_calculator": "Improve Budget Snapshot by adding one clearer budget category insight while preserving the existing `budget-income`, expense inputs, `budget-savings`, `budget-breakdown`, and `budget-recommendation` surfaces.",
+        "decision_matrix": "Improve Decision Matrix by making the tradeoff explanation more useful while preserving `decision-options`, `decision-criteria`, `compare-options`, `decision-ranking`, `decision-recommendation`, and `decision-tradeoffs`.",
         "flashcard_helper": "Improve Study Card Builder by making generated cards easier to review while preserving `notes-input`, `build-cards`, `card-output`, and the visible limitation note: \"This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.\"",
         "landing_page": "Improve the local CTA confirmation copy without adding backend submission.",
         "ai_text_tool": "Improve the deterministic output formatting without adding provider calls.",
@@ -20853,6 +21010,7 @@ def apply_static_app_shape_summary(result: Dict[str, Any], shape: str) -> None:
     label = {
         "business_idea_scorer": "business idea scorer",
         "budget_calculator": "budget calculator",
+        "decision_matrix": "decision matrix",
         "flashcard_helper": "flashcard helper",
         "quiz_recommender": "quiz recommender",
         "waitlist_page": "landing page",

@@ -57,6 +57,13 @@ CANONICAL_CASES = (
         "raw_idea": "I want a simple app where students paste study notes and get local flashcards they can review immediately.",
         "desired_output": "a local study flashcard app",
     },
+    {
+        "name": "decision_matrix",
+        "display_name": "Decision Matrix",
+        "shape": "decision_matrix",
+        "raw_idea": "Build a decision matrix app where I enter options and criteria, compare them locally, see a ranked list, recommendation, and tradeoff notes.",
+        "desired_output": "a local decision matrix app",
+    },
 )
 
 
