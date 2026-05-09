@@ -46,6 +46,18 @@ class AIProviderTests(SprintOSTestCase):
             if isinstance(item, dict)
         }
 
+    def assert_no_external_network_or_provider_calls(self, files: dict[str, str]) -> None:
+        combined = "\n".join(files.values()).lower()
+        for filename, content in files.items():
+            self.assertEqual(external_network_markers(filename, content), [])
+        self.assertNotIn("fetch(", combined)
+        self.assertNotIn("xmlhttprequest", combined)
+        self.assertNotIn("sendbeacon", combined)
+        self.assertNotIn("openai", combined)
+        self.assertNotIn("deepseek", combined)
+        self.assertNotIn("api_key", combined)
+        self.assertNotIn("authorization", combined)
+
     def app_file_generation_payload(self) -> dict:
         return {
             "app_name": "Idea Scoreboard",
@@ -138,6 +150,41 @@ class AIProviderTests(SprintOSTestCase):
                 result = sprintos.validate_app_file_payload_for_shape(payload, shape)
                 self.assertTrue(result["ok"], result)
 
+    def test_mocked_canonical_ai_fixtures_pass_strict_app_shape_verification(self) -> None:
+        cases = {
+            "business_idea_scorer.json": "business_idea_scorer",
+            "budget_calculator.json": "budget_calculator",
+            "flashcard_helper.json": "flashcard_helper",
+        }
+        for filename, shape in cases.items():
+            with self.subTest(filename=filename):
+                payload = self.app_file_fixture(filename)
+                files = self.app_file_contents(payload)
+                self.assertEqual(sorted(files), ["README.md", "TEST_PLAN.md", "app.js", "index.html", "style.css"])
+                checks = static_app_shape_verification_checks(
+                    shape,
+                    index_html=files["index.html"],
+                    app_js=files["app.js"],
+                    readme_text=files["README.md"],
+                )
+                self.assertFalse([item for item in checks if item["status"] != "pass"], checks)
+
+    def test_business_idea_scorer_fixture_has_richer_quality_logic(self) -> None:
+        payload = self.app_file_fixture("business_idea_scorer.json")
+        files = self.app_file_contents(payload)
+        app_js = files["app.js"]
+        combined = "\n".join(files.values()).lower()
+
+        self.assertIn("factorScore", app_js)
+        for signal in ("target", "pain", "urgency", "money", "channel"):
+            self.assertIn(signal, app_js)
+        self.assertIn("Score explanation", app_js)
+        self.assertGreaterEqual(app_js.count("risk:"), 4)
+        self.assertIn("Smallest useful test", files["index.html"])
+        self.assertIn("Assumptions", files["index.html"])
+        self.assertIn("Rewrite the offer as:", app_js)
+        self.assertNotIn("do more research", combined)
+
     def test_budget_calculator_fixture_reads_income_and_expense_values(self) -> None:
         payload = self.app_file_fixture("budget_calculator.json")
         files = self.app_file_contents(payload)
@@ -150,8 +197,23 @@ class AIProviderTests(SprintOSTestCase):
         )
 
         self.assertFalse([item for item in checks if item["status"] == "fail"])
-        self.assertIn("document.getElementById('budget-income').value", files["app.js"])
-        self.assertRegex(files["app.js"], r"document\.getElementById\('budget-(rent|food|housing|transport|other)'\)\.value")
+        self.assertIn("amount('budget-income'", files["app.js"])
+        self.assertRegex(files["app.js"], r"amount\('budget-(rent|food|transport|other)'")
+
+    def test_budget_calculator_fixture_has_surplus_breakdown_recommendation_and_invalid_handling(self) -> None:
+        payload = self.app_file_fixture("budget_calculator.json")
+        files = self.app_file_contents(payload)
+        app_js = files["app.js"]
+
+        self.assertIn("surplus", app_js)
+        self.assertIn("deficit", app_js)
+        self.assertIn("savingsRate", app_js)
+        self.assertIn("Largest expense", app_js)
+        self.assertIn("invalid", app_js.lower())
+        self.assertIn("value<0", app_js)
+        self.assertIn("resetBudget", app_js)
+        self.assertIn("budget-reset", files["index.html"])
+        self.assertIn("This is not financial advice", files["README.md"])
 
     def test_flashcard_helper_fixture_has_visible_local_ai_limitation_note(self) -> None:
         payload = self.app_file_fixture("flashcard_helper.json")
@@ -168,6 +230,57 @@ class AIProviderTests(SprintOSTestCase):
         self.assertIn(limitation, files["index.html"])
         self.assertIn(limitation, files["README.md"])
         self.assertFalse([item for item in checks if item["status"] != "pass"], checks)
+
+    def test_flashcard_helper_fixture_has_navigation_progress_and_qa_rendering(self) -> None:
+        payload = self.app_file_fixture("flashcard_helper.json")
+        files = self.app_file_contents(payload)
+        app_js = files["app.js"]
+
+        self.assertIn("currentIndex", app_js)
+        self.assertIn("showingAnswer", app_js)
+        self.assertIn("renderCard", app_js)
+        self.assertIn("next-card", files["index.html"])
+        self.assertIn("prev-card", files["index.html"])
+        self.assertIn("flip-card", files["index.html"])
+        self.assertIn("card-progress", files["index.html"])
+        self.assertIn("Question", app_js)
+        self.assertIn("Answer", app_js)
+        self.assertIn("Empty state", app_js)
+
+    def test_improved_canonical_fixtures_do_not_use_network_or_provider_calls(self) -> None:
+        for filename in ("business_idea_scorer.json", "budget_calculator.json", "flashcard_helper.json"):
+            with self.subTest(filename=filename):
+                self.assert_no_external_network_or_provider_calls(self.app_file_contents(self.app_file_fixture(filename)))
+
+    def test_custom_app_shape_is_not_subject_to_canonical_fixture_requirements(self) -> None:
+        payload = {
+            "app_name": "Local Notes",
+            "app_type": "static_app",
+            "short_description": "Capture one local note.",
+            "user_flow": ["Type a note.", "Click Save.", "Read the local message."],
+            "files": [
+                {
+                    "filename": "index.html",
+                    "content": '<!doctype html><html><head><link rel="stylesheet" href="style.css" /></head><body><main><h1>Local Notes</h1><textarea id="note"></textarea><button id="save">Save</button><p id="output">No note yet.</p></main><script src="app.js"></script></body></html>',
+                },
+                {"filename": "style.css", "content": "body{font-family:sans-serif;}"},
+                {
+                    "filename": "app.js",
+                    "content": "document.getElementById('save').addEventListener('click',function(){document.getElementById('output').textContent=document.getElementById('note').value.trim()||'Empty note.';});",
+                },
+                {"filename": "README.md", "content": "# Local Notes\n\nRun locally."},
+                {"filename": "TEST_PLAN.md", "content": "# Test Plan\n\n- Save a note locally."},
+            ],
+            "run_instructions": "Open locally.",
+            "test_instructions": "Save a note.",
+            "codex_next_prompt": "Improve the local note flow.",
+            "limitations": ["Local only."],
+            "mocked_parts": ["None."],
+        }
+
+        result = sprintos.validate_app_file_payload_for_shape(payload, "custom_static_app")
+
+        self.assertTrue(result["ok"], result)
 
     def test_budget_calculator_with_right_ids_but_no_value_reads_fails_shape_validation(self) -> None:
         payload = self.app_file_fixture("budget_calculator.json")
@@ -239,8 +352,10 @@ class AIProviderTests(SprintOSTestCase):
         self.assertEqual(len(calls), 1)
         self.assertIn('document.getElementById("budget-income").value', calls[0]["instructions"])
         self.assertIn("handle blank/invalid numbers as 0", calls[0]["instructions"])
-        self.assertIn("document.getElementById('budget-income').value", files["app.js"])
-        self.assertIn("document.getElementById('budget-food').value", files["app.js"])
+        self.assertIn("amount('budget-income'", files["app.js"])
+        self.assertIn("amount('budget-food'", files["app.js"])
+        self.assertIn("savingsRate", files["app.js"])
+        self.assertIn("Largest expense", files["app.js"])
         self.assertNotIn("fetch(", files["app.js"])
         self.assertNotIn("XMLHttpRequest", files["app.js"])
         self.assertNotIn("sendBeacon", files["app.js"])
@@ -261,7 +376,7 @@ class AIProviderTests(SprintOSTestCase):
         )
 
         self.assertTrue(provider.used_ai)
-        self.assertEqual(data["app_name"], "Idea Scoreboard")
+        self.assertEqual(data["app_name"], "Idea Scorecard")
 
     def test_valid_deepseek_json_output_passes_app_validation(self) -> None:
         payload = self.app_file_fixture("flashcard_helper.json")
@@ -1015,7 +1130,7 @@ class AIProviderTests(SprintOSTestCase):
         )
 
         self.assertEqual(len(calls), 2)
-        self.assertEqual(data["app_name"], "Idea Scoreboard")
+        self.assertEqual(data["app_name"], "Idea Scorecard")
         self.assertTrue(provider_result.used_ai)
         self.assertIn("app_file_generation_retry:app_shape", provider_result.warnings)
         self.assertIn("Fix these missing required surfaces", calls[1]["instructions"])

@@ -10892,6 +10892,9 @@ def app_shape_prompt_contract(shape: str) -> str:
             - index.html must expose a visible next action output with exact id `idea-next-action` and `data-template-marker="next-action"`.
             - app.js must wire a click handler to `score-idea`, read `idea-input`, calculate an app-specific deterministic score, and update `idea-score`, `idea-risks`, `idea-smallest-test`, and `idea-next-action`.
             - The score, risk breakdown, smallest testable version, and next action must change based on the idea text.
+            - Score the idea from multiple visible factors such as target user clarity, painful moment, urgency/frequency, money or budget signal, and reachable first channel. Do not score only by text length or simple keyword count.
+            - Show a short score explanation in the UI, list at least 2-3 specific risks, include assumptions or caveats, and make the smallest test and next action concrete enough to do this week.
+            - Avoid generic filler such as "do more research" unless it names a specific person, artifact, question, or test.
             """
         ).strip(),
         "budget_calculator": textwrap.dedent(
@@ -10908,6 +10911,9 @@ def app_shape_prompt_contract(shape: str) -> str:
             - app.js must calculate savings/surplus/deficit from the income and expense values locally in the browser.
             - app.js must update `budget-savings`, `budget-breakdown`, and `budget-recommendation` using `textContent`, `innerHTML`, or an accepted DOM update pattern.
             - Monthly savings, spending breakdown, and recommendation must change based on income and expense values.
+            - Show whether the user has a surplus or deficit, include a savings-rate or simple income-to-expense ratio when income is available, and identify a useful category breakdown or largest expense.
+            - Treat blank, invalid, and negative values gracefully by using 0 for math and showing a short validation note instead of failing.
+            - Include a simple reset or clear action when it can be done without extra complexity.
             - Include a clear local/demo limitation note and do not call external URLs, fetch, XMLHttpRequest, sendBeacon, providers, or browser-side APIs.
             """
         ).strip(),
@@ -10918,6 +10924,9 @@ def app_shape_prompt_contract(shape: str) -> str:
             - index.html must include this visible limitation note near the flashcard UI: "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser."
             - README.md and TEST_PLAN.md must also mention that Study Card Builder is local/demo/mocked and not live AI, but documentation alone is not enough; the limitation must be visible in the browser app UI.
             - app.js must wire a click handler to `build-cards`, read `notes-input`, split notes locally into deterministic question/answer cards, render cards into `card-output`, and keep all behavior local in the browser.
+            - Build useful question/answer cards from headings, colon-separated facts, definitions, or meaningful sentences. Do not render only one raw line per card.
+            - Include either next/previous card navigation, a flip/reveal interaction, or visible progress such as "Card 1 of 4".
+            - Handle empty notes with a useful empty state that asks for notes instead of pretending live AI created cards.
             - Do not call external URLs, fetch, XMLHttpRequest, sendBeacon, providers, APIs, OpenAI, DeepSeek, or any browser-side network path.
             - The files array must contain exactly five files and no extra entries: index.html, style.css, app.js, README.md, TEST_PLAN.md. Do not include `test-plan.md`, sample notes, JSON data files, manifests, package files, or any sixth file.
             """
@@ -10967,6 +10976,10 @@ def app_file_generation_instructions(shape: str = "") -> str:
         - app_name must be concise: 2-5 words and under 48 characters.
         - short_description must be one short sentence under 140 characters.
         - The app should expose a clear input, one primary action, and one visible output or result state.
+        - Include a clear app title and purpose, meaningful helper text, useful empty states, and a primary action.
+        - Include reset or clear behavior where it is simple and useful.
+        - Outputs must depend on the user's input, not fixed canned text.
+        - README.md must be useful for a non-technical user, and TEST_PLAN.md must be practical and specific.
         - The app.js file must contain actual browser interaction behavior.
         - app.js and index.html must expose the app-shape-specific surfaces SprintOS verification checks.
         - The files list must include exactly five entries with exactly these filenames: index.html, style.css, app.js, README.md, TEST_PLAN.md.

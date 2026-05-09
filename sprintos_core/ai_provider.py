@@ -692,13 +692,13 @@ def _app_file_generation_retry_instructions(instructions: str, retry_reason: str
             missing_surface_note += (
                 "\n        - For budget_calculator repairs, app.js must explicitly read the income and expense DOM values before calculating, "
                 "for example document.getElementById('budget-income').value and document.getElementById('budget-food').value, "
-                "then update budget-savings, budget-breakdown, and budget-recommendation."
+                "then update budget-savings, budget-breakdown, and budget-recommendation with surplus/deficit, savings rate, breakdown, and a number-based recommendation."
             )
         if any("flashcard_helper" in item or "flashcard_helper" in item.replace(" ", "_") for item in missing_surfaces):
             missing_surface_note += (
                 "\n        - For flashcard_helper repairs, index.html must visibly include this exact limitation note near the flashcard UI: "
                 "\"This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.\" "
-                "Do not rely on README.md or TEST_PLAN.md alone."
+                "Do not rely on README.md or TEST_PLAN.md alone. Include question/answer card rendering plus simple navigation, flip, or progress."
             )
     repair_note = f"""
 
@@ -709,6 +709,7 @@ def _app_file_generation_retry_instructions(instructions: str, retry_reason: str
         - Include exactly these files: index.html, style.css, app.js, README.md, TEST_PLAN.md.
         - Ensure index.html links style.css and app.js.
         - Ensure app.js contains real local browser interaction behavior.
+        - Preserve useful helper text, empty states, input-dependent outputs, and simple reset/clear behavior where appropriate.
         {missing_surface_note}
         - Do not include external URLs, network calls, provider calls, API keys, markdown fences, or placeholder-only files.
         """
