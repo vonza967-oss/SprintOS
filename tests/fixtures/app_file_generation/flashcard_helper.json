@@ -1,0 +1,41 @@
+{
+  "app_name": "Study Card Builder",
+  "app_type": "ai_text_tool",
+  "short_description": "Turn pasted notes into simple local flashcards.",
+  "user_flow": [
+    "Paste study notes.",
+    "Click Build Cards.",
+    "Review generated question and answer cards."
+  ],
+  "files": [
+    {
+      "filename": "index.html",
+      "content": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" /><title>Study Card Builder</title><link rel=\"stylesheet\" href=\"style.css\" /></head><body><main data-app-shape=\"flashcard_helper\"><h1>Study Card Builder</h1><textarea id=\"notes-input\" data-template-marker=\"main-input\" placeholder=\"Paste notes\"></textarea><button id=\"build-cards\" data-template-marker=\"primary-action\">Build Cards</button><section id=\"card-output\" data-template-marker=\"flashcard-cards\">No cards yet.</section><p>This uses local mocked card-building rules, not live AI.</p></main><script src=\"app.js\"></script></body></html>"
+    },
+    {
+      "filename": "style.css",
+      "content": "body{font-family:sans-serif;margin:0;padding:24px;}main{max-width:760px;margin:auto;}textarea{width:100%;min-height:160px;}button{margin-top:12px;padding:10px 14px;}.card{margin-top:12px;border:1px solid #ccc;padding:12px;}"
+    },
+    {
+      "filename": "app.js",
+      "content": "function sentenceCards(text){return text.split(/[.!?]+/).map(s=>s.trim()).filter(Boolean).slice(0,6).map((s,i)=>({q:'Question '+(i+1)+': what is the key point?',a:s}));}function buildCards(){const notes=document.getElementById('notes-input').value.trim();const cards=sentenceCards(notes||'Add one useful note before studying.');document.getElementById('card-output').innerHTML=cards.map(card=>'<article class=\"flashcard-card\"><strong>'+card.q+'</strong><p>Answer: '+card.a+'</p></article>').join('')+'<p>Local mocked flashcards only.</p>';}document.getElementById('build-cards').addEventListener('click',buildCards);"
+    },
+    {
+      "filename": "README.md",
+      "content": "# Study Card Builder\n\nRun `python3 -m http.server 8080` and open `index.html`.\n\nFlashcards are built with local deterministic rules."
+    },
+    {
+      "filename": "TEST_PLAN.md",
+      "content": "# Test Plan\n\n- Open the app.\n- Paste notes with several sentences.\n- Click Build Cards.\n- Confirm cards appear in the card output area."
+    }
+  ],
+  "run_instructions": "Run `python3 -m http.server 8080` and open `index.html`.",
+  "test_instructions": "Paste notes, build cards, and confirm the card output updates locally.",
+  "codex_next_prompt": "Improve the local flashcard helper without adding dependencies.",
+  "limitations": [
+    "Local prototype only."
+  ],
+  "mocked_parts": [
+    "Card creation is local and deterministic, not live AI."
+  ]
+}

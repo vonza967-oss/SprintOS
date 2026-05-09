@@ -1,0 +1,947 @@
+# SprintOS Architecture
+
+## App Structure
+- `sprintos.py`: main app/server entrypoint. It still owns persistence, orchestration, HTML/CSS/JS rendering, generation flows, and HTTP handlers so `python3 sprintos.py` keeps working unchanged.
+  - The Today Dashboard lives here as the deterministic global guidance layer across all projects.
+  - `Create App` is the default creation path in the first-open UI, while the classic sprint planner remains available as advanced `Plan Only`.
+  - The user-facing mental model is app-first: create an app, open the draft or source, test it, then package it for testers.
+  - `app_file_generation` uses `SPRINTOS_APP_GENERATION_FALLBACK_MODE=template` by default. `report_only` is available for AI-only testing and writes sanitized local failure reports under `exports/app_generation_failures/` instead of creating offline app files.
+  - The Project Command Center lives here as a deterministic summary/recommendation layer on top of existing project artifacts and panels, and it is the dominant control at the top of each selected project.
+  - Focus Session v1 also lives here as a thin local execution layer on top of the Command Center.
+  - Activity Timeline v1 also lives here as a local-only, best-effort memory layer across project/global flows.
+  - Artifact History Browser v1 also lives here as a read-only local history layer for older generated outputs, but it should stay behind technical details instead of defining the main lane.
+  - Setup Doctor v1 also lives here as a compact local readiness checker plus first-run onboarding helper.
+  - Guided Demo Project v1 also lives here as a local-only onboarding generator that reuses the normal SprintOS artifact flow.
+- `sprintos_core/`: small internal helper package for shared pure utilities and centralized constants.
+  - `ui_helpers.py`: low-risk UI decomposition helpers for small HTML rendering primitives plus the extracted browser helper bundle used by `INDEX_HTML`. This module is intentionally limited to pure rendering helpers so `sprintos.py` can remain the entrypoint and route owner while the UI becomes easier to maintain.
+  - `constants.py`: supported statuses, targets, file lists, verification command defaults, and other enum-like values.
+  - `ai_provider.py`: optional multi-provider integration, provider config, response parsing, and offline fallback helpers.
+  - `ai_costs.py`: deterministic token heuristics and local-only provider cost estimates with env overrides.
+  - `ai_schemas.py`: explicit per-task AI schema specs, JSON-only prompt helpers, and deterministic validation/sanitization.
+  - `ai_diagnostics.py`: redaction helpers and sanitized diagnostics export formatting.
+  - `env_utils.py`: tiny repo-root `.env` loader that never overrides existing environment variables.
+  - `text_utils.py`: slug, filename, and sentence helpers.
+  - `json_utils.py`: safe JSON parse/read/write helpers.
+  - `path_utils.py`: path traversal prevention and safe file-access helpers.
+  - `zip_utils.py`: deterministic ZIP builders for text artifacts.
+  - `selection_utils.py`: deterministic auto-selection logic for prototype/build targets.
+  - `verification_utils.py`: vague next-action and external-network/path-safety checks.
+  - `report_utils.py`: shared timestamped report-folder creation and text-file writing helpers.
+- `tests/test_sprintos.py`: unit tests for sprint generation, handoff behavior, persistence, exports, prototype packages, and the feedback loop.
+- `scripts/smoke.py`: local end-to-end smoke test using a temporary workspace.
+- `scripts/health.py`: local repo health check for required files, Python compilation, export-dir creation, and obvious hardcoded key markers.
+- `scripts/launch.py`: local launcher that starts `python3 sprintos.py`, waits for local health, opens the browser, and avoids starting a second healthy SprintOS server.
+- `scripts/stop.py`: local status helper that reads SprintOS runtime status and prints non-destructive stop instructions.
+- `workflows/*.json`: workflow templates loaded at startup.
+- Until the simplified main lane is validated, new user-facing feature surface should be treated as out of scope.
+
+## Main Modules and Functions
+- `sprintos.py` remains the only runtime entrypoint on purpose for this phase. The modularization in `sprintos_core/` is intentionally limited to low-risk shared helpers, including UI helper extraction, so behavior stays stable while the main app keeps its current startup command and route structure.
+- Storage/bootstrap:
+  - `ensure_dirs()`
+  - `init_db()`
+  - `write_default_workflows()`
+  - `load_workflows()`
+- Sprint generation:
+  - `infer_workflow()`
+  - `build_prompt()`
+  - `ai_status_payload()`
+  - `resolve_ai_route()`
+  - `ai_routes_payload()`
+  - `test_ai_provider_connection()`
+  - `test_ai_route_connection()`
+  - `offline_generate()`
+  - `generate_sprint()`
+- Resume/state helpers:
+  - `hydrate_project_resume_fields()`
+  - `build_resume_plan()`
+  - `update_project_state()`
+  - `generate_and_store_resume_plan()`
+  - `create_focus_session()`
+  - `update_focus_session()`
+  - `complete_focus_session()`
+  - `stop_focus_session()`
+- Persistence:
+  - `save_project()`
+  - `list_projects()`
+  - `get_project()`
+  - `record_activity_event()`
+  - `get_project_timeline()`
+  - `get_global_activity()`
+  - `get_project_artifact_history()`
+  - `add_progress_note()`
+  - `add_feedback_entry()`
+  - `import_feedback_json()`
+  - `save_iteration_snapshot()`
+- Feedback loop:
+  - `list_feedback()`
+  - `feedback_summary_blob()`
+  - `build_iteration_summary()`
+- Exports:
+  - `build_today_dashboard_summary()`
+  - `build_app_state_summary()`
+  - `run_setup_doctor()`
+  - `setup_doctor_export_markdown()`
+  - `run_setup_doctor_action()`
+  - `run_guided_demo()`
+  - `build_demo_run_zip()`
+  - `today_dashboard_export_markdown()`
+  - `run_today_dashboard_action()`
+  - `build_project_command_summary()`
+  - `run_project_command_center_action()`
+  - `command_center_markdown()`
+  - `project_artifact_history_markdown()`
+  - `sprint_to_markdown()`
+  - `resume_to_markdown()`
+  - `feedback_markdown()`
+  - `quick_launch_markdown()`
+  - `deploy_pack_markdown()`
+  - `build_pack_markdown()`
+  - `write_markdown_export()`
+  - `collect_export_files()`
+  - `build_zip_export()`
+  - `write_prototype_package()`
+  - `build_prototype_zip()`
+  - `check_deploy_readiness()`
+  - `write_deploy_pack()`
+  - `build_deploy_pack_zip()`
+  - `write_build_pack()`
+  - `build_build_pack_zip()`
+  - `create_workspace_snapshot()`
+  - `compare_workspace_to_snapshot()`
+  - `restore_workspace_snapshot()`
+  - `build_workspace_snapshot_zip()`
+  - `create_local_backup()`
+  - `verify_local_backup()`
+  - `restore_local_backup()`
+  - `create_workspace_release_pack()`
+  - `build_workspace_release_zip()`
+  - `run_testable_pipeline()`
+  - `build_pipeline_report_zip()`
+  - `run_quick_launch()`
+  - `build_quick_launch_zip()`
+  - `run_project_verification()`
+  - `build_verification_zip()`
+- HTTP/UI:
+  - `INDEX_HTML`
+  - `SprintOSHandler`
+  - `GET /api/health`
+  - `GET /api/server_status`
+  - `GET /api/today_dashboard`
+  - `GET /api/today_dashboard_export`
+  - `GET /api/setup_doctor`
+  - `GET /api/setup_doctor_export`
+  - `GET /api/demo_run`
+  - `GET /api/demo_run_file`
+  - `GET /api/demo_run_zip`
+  - `GET /api/global_activity`
+  - `GET /api/project_timeline`
+  - `GET /api/project_artifact_history`
+  - `GET /api/project_artifact_history_export`
+  - `GET /api/activity_export`
+  - `GET /api/project_command_center`
+  - `GET /api/focus_session`
+  - `GET /api/focus_session_report`
+  - `GET /api/focus_session_zip`
+  - `POST /api/add_activity_event`
+  - `POST /api/run_today_action`
+  - `POST /api/run_setup_doctor_action`
+  - `POST /api/run_guided_demo`
+  - `POST /api/run_recommended_action`
+  - `POST /api/start_focus_session`
+  - `POST /api/update_focus_session`
+  - `POST /api/complete_focus_session`
+  - `POST /api/stop_focus_session`
+
+## Activity Timeline Layer
+- Activity Timeline is the local memory layer for important SprintOS events across projects.
+- It is append-only, SQLite-backed, and best-effort by design: event-recording failures are swallowed so primary project actions still complete.
+- Events capture concise, redacted summaries for project creation, sprint generation, focus sessions, prototype/deploy/build artifacts, pipelines, Quick Launch runs, verification runs, workspace flows, and AI route/eval changes.
+- Project hydration includes `recent_activity_events`, `latest_activity_event`, and `recent_activity_count`.
+- The Today Dashboard consumes recent global activity plus project latest-activity timestamps as additive recency/tie-breaker signals.
+- The Today Dashboard also exposes one compact local backup status summary so backup hygiene is visible without replacing the main recommendation ladder.
+- The Project Command Center surfaces the latest timeline event and a one-line "last happened" summary without changing the main recommendation ladder.
+- Timeline exports are local Markdown only and are included in project Markdown/ZIP exports.
+- Timeline rows must never store `.env` contents, API keys, Authorization headers, raw prompts, raw provider responses, or full workspace file contents.
+
+## Artifact History Layer
+- Artifact History Browser is a compact, read-only local view over previously generated project artifacts.
+- It is additive only. It does not replace or weaken the existing latest-artifact hydration used by the current panels and recommendations.
+- It is built from existing artifact tables plus existing safe report/ZIP routes.
+- It returns grouped safe metadata only: IDs, created times, labels, statuses, safe paths/report paths, safe URLs, concise summaries, and next tiny actions.
+- It must never expose `.env` contents, API keys, Authorization headers, raw provider prompts/responses, or full workspace file contents.
+- Project hydration includes `artifact_history`, `artifact_history_count`, `latest_artifact_type`, and `artifact_history_export_url`.
+- Project ZIP export now includes `artifact-history.md`.
+
+## Today Dashboard Layer
+- The Today Dashboard is the thin global guidance layer across all saved projects.
+- It reads only local SQLite state plus the latest local artifact/report folders already tracked by SprintOS.
+- It surfaces:
+  - one active Focus Session, if any
+  - one best project to continue
+  - blocked, release-ready, recent, and stale project lists
+  - one global recommended action
+- It stays additive. It does not replace Quick Launch, the project list, the Project Command Center, or the advanced per-project panels.
+- Global actions stay local-only and deterministic.
+- The Today Dashboard never invokes Codex automatically, never deploys automatically, never calls GitHub, never runs git, and never reads or exports `.env` contents.
+- Safe runnable actions delegate only to existing local SprintOS flows. Non-runnable actions return local prompts, paths, or messages.
+- It can also surface a compact Local Runtime panel backed by the same local server-status metadata exposed by `/api/server_status`.
+- It can also surface a compact Setup Doctor summary, a first-run Quick Launch card, and the latest Guided Demo run without replacing the main recommendation ladder.
+
+## Setup Doctor Layer
+- Setup Doctor is a compact local readiness layer exposed through `run_setup_doctor()` plus `GET /api/setup_doctor`.
+- It is local-only and deterministic. It never calls external APIs, never runs the full test suite, and never invokes Codex, GitHub, git, or deployment actions.
+- It checks:
+  - local runtime metadata and launcher file presence
+  - local folder creation/writeability
+  - SQLite reachability and core table presence
+  - local backup freshness and verification state
+  - AI mode safety and route-table availability
+  - `.gitignore` / `.env.example` basics and obvious hardcoded-key markers
+  - lightweight project-state counts used for first-run and focus-session guidance
+- `POST /api/run_setup_doctor_action` may only run two existing local helpers directly:
+  - `create_local_backup()`
+  - `verify_local_backup()`
+- Guided Demo can also be surfaced as a secondary safe local action when no projects exist and setup is otherwise healthy.
+- All other setup recommendations remain manual and return local messages only.
+- The Markdown export route is local-only and contains only redacted status metadata. It never includes `.env` contents, API keys, Authorization headers, or raw provider prompts/responses.
+
+## Guided Demo Layer
+- Guided Demo is a deterministic onboarding and testing flow built on existing SprintOS project/artifact primitives rather than demo-only project logic.
+- It creates a normal local project named `AI Study Flashcard Helper`.
+- Quick mode creates the project, sprint, prototype, Build Pack, Command Center capture, and demo reports.
+- Full mode also creates the workspace export, workspace snapshot, Workspace Sync report, verification run, release pack, sample release feedback, and release iteration snapshot.
+- Demo metadata persists in `demo_runs`, report files live under `exports/demo_runs/`, and activity events record `guided_demo_started`, `guided_demo_completed`, or `guided_demo_failed`.
+- Demo routes must stay path-safe and metadata-only. They must never expose `.env` contents, API keys, raw provider prompts/responses, or arbitrary files outside the generated demo report folder.
+
+## Local Runtime Layer
+- `scripts/launch.py` is the easiest local start path. It keeps the classic `python3 sprintos.py` entrypoint intact by spawning that exact app process with explicit argv and no `shell=True`.
+- The launcher first checks `GET /api/health` and `GET /api/server_status`. If SprintOS is already healthy on `127.0.0.1:8844`, it reuses the running server and only opens the browser.
+- `GET /api/server_status` is local-only metadata for runtime inspection. It returns:
+  - `ok`
+  - `app`
+  - `pid`
+  - `url`
+  - `started_at`
+  - `uptime_seconds`
+  - `data_dir`
+  - `exports_dir`
+  - `workspaces_dir`
+  - `backups_dir`
+  - `ai_provider_mode`
+  - `latest_backup_status`
+- The status endpoint must never expose API keys, `.env` contents, raw environment variables, raw provider payloads, or file contents.
+- `scripts/stop.py` is intentionally informational in v1. It verifies the local status response shape and tells the user to press `Ctrl+C` in the terminal running SprintOS instead of killing processes automatically.
+
+## Command Center Layer
+- The Project Command Center is a thin orchestration layer above existing project artifacts.
+- Focus Session is the thin execution layer above the Command Center. It time-boxes the current recommended action, defines done explicitly, captures progress, and writes a local completion/stop report.
+- It does not replace the advanced panels. Those panels still own detailed controls for prototype, build, workspace, verification, feedback, and release flows.
+- The Command Center reads the selected project's latest saved artifacts and produces:
+  - one stage
+  - one completion percentage
+  - one recommended next action
+  - one next tiny action
+  - a small done/current/missing/blocked chain from idea to release
+- Recommended actions are deterministic and local-only.
+- Safe runnable actions are limited to local SprintOS flows such as prototype generation, pipeline runs, workspace export, snapshot creation, workspace sync, verification, and release-pack generation.
+- Non-runnable recommendations return prompts, messages, or paths only. They do not invoke Codex, GitHub, git, or deployment actions.
+- Focus Sessions stay local-only, never invoke Codex automatically, and only generate a Codex follow-up prompt as a saved local artifact when that handoff is relevant.
+
+## Persistence Model
+- SQLite database at `data/sprintos.sqlite`.
+- `activity_events` stores local timeline rows:
+  - `id`
+  - `project_id`
+  - `created_at`
+  - `event_type`
+  - `event_status` (`info`, `success`, `warning`, `blocked`, `failed`)
+  - `title`
+  - `summary`
+  - `actor` (`user`, `sprintos`, `codex_manual`, `system`)
+  - `related_type`
+  - `related_id`
+  - `next_tiny_action`
+  - `report_path`
+  - `metadata_json`
+- `projects` table stores:
+  - core sprint inputs
+  - persisted status (`active`, `parked`, `done`, `abandoned`)
+  - resume fields (`last_resume_summary`, `next_tiny_action`, `current_blocker`, `last_progress_note`)
+  - serialized `sprint_json`
+  - timestamps
+- `progress_notes` stores append-only notes per project.
+- `prototypes` stores one row per generated prototype package:
+  - `id`
+  - `project_id`
+  - `prototype_type`
+  - `title`
+  - `path`
+  - `created_at`
+  - `metadata_json`
+- `prototype_feedback` stores imported or manually entered feedback linked to a project and optionally to one prototype:
+  - `id`
+  - `prototype_id`
+  - `project_id`
+  - `created_at`
+  - `tester_label`
+  - `source`
+  - `rating`
+  - `pain_level`
+  - `would_use`
+  - `would_pay`
+  - `confusing_parts`
+  - `missing_features`
+  - `favorite_part`
+  - `freeform_feedback`
+  - `raw_json`
+- `prototype_iterations` stores the latest local iteration outputs each time the feedback loop generator runs:
+  - `id`
+  - `project_id`
+  - `prototype_id`
+  - `created_at`
+  - `feedback_count`
+  - `summary`
+  - `iteration_brief`
+  - `codex_prompt`
+  - `decision`
+  - `suggested_next_tiny_action`
+- `workspace_release_feedback` stores local-only tester feedback tied to one Workspace Release Pack:
+  - `id`
+  - `project_id`
+  - `release_pack_id`
+  - `workspace_id`
+  - `created_at`
+  - `tester_label`
+  - `source`
+  - `rating`
+  - `would_use`
+  - `would_pay`
+  - `confusing_parts`
+  - `missing_features`
+  - `favorite_part`
+  - `bug_report`
+  - `freeform_feedback`
+  - `raw_json` (sanitized/redacted only)
+- `workspace_release_iterations` stores the latest local release-feedback summaries and next Codex prompts:
+  - `id`
+  - `project_id`
+  - `release_pack_id`
+  - `workspace_id`
+  - `created_at`
+  - `feedback_count`
+  - `decision` (`iterate`, `fix_blockers`, `test_more`, `park`, `release_ready`)
+  - `summary`
+  - `iteration_brief`
+  - `codex_prompt`
+  - `next_tiny_action`
+  - `metadata_json`
+- `deploy_packs` stores one row per generated static deployment package:
+  - `id`
+  - `project_id`
+  - `prototype_id`
+  - `created_at`
+  - `hosting_target` (`static`, `github_pages`, `netlify`, `vercel`)
+  - `title`
+  - `path`
+  - `metadata_json`
+- `build_packs` stores one row per generated Codex-ready repo-style package:
+  - `id`
+  - `project_id`
+  - `prototype_id`
+  - `deploy_pack_id`
+  - `created_at`
+  - `build_target` (`static_app`, `python_stdlib_app`, `ai_tool_stub`, `codex_repo_brief`)
+  - `title`
+  - `path`
+  - `metadata_json`
+- `pipeline_runs` stores one row per one-click local pipeline run:
+  - `id`
+  - `project_id`
+  - `created_at`
+  - `pipeline_goal` (`validate_fast`, `public_static_test`, `codex_build_ready`)
+  - `status` (`completed`, `completed_with_warnings`, `partial`, `failed`)
+  - `selected_workflow`
+  - `prototype_type`
+  - `hosting_target`
+  - `build_target`
+  - `prototype_id`
+  - `deploy_pack_id`
+  - `build_pack_id`
+  - `report_path`
+  - `metadata_json`
+- `quick_launches` stores one row per raw-idea-first orchestration run:
+  - `id`
+  - `project_id`
+  - `pipeline_run_id`
+  - `created_at`
+  - `launch_goal` (`validate_fast`, `public_static_test`, `codex_build_ready`)
+  - `raw_idea`
+  - `title`
+  - `status` (`completed`, `completed_with_warnings`, `partial`, `failed`)
+  - `report_path`
+  - `metadata_json`
+- `verification_runs` stores one row per local Run & Verify execution:
+  - `id`
+  - `project_id`
+  - `prototype_id`
+  - `deploy_pack_id`
+  - `build_pack_id`
+  - `pipeline_run_id`
+  - `quick_launch_id`
+  - `created_at`
+  - `verification_scope` (`project`, `prototype`, `deploy_pack`, `build_pack`, `pipeline`, `quick_launch`, `all_latest`)
+  - `status` (`passed`, `passed_with_warnings`, `failed`, `partial`)
+  - `report_path`
+  - `metadata_json`
+- `focus_sessions` stores one row per local execution session linked to one project:
+  - `id`
+  - `project_id`
+  - `created_at`
+  - `updated_at`
+  - `started_at`
+  - `ended_at`
+  - `session_status` (`planned`, `active`, `completed`, `stopped`, `abandoned`)
+  - `timebox_minutes` (`15`, `30`, `60`, `120`)
+  - `source_action_id`
+  - `title`
+  - `done_definition`
+  - `next_tiny_action`
+  - `not_to_do`
+  - `progress_note`
+  - `outcome`
+  - `report_path`
+  - `metadata_json`
+- `workspace_syncs` stores one row per local Workspace Sync run:
+  - `id`
+  - `project_id`
+  - `workspace_id`
+  - `created_at`
+  - `sync_status` (`passed`, `passed_with_warnings`, `failed`, `partial`)
+  - `path`
+  - `changed_files_json`
+  - `run_status`
+  - `test_status`
+  - `report_path`
+  - `metadata_json`
+- `workspace_release_packs` stores one row per local workspace release-candidate bundle:
+  - `id`
+  - `project_id`
+  - `workspace_id`
+  - `workspace_sync_id`
+  - `verification_run_id`
+  - `snapshot_id`
+  - `created_at`
+  - `release_label`
+  - `release_status` (`ready`, `ready_with_warnings`, `blocked`, `partial`)
+  - `release_type` (`static_site`, `local_python_app`, `ai_tool_app`, `repo_brief`)
+  - `path`
+  - `metadata_json`
+- `workspace_snapshots` stores one row per local workspace safety snapshot:
+  - `id`
+  - `project_id`
+  - `workspace_id`
+  - `created_at`
+  - `snapshot_label`
+  - `snapshot_status`
+  - `source_workspace_path`
+  - `snapshot_path`
+  - `files_count`
+  - `metadata_json`
+- `workspace_restores` stores one row per local snapshot restore report:
+  - `id`
+  - `snapshot_id`
+  - `project_id`
+  - `workspace_id`
+  - `created_at`
+  - `restore_status`
+  - `report_path`
+  - `files_restored`
+  - `metadata_json`
+- `local_backups` stores one row per local SprintOS backup ZIP:
+  - `id`
+  - `created_at`
+  - `backup_label`
+  - `backup_status`
+  - `backup_path`
+  - `manifest_path`
+  - `total_files`
+  - `total_size_bytes`
+  - `metadata_json`
+- `local_restores` stores one row per local SprintOS backup restore run:
+  - `id`
+  - `backup_id`
+  - `created_at`
+  - `restore_status`
+  - `restore_path`
+  - `report_path`
+  - `files_restored`
+  - `metadata_json`
+- `ai_diagnostics` stores one sanitized row per AI-enabled generation attempt or offline fallback:
+  - `id`
+  - `created_at`
+  - `task_name`
+  - `provider`
+  - `model`
+  - `generation_mode_requested`
+  - `used_ai`
+  - `ok`
+  - `fallback_reason`
+  - `error_summary`
+  - `duration_ms`
+  - `input_size_chars`
+  - `output_size_chars`
+  - `metadata_json`
+- `ai_provider_routes` stores one local provider/model preference per supported AI task:
+  - `id`
+  - `task_name`
+  - `created_at`
+  - `updated_at`
+  - `generation_mode`
+  - `provider`
+  - `model`
+  - `enabled`
+  - `metadata_json`
+- `ai_provider_evals` stores one sanitized local eval result per provider/task run:
+  - `id`
+  - `created_at`
+  - `eval_name`
+  - `task_name`
+  - `provider`
+  - `model`
+  - `generation_mode`
+  - `status`
+  - `score`
+  - `input_size_chars`
+  - `output_size_chars`
+  - `estimated_input_tokens`
+  - `estimated_output_tokens`
+  - `estimated_cost_usd`
+  - `fallback_reason`
+  - `metadata_json`
+- `init_db()` performs lightweight schema migration so older databases gain missing columns and creates the feedback loop tables when missing.
+
+## AI Eval and Recommendation Flow
+- Provider evals stay local-first:
+  - `offline_eval` uses deterministic SprintOS fallback payloads only.
+  - `fake_provider_eval` uses fake valid/malformed/missing-field responses for OpenAI and DeepSeek with no network calls.
+  - `live_provider_eval` is intentionally skipped by default in v1.
+- Cost estimation happens locally from character-count heuristics:
+  - `estimate_tokens_from_chars()` uses a deterministic chars/4 estimate.
+  - `estimate_ai_cost()` uses local per-provider/per-model estimates or local env overrides.
+- Route recommendations combine:
+  - recent provider eval rows
+  - recent redacted diagnostics
+  - current provider usability from local env settings
+  - current task route settings
+- Recommendations remain explainable and never store keys, raw prompts, or raw provider responses.
+- The `app_file_generation` task uses app-specific budget handling because it must return complete `index.html`, `style.css`, `app.js`, `README.md`, and `TEST_PLAN.md` content. If `SPRINTOS_AI_TIMEOUT_SECONDS` or `SPRINTOS_AI_MAX_OUTPUT_TOKENS` is absent, app generation uses 90 seconds or 6000 output tokens for that missing value only.
+- Generated browser prototypes remain local-first: no browser-side OpenAI or DeepSeek calls, no external CDN requirement, and no API keys in source, diagnostics, exports, ZIPs, or metadata.
+- AI app-generation failure reports remain local-first and sanitized: no API keys, `.env` contents, raw prompts, raw provider responses, Authorization headers, or full stack traces. Schema failures include safe validation details such as missing top-level fields, missing required files, invalid filenames, app-shape failures, and safety failure codes.
+- In `report_only` mode, app-generation failures stop before files are written and are surfaced as AI generation failed, no fallback used, and no preview available.
+- Offline fallback templates are shape-specific for the canonical app types: business idea scorer, budget calculator, and flashcard helper.
+- Canonical app-shape contracts v1 are enforced after the shallow schema and file-safety checks. `app_shape_validation_failed` means the AI returned app files, but those files missed required app-specific surfaces; it is not a provider setup failure and does not expose raw provider output.
+- Business idea scorer requires `idea-input` with `data-template-marker="main-input"`, `score-idea` with `data-template-marker="primary-action"`, a result area marked `data-template-marker="result-output"`, `idea-score`, `idea-risks` with `data-template-marker="risk_breakdown"`, `idea-smallest-test` with `data-template-marker="smallest-testable-version"`, `idea-next-action` with `data-template-marker="next-action"`, and local `app.js` updates for each result surface.
+- Budget calculator requires numeric `budget-income` with `data-template-marker="main-input"`, at least one numeric expense input, `budget-run` with `data-template-marker="primary-action"`, a result area marked `data-template-marker="result-output"`, `budget-savings`, `budget-breakdown` with `data-template-marker="spending-breakdown"`, `budget-recommendation` with `data-template-marker="recommendation"`, and local `app.js` updates for each result surface.
+
+## API Endpoints
+- `GET /api/workflows`: workflow metadata for the form.
+- `GET /api/ai_status`: current AI provider status plus app-generation readiness and budget values without exposing secrets.
+- `GET /api/ai_routes`: saved task routes plus effective provider/model/usable status with no secrets.
+- `GET /api/ai_diagnostics?limit=20`: recent sanitized AI diagnostics only, with no raw prompts or raw provider responses.
+- `GET /api/ai_provider_evals?limit=50`: recent sanitized provider eval rows plus compact summary data.
+- `GET /api/ai_route_recommendations`: current explainable route recommendation snapshot with no new provider calls.
+- `GET /api/projects?status=all|active|parked|done|abandoned`: dashboard list with filtering.
+- `GET /api/project?id=...`: hydrated project detail.
+- `GET /api/feedback?project_id=...&prototype_id=...`: feedback entries and count for the selected scope.
+- `GET /api/export?id=...`: Markdown export download.
+- `GET /api/export_zip?id=...`: ZIP export download.
+- `GET /api/prototype_zip?id=...`: ZIP download for one generated prototype package.
+- `GET /api/prototype_file?id=...&file=...`: safe access to generated prototype package files.
+- `GET /prototype/<prototype_id>/<filename>`: local preview route for generated prototype files.
+- `GET /api/deploy_pack_zip?id=...`: ZIP download for one generated Deploy Pack.
+- `GET /api/deploy_pack_file?id=...&file=...`: safe access to generated Deploy Pack files.
+- `GET /deploy_pack/<deploy_pack_id>/<filename>`: local preview route for generated Deploy Pack files.
+- `GET /api/build_pack_zip?id=...`: ZIP download for one generated Build Pack.
+- `GET /api/build_pack_file?id=...&file=...`: safe access to generated Build Pack files, including nested repo-style paths.
+- `GET /build_pack/<build_pack_id>/<relative_file_path>`: local preview route for static Build Pack files.
+- `GET /api/workspace?id=...`: stored metadata plus prompt/readme text for one exported workspace.
+- `GET /api/workspace_snapshot?id=...`: stored metadata plus latest compare summary for one workspace snapshot.
+- `GET /api/workspace_snapshot_file?id=...&file=...`: safe access to snapshot report files.
+- `GET /api/workspace_snapshot_zip?id=...`: ZIP download for one workspace snapshot.
+- `GET /api/local_backups?limit=...`: recent local SprintOS backups.
+- `GET /api/local_backup?id=...`: stored metadata for one local SprintOS backup.
+- `GET /api/local_backup_file?id=...&file=...`: safe access to one local backup report/manifest/instructions file.
+- `GET /api/local_backup_zip?id=...`: ZIP download for one local SprintOS backup.
+- `GET /api/local_restore_file?id=...&file=...`: safe access to one local backup restore report file.
+- `GET /api/workspace_zip?id=...`: ZIP download for one exported workspace.
+- `GET /api/workspace_file?id=...&file=...`: safe access to exported workspace files, including nested repo-style paths.
+- `GET /workspace/<workspace_id>/<relative_file_path>`: optional local file route for exported workspace files.
+- `GET /api/compare_workspace_snapshot?workspace_id=...&snapshot_id=...`: metadata/hash compare summary only.
+- `GET /api/workspace_sync?id=...`: stored metadata plus follow-up prompt/import-note text for one Workspace Sync run.
+- `GET /api/workspace_sync_report?id=...&file=...`: safe access to generated Workspace Sync report files.
+- `GET /api/workspace_sync_zip?id=...`: ZIP download for Workspace Sync report files only.
+- `GET /workspace_sync/<workspace_sync_id>/<filename>`: optional local file route for Workspace Sync report files.
+- `GET /api/workspace_restore_report?id=...&file=...`: safe access to generated restore report files by restore ID or snapshot ID.
+- `GET /api/pipeline_run?id=...`: latest stored metadata for one pipeline run.
+- `GET /api/pipeline_report?id=...&file=...`: safe access to generated pipeline report files.
+- `GET /api/pipeline_zip?id=...`: ZIP download for pipeline report files only.
+- `GET /pipeline/<pipeline_run_id>/<filename>`: optional local file route for pipeline report files.
+- `GET /api/quick_launch?id=...`: latest stored metadata for one Quick Launch run.
+- `GET /api/quick_launch_report?id=...&file=...`: safe access to generated Quick Launch report files.
+- `GET /api/quick_launch_zip?id=...`: ZIP download for Quick Launch report files only.
+- `GET /quick_launch/<quick_launch_id>/<filename>`: optional local file route for Quick Launch report files.
+- `GET /api/verification_run?id=...`: stored metadata plus prompt/readiness text for one verification run.
+- `GET /api/verification_report?id=...&file=...`: safe access to generated verification report files.
+- `GET /api/verification_zip?id=...`: ZIP download for verification report files only.
+- `GET /verification/<verification_run_id>/<filename>`: optional local file route for verification report files.
+- `POST /api/generate`: create a new sprint/project.
+- `POST /api/test_ai_provider`: run a tiny provider health check only when AI is explicitly enabled and a key is present.
+- `POST /api/ai_route`: validate and upsert one local route preference for one supported AI task.
+- `POST /api/reset_ai_route`: remove one saved task route and fall back to the global provider config.
+- `POST /api/apply_ai_route_preset`: apply one compact route preset across all supported AI tasks.
+- `POST /api/run_ai_provider_eval`: run offline or fake provider evals locally and persist redacted eval rows.
+- `POST /api/apply_ai_route_recommendations`: apply the latest local recommendation snapshot to `ai_provider_routes`.
+- `POST /api/test_ai_route`: test one resolved task route or return its offline fallback state without error.
+- `POST /api/quick_launch`: create a project from a raw idea, generate its sprint, run the existing one-click pipeline, and persist one launch result.
+- `POST /api/cut_scope`: generate a smaller follow-up sprint.
+- `POST /api/progress`: append a progress note and refresh resume context.
+- `POST /api/project_status`: persist a status change.
+- `POST /api/resume_plan`: generate and persist Resume Mode output.
+- `POST /api/generate_prototype`: generate and persist a prototype package for a saved project.
+- `POST /api/check_deploy_readiness`: run deterministic local checks on the selected prototype package.
+- `POST /api/generate_deploy_pack`: copy the latest prototype assets into a static Deploy Pack with hosting-specific docs/config.
+- `POST /api/generate_build_pack`: generate a Codex-ready repo-style folder from the latest prototype and optional Deploy Pack context.
+- `POST /api/export_workspace`: copy the selected or latest Build Pack into one stable local Codex workspace under `workspaces/`.
+- `POST /api/create_workspace_snapshot`: copy the selected or latest exported workspace into one local safety snapshot under `exports/workspace_snapshots/`.
+- `POST /api/restore_workspace_snapshot`: create a pre-restore safety snapshot, restore snapshot-managed files into the workspace, and write a restore report under `exports/workspace_restores/`.
+- `POST /api/create_local_backup`: create one timestamped local backup ZIP under `backups/` plus manifest/report files under `exports/local_backups/`.
+- `POST /api/verify_local_backup`: verify one local backup ZIP against its manifest, path rules, and secret-scan rules.
+- `POST /api/restore_local_backup`: dry-run or explicitly restore one local backup into the SprintOS repo root and write a report under `exports/local_restores/`.
+- `POST /api/sync_workspace`: inspect the latest or selected workspace, summarize local changes, run only safe known checks, and persist one Workspace Sync report folder.
+- `POST /api/create_workspace_release`: copy the latest releasable workspace files into one local release-candidate pack under `exports/workspace_releases/`.
+- `POST /api/add_release_feedback`: persist one manual release-feedback entry for the latest or selected Workspace Release Pack.
+- `POST /api/import_release_feedback_json`: parse one object or array of release-feedback JSON, sanitize it, and store one or more entries locally.
+- `POST /api/generate_release_iteration`: build and persist a deterministic release-feedback summary plus the next Codex prompt for the exported workspace.
+- `POST /api/run_testable_pipeline`: run the synchronous one-click local pipeline for one saved project.
+- `POST /api/run_verification`: run deterministic local verification for one saved project and persist a report folder.
+- `POST /api/add_feedback`: persist one manual feedback entry.
+- `POST /api/import_feedback_json`: parse exported prototype feedback JSON and store one or more entries.
+- `POST /api/generate_iteration_brief`: build and persist a deterministic local iteration brief plus Codex prompt.
+- AI-generating POST routes accept `generation_mode` (`auto`, `offline`, `ai`) where the route performs generation work.
+
+## Frontend Structure
+- Plain HTML rendered from `INDEX_HTML`.
+- No framework, build step, or client-side routing.
+- Sidebar:
+  - Today / Continue panel with one primary continue card plus compact support details
+  - Create App panel as the default creation path
+  - classic sprint generation behind an advanced `Plan Only` disclosure
+  - project list with status filtering
+- Main panel:
+  - App Draft summary near the top so the user sees preview/source/testing status before internal artifacts
+  - Execute section first by default:
+    - Project Command Center near the top of the selected project view
+    - Focus Session panel directly under the Project Command Center when relevant
+    - compact Activity Timeline with manual note entry still available
+    - Older Outputs kept secondary to the Command Center and hidden behind technical details
+  - Advanced Build Controls section:
+    - one-click "Create Testable App" panel with pipeline goal, prototype type, hosting target, and build target selectors
+    - app draft builder panel with type selector, generation mode, preview, ZIP, and Codex prompt actions
+    - static app package panel with readiness, hosting target selector, preview, ZIP, and deploy-instruction copy action
+    - app source package panel with build target selector, ZIP, optional static preview, run/test commands, and Codex prompt action
+  - App Workspace section:
+    - Prepare App for Codex panel with latest app source summary, one-click export, workspace ZIP, README, prompt copy, and run/test command display
+    - Workspace Snapshots panel with one-click snapshot creation, compact compare counts, report/ZIP links, restore action, and post-restore next steps
+    - Check App Changes panel with one-click sync, changed-file count, run/test summary, report/ZIP links, and copy/save actions for the next Codex prompt plus SprintOS import note
+    - Create Testing Package panel with release-label input, one-click release creation, release ZIP/guide links, and copyable tester/Codex messages
+  - Feedback section:
+    - feedback loop panel with manual form, JSON import, recent feedback, and iteration prompt generation
+    - Add Feedback panel near Create Testing Package with latest-release summary, manual feedback form, JSON import, recent tester notes, release-iteration generation, and copyable release-iteration prompt
+  - Technical Details section:
+    - Test App panel with scope selector, one-click verification, status/readiness summary, and copyable fix/share text
+    - provider comparison/eval panel behind technical details
+    - AI diagnostics panel with redacted latest traces behind technical details
+  - AI section:
+    - AI Provider panel with mode, model, timeout, usable state, compact diagnostics summary, refresh, and test actions
+    - compact AI Routing table with per-task mode/provider/model/enabled controls plus preset buttons
+  - Overview Details section:
+    - latest Quick Launch summary with report/ZIP/prompt/share actions when available
+    - sprint summary, resume card, generated resume plan, Codex handoff, artifacts, and progress notes
+  - collapsible section state is browser-only and may be remembered with `localStorage`; it is never stored in SQLite
+
+## Export Behavior
+- Markdown export writes one consolidated `.md` file to `exports/`.
+- ZIP export writes:
+  - `sprint.md`
+  - `codex-task.md`
+  - `resume.md`
+  - `feedback.md`
+  - `ai-diagnostics.md` with sanitized project or latest-global diagnostics summary when available
+  - `quick-launch.md`, `quick-launch-codex-next-prompt.md`, and `quick-launch-share-message.md` when a Quick Launch exists
+  - `deploy-pack.md` when a Deploy Pack exists for the latest prototype
+  - `build-pack.md` and `build-pack-codex-prompt.md` when a Build Pack exists for the latest prototype
+  - `workspace.md` and `CODEX_START_HERE.md` when a workspace export exists
+  - `workspace-snapshot.md` and `restore-instructions.md` when a workspace snapshot exists
+  - `workspace-sync.md`, `codex-followup-prompt.md`, and `sprintos-import-note.md` when a Workspace Sync exists
+  - `workspace-release.md`, `tester-instructions.md`, `deploy-or-share.md`, and `release-codex-next-prompt.md` when a Workspace Release Pack exists
+  - `release-feedback.md`, `release-iteration-brief.md`, and `release-iteration-codex-prompt.md` when release feedback or a release iteration exists
+  - one sanitized Markdown file per generated artifact
+  - `prototypes.md` when generated prototype packages exist
+  - `pipeline-run.md`, `codex-next-prompt.md`, and `share-message.md` when a pipeline run exists
+  - `iteration-brief.md` and `iteration-codex-prompt.md` when an iteration has been generated
+- Filenames are normalized through `sanitize_filename()` and deduplicated via `unique_filename()`.
+- Prototype packages are written under `exports/prototypes/<safe-project-slug>-<timestamp>/` and always contain:
+  - `index.html`
+  - `style.css`
+  - `app.js`
+  - `README.md`
+  - `feedback-questions.md`
+  - `feedback-import-instructions.md`
+  - `test-plan.md`
+  - `codex-build-prompt.md`
+  - `prototype.json`
+- When AI is usable, SprintOS first attempts `app_file_generation` and validates the generated app-file payload before writing these files.
+- `prototype.json` stores only sanitized app metadata such as `used_ai`, `provider`, `model`, `fallback_reason`, `app_type`, `app_name`, and generated filenames. It never stores raw prompts, raw provider responses, or keys.
+- Quick Launch reports are written under `exports/quick_launches/<safe-project-slug>-<launch-goal>-<timestamp>/` and always contain:
+  - `quick-launch-report.md`
+  - `artifact-index.md`
+  - `next-action.md`
+  - `codex-next-prompt.md`
+  - `share-message.md`
+  - `manual-test-checklist.md`
+  - `launch-bundle.json`
+- Verification reports are written under `exports/verification_runs/<safe-project-slug>-<scope>-<timestamp>/` and always contain:
+  - `verification-report.md`
+  - `check-results.json`
+  - `next-action.md`
+  - `codex-fix-prompt.md`
+  - `tester-share-readiness.md`
+- Workspace Sync reports are written under `exports/workspace_syncs/<safe-project-slug>-workspace-sync-<timestamp>/` and always contain:
+  - `workspace-sync-report.md`
+  - `changed-files.json`
+  - `changed-files.md`
+  - `run-test-summary.md`
+  - `next-action.md`
+  - `codex-followup-prompt.md`
+  - `sprintos-import-note.md`
+  - `workspace-sync.json`
+- Workspace release packs are written under `exports/workspace_releases/<safe-project-slug>-<release-label-or-timestamp>/` and always contain:
+  - `RELEASE.md`
+  - `RELEASE_NOTES.md`
+  - `RUN_AND_TEST.md`
+  - `TESTER_INSTRUCTIONS.md`
+  - `DEPLOY_OR_SHARE.md`
+  - `CHANGE_SUMMARY.md`
+  - `RELEASE_CHECKLIST.md`
+  - `CODEX_NEXT_PROMPT.md`
+  - `release-pack.json`
+  - `app/` with copied releasable workspace files and no `.env`
+- Workspace snapshots are written under `exports/workspace_snapshots/<safe-project-slug>-<timestamp>/` and always contain:
+  - the copied workspace source tree except `.env`, `.env*`, `.git` internals, `__pycache__`, `node_modules`, generated ZIPs, and obvious binary/cache files
+  - `snapshot-manifest.json`
+  - `snapshot-report.md`
+  - `restore-instructions.md`
+- Workspace restore reports are written under `exports/workspace_restores/<safe-project-slug>-<timestamp>/` and always contain:
+  - `restore-report.md`
+  - `restore-result.json`
+  - `post-restore-next-action.md`
+- Local backup reports are written under `exports/local_backups/<timestamp>-<safe-label>/` and always contain:
+  - `backup-manifest.json`
+  - `backup-report.md`
+  - `restore-instructions.md`
+- Local backup restore reports are written under `exports/local_restores/<timestamp>-<safe-label>/` and always contain:
+  - `restore-report.md`
+  - `restore-result.json`
+  - `post-restore-next-action.md`
+- Workspace exports are written under `workspaces/<safe-project-slug>/` or `workspaces/<safe-project-slug>-<short-id>/` and always contain:
+  - the copied Build Pack source tree except generated ZIPs and any `.env`
+  - `SPRINTOS_ORIGIN.md`
+  - `WORKSPACE_README.md`
+  - `CODEX_START_HERE.md`
+  - `RUN_AND_TEST.md`
+  - `LOCAL_ONLY_NOTICE.md`
+  - `workspace.json`
+  - `init_git.sh` and `init_git.ps1` as manual-only helpers
+
+## Run & Verify Flow
+- `run_project_verification()` resolves the requested scope against explicit IDs or latest project artifacts.
+- Scope verifiers run deterministic filesystem checks only:
+  - prototype and deploy-pack file presence/linking/network-marker checks
+  - Build Pack prompt/file checks plus optional generated smoke/compile checks inside known Build Pack folders
+  - `ai_tool_stub` Build Pack checks also verify app-local `.env.example`, optional runtime markers in `app.py`, mocked fallback markers, `/api/generate` frontend usage, README mocked-default copy, and obvious hardcoded-key patterns
+  - workspace export checks verify folder presence, `workspace.json`, `CODEX_START_HERE.md`, `RUN_AND_TEST.md`, copied-`.env` absence, obvious hardcoded-key patterns, and the latest Workspace Sync status when present
+  - pipeline and Quick Launch report-folder checks plus linked share/Codex readiness derived from referenced artifacts
+  - all-latest/project combine the latest available results across all supported scopes and mention the latest workspace when available
+- The resulting structured payload is written to `check-results.json`, summarized in `verification-report.md`, and persisted in `verification_runs.metadata_json`.
+- Export and handoff generation only include the latest verification summary and small prompt/readiness files; they do not inline full generated artifact folders.
+  - `quick-launch-report.md`
+  - `artifact-index.md`
+  - `next-action.md`
+  - `codex-next-prompt.md`
+  - `share-message.md`
+  - `manual-test-checklist.md`
+  - `launch-bundle.json`
+- Deploy Packs are written under `exports/deploy_packs/<safe-project-slug>-<hosting-target>-<timestamp>/` and always contain:
+  - `index.html`
+  - `style.css`
+  - `app.js`
+  - `README.md`
+  - `DEPLOY.md`
+  - `feedback-questions.md`
+  - `test-plan.md`
+  - `codex-build-prompt.md`
+  - `deploy-pack.json`
+  - plus one optional host-specific config file such as `.nojekyll`, `netlify.toml`, or `vercel.json`
+- Build Packs are written under `exports/build_packs/<safe-project-slug>-<build-target>-<timestamp>/` and always contain:
+  - root repo docs: `README.md`, `AGENTS.md`, `IMPLEMENTATION_BRIEF.md`, `CODEX_BUILD_PROMPT.md`, `ACCEPTANCE_CRITERIA.md`, `TEST_PLAN.md`, `ROADMAP.md`, `.gitignore`, `build-pack.json`
+  - target-specific files for one of: static app, Python stdlib app, AI tool stub, or codex repo brief
+  - no package manager files, external CDNs, or external network dependencies
+  - `ai_tool_stub` specifically generates a stdlib-only local HTTP app with `app.py`, `src/templates/index.html`, `src/static/app.js`, `.env.example`, and `tests/smoke_app.py`
+  - the generated `ai_tool_stub` runtime defaults to mocked/offline mode and exposes one server-side `/api/generate` route
+  - the generated `ai_tool_stub` runtime may call OpenAI only through `urllib.request` and only when its own local `.env` enables it
+- Pipeline report folders are written under `exports/pipeline_runs/<safe-project-slug>-<pipeline-goal>-<timestamp>/` and always contain:
+  - `pipeline-report.md`
+  - `artifact-index.md`
+  - `next-action.md`
+  - `codex-next-prompt.md`
+  - `share-message.md`
+  - `manual-test-checklist.md`
+  - `pipeline-run.json`
+
+## One-Click Pipeline Flow
+1. Load the selected project and ensure a sprint exists.
+2. Refresh Resume Mode context only if it is missing.
+3. Resolve the requested or automatic prototype type.
+4. Generate a fresh prototype package.
+5. Run deterministic deploy-readiness checks on that prototype.
+6. Generate a Deploy Pack only when readiness has no blockers.
+7. Resolve the requested or automatic Build Pack target.
+8. Generate a Build Pack even if Deploy Pack generation was skipped.
+9. Write a report folder that summarizes outputs, blockers, next action, and the next Codex prompt.
+10. Persist one `pipeline_runs` row that points to the generated report folder and linked artifacts.
+
+## Pipeline Selection Rules
+- Prototype auto-selection uses deterministic keyword checks on the saved project title, raw idea, and desired output.
+- Build-target auto-selection prefers `ai_tool_stub` for AI text tools, `static_app` for validate/share flows, `codex_repo_brief` for broad complex ideas, and `python_stdlib_app` for local app/tool/SaaS-shaped ideas.
+- No selector uses AI or external APIs.
+
+## AI Provider Architecture
+- SprintOS AI runtime and generated `ai_tool_stub` app runtime are intentionally separate.
+- SprintOS reads only the repo-root/current-working-directory `.env` through `sprintos_core.env_utils.load_local_env()`.
+- Generated `ai_tool_stub` apps read only their own local `.env` beside the generated `app.py`, and those keys are never persisted back into SprintOS metadata.
+- Default mode is offline. No network call happens unless all three conditions are true:
+  - `SPRINTOS_AI_PROVIDER` is `openai` or `deepseek`
+  - `SPRINTOS_AI_ENABLED=true`
+  - the selected provider key is present in the local environment or repo-root `.env`
+- `sprintos_core.env_utils.load_local_env()` reads only `./.env` at repo root/current working directory behavior and never overrides existing environment variables.
+- `sprintos_core.ai_provider.load_ai_provider_config()` resolves provider, model, DeepSeek base URL, timeout, token limits, and whether the selected provider key is present.
+- `resolve_ai_route(task_name, requested_generation_mode)` adds task routing without storing secrets:
+  - explicit `offline` always forces offline
+  - explicit `ai` uses the enabled route provider/model when present, otherwise the global provider config
+  - `auto` uses the enabled route generation mode/provider/model when present, otherwise the global provider config
+  - blank route models fall back to provider defaults
+  - unusable routed providers fall back to deterministic offline output with redacted diagnostics
+- `call_openai_responses()` uses only stdlib HTTP (`urllib.request`) against the OpenAI Responses API. For `app_file_generation`, callers pass `text.format` with a shallow strict JSON Schema structured output contract.
+- `call_deepseek_chat_completions()` uses only stdlib HTTP (`urllib.request`) against the DeepSeek Chat Completions API. For `app_file_generation`, callers use JSON object mode and prompt instructions that mirror the shared schema.
+- `generate_json_with_ai()` is the safety wrapper used by SprintOS feature integrations:
+  - it honors per-action `generation_mode` (`auto`, `offline`, `ai`)
+  - it returns deterministic fallback data immediately when AI is disabled or forced offline
+  - it falls back when the request fails, times out, returns malformed JSON, or fails task-specific schema validation
+  - it returns provider metadata so callers can persist `used_ai`, `ai_provider`, `ai_model`, `ai_task_name`, `generation_mode_requested`, `route_used`, `route_id`, `resolved_provider`, `resolved_model`, and `ai_fallback_reason` without storing secrets
+- OpenAI and DeepSeek share the same schema validation layer and sanitized diagnostics flow after provider-specific transport/parsing succeeds. Refusal, incomplete, and length-limited responses are classified before fallback/reporting.
+- `sprintos_core.ai_schemas.validate_ai_payload()` enforces explicit task shapes for:
+  - sprint generation
+  - Resume Mode plan generation
+  - prototype content generation
+  - app file generation
+  - Codex handoff generation
+  - Quick Launch summary generation
+- `app_file_generation` validation requires `index.html`, `style.css`, `app.js`, `README.md`, and `TEST_PLAN.md`; rejects path traversal, absolute or nested filenames, external CDN/script URLs, browser-side provider calls, and obvious key patterns; requires `index.html` to link the local CSS/JS files; and emits safe validation details without storing raw provider responses.
+- `record_ai_diagnostic()` stores only redacted diagnostics metadata. It never stores API keys, Authorization headers, raw prompts, or raw provider responses.
+- Diagnostics and artifact metadata expose route resolution state through sanitized fields such as `route_used`, `route_id`, `resolved_provider`, `resolved_model`, `generation_mode_requested`, and the final fallback reason.
+- Generated `ai_tool_stub` apps follow a parallel but isolated rule set:
+  - mocked/offline mode is the default
+  - `OPENAI_API_KEY` lives only in the generated app's local `.env`
+  - the browser never calls OpenAI directly
+  - DeepSeek runtime support is intentionally deferred to a separate generated-workspace task
+  - tests and smoke checks force mocked mode and do not require real network calls
+- Workspace Export follows a separate local-only rule set:
+  - it promotes generated app artifacts into stable workspace folders for Codex
+  - it never copies `.env`
+  - it never auto-runs git helpers
+  - it never creates remotes, calls GitHub APIs, or deploys anything
+- Workspace Snapshot & Restore follows a separate local-only rule set:
+  - it creates local safety copies before or after Codex work
+  - snapshot compare is metadata/hash based only and does not generate full diffs
+  - it never copies `.env` or `.env*`, never restores `.git` internals, and never stores secrets in manifests or reports
+  - restore preserves the workspace root and existing `.env`, and never runs commands, git, GitHub, or deployment actions
+- Local Backup & Restore follows a separate local-only rule set:
+  - it creates one timestamped backup ZIP under `backups/` plus local manifest/report folders under `exports/local_backups/`
+  - it never copies `.env` or `.env*`, never copies `.git` internals, never includes backup ZIP recursion, and secret-scans text files before packaging them
+  - restore defaults to dry run, requires explicit confirmation for a real restore, preserves any existing `.env`, stays inside the SprintOS repo root, and never runs commands, git, GitHub, or deployment actions
+- Workspace Sync follows a separate local-only rule set:
+  - it inspects exported workspaces in place and writes only small report bundles under `exports/workspace_syncs/`
+  - it never uploads code, never exports `.env`, and never stores `.env` contents
+  - it only runs known generated smoke tests and never runs arbitrary workspace commands
+  - it never launches long-lived servers or invokes Codex automatically
+- Workspace Release Pack follows a separate local-only rule set:
+  - it copies releasable workspace files into `app/` for manual testing or manual deployment review
+  - it never copies `.env` or `.git` internals and never exports raw secrets
+  - it writes release/tester/deploy/Codex docs locally only
+  - it never deploys, never calls GitHub APIs, and never invokes Codex automatically
+- v1 AI integration points are intentionally narrow:
+  - sprint generation
+  - Resume Mode plan generation
+  - prototype content generation
+  - app file generation
+  - Codex handoff generation
+  - Quick Launch summary generation
+- Local eval fixtures for AI quality live under `tests/fixtures/ai_quality/`.
+
+## How Sprint Generation Works
+1. User submits raw idea, workflow choice, timebox, energy, and desired output.
+2. `infer_workflow()` resolves a workflow when auto-pick is used.
+3. `generate_sprint()` asks the provider layer for structured JSON only when AI is explicitly enabled and usable.
+4. If AI is disabled, unavailable, invalid, or incomplete, `offline_generate()` supplies the deterministic fallback output.
+5. `ensure_codex_handoff()` adds a concise Codex task brief.
+6. `save_project()` persists the sprint plus resume defaults.
+7. `get_project()` rehydrates resume state, progress notes, latest prototype, feedback count, recent feedback, and the latest iteration snapshot for the UI and exports.
+
+## Prototype Builder Flow
+1. The selected project view posts `project_id` and `prototype_type` to `POST /api/generate_prototype`.
+2. `write_prototype_package()` derives copy from the project idea, sprint, artifacts, resume context, and Codex handoff.
+3. For `generation_mode=auto` or `ai`, SprintOS first attempts `app_file_generation` through the resolved provider route and validates the returned files strictly.
+4. If AI is disabled, unusable, malformed, or invalid, SprintOS falls back to deterministic offline prototype file generation.
+5. The generator writes a static package to `exports/prototypes/`, embeds a reusable local-only Tester Feedback section, and persists one `prototypes` row in SQLite.
+6. The main prototype contract is one clear local input -> action -> output flow that feels like an actual app preview instead of a report page.
+7. The UI reloads the project and shows the latest generated prototype package plus its feedback state.
+8. Preview uses `GET /prototype/<prototype_id>/<filename>` so `index.html` can load relative `style.css` and `app.js`.
+9. `prototype_file_path()` restricts access to the known generated files and blocks path traversal outside `exports/prototypes`.
+10. Main project ZIP export stays small by referencing prototype packages in `prototypes.md` instead of embedding every generated package.
+
+## Deploy Pack Flow
+1. The selected project view posts `prototype_id` to `POST /api/check_deploy_readiness`.
+2. `check_deploy_readiness()` verifies the generated prototype is still a boring static package: required files exist, asset links are intact, the page still has a visible input/action/output flow, `app.js` still contains interaction behavior, no obvious network calls or browser-side provider calls were introduced, feedback/localStorage copy is still local-only, and metadata does not contain unsafe paths.
+3. If blockers exist, the API returns `400` with the readiness payload and no Deploy Pack is generated.
+4. If the prototype is ready, the selected project view posts `project_id`, `prototype_id`, and `hosting_target` to `POST /api/generate_deploy_pack`.
+5. `write_deploy_pack()` copies the relevant prototype files unchanged, adds `DEPLOY.md`, `deploy-pack.json`, and optional host-specific config files, then stores one `deploy_packs` row in SQLite.
+6. Preview uses `GET /deploy_pack/<deploy_pack_id>/<filename>` and ZIP download uses `GET /api/deploy_pack_zip?id=...`.
+7. Project hydration only attaches the latest Deploy Pack for the latest prototype, so older packs do not mask the current prototype state.
+
+## Build Pack Flow
+1. The selected project view posts `project_id`, the latest `prototype_id`, optional `deploy_pack_id`, and a `build_target` to `POST /api/generate_build_pack`.
+2. `write_build_pack()` gathers the current sprint, resume context, Codex handoff, latest prototype, feedback summary, latest iteration brief, and latest Deploy Pack context.
+3. The generator writes a repo-style folder under `exports/build_packs/`, including root docs plus target-specific implementation stubs or references.
+4. `build-pack.json` records the generated files, run/test commands, suggested first Codex task, and non-goals.
+5. Static Build Packs expose a preview route through `GET /build_pack/<build_pack_id>/src/index.html`; other targets stay runnable through their local commands instead of the SprintOS web server.
+6. `build_pack_file_path()` allows nested repo-style files while still blocking path traversal outside the generated folder.
+7. Project hydration only attaches the latest Build Pack for the latest prototype so stale packs do not hide the current implementation handoff.
+
+## Feedback Loop Flow
+1. Every generated prototype package includes a reusable local-only Tester Feedback section.
+2. Prototype `app.js` stores the latest draft in browser `localStorage` and can export a JSON file with prototype metadata plus the feedback fields.
+3. The selected project view can add feedback manually or import exported JSON without any backend beyond the local SprintOS server.
+4. `build_iteration_summary()` reads stored feedback, applies deterministic decision rules, and produces a compact feedback summary, iteration brief, and Codex-ready improvement prompt.
+5. `save_iteration_snapshot()` stores the latest summary/brief/prompt in `prototype_iterations` so exports and reloads stay consistent.
+6. Markdown export, project ZIP export, and the selected project UI all read from the same persisted feedback + iteration state.

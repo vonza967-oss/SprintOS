@@ -6214,6 +6214,22 @@ class _MovedVerificationRunTests:
 
         self.assertEqual(checks, [])
 
+    def test_secondary_app_shape_checks_cover_quiz_and_waitlist_apps(self) -> None:
+        quiz_checks = static_app_shape_verification_checks(
+            "quiz_recommender",
+            index_html="""<!doctype html><html><body><select id="quiz-answer"><option>Fastest path</option></select><button id="quiz-run">Show Recommendation</button><section id="quiz-recommendation">Recommendation appears here.</section></body></html>""",
+            app_js="document.getElementById('quiz-run').addEventListener('click', function(){document.getElementById('quiz-recommendation').textContent='Local recommendation';});",
+            readme_text="Uses a deterministic local score with no AI.",
+        )
+        waitlist_checks = static_app_shape_verification_checks(
+            "waitlist_page",
+            index_html="""<!doctype html><html><body><h1>Join Waitlist</h1><input id="waitlist-email" type="email" /><button id="waitlist-submit">Join Waitlist</button><p id="waitlist-result">Local-only confirmation appears here.</p></body></html>""",
+            app_js="document.getElementById('waitlist-submit').addEventListener('click', function(){document.getElementById('waitlist-result').textContent='Thanks. This is a mock signup.';});",
+        )
+
+        self.assertFalse([item for item in quiz_checks if item["status"] == "fail"])
+        self.assertFalse([item for item in waitlist_checks if item["status"] == "fail"])
+
     def test_deploy_pack_verification_passes_for_generated_package(self) -> None:
         project = self.create_project()
         prototype = self.generate_prototype(project, "landing_page")

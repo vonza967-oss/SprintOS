@@ -1,0 +1,41 @@
+{
+  "app_name": "Idea Scoreboard",
+  "app_type": "static_app",
+  "short_description": "Score a rough business idea and show the smallest next test.",
+  "user_flow": [
+    "Paste the business idea into the textarea.",
+    "Click Score Idea.",
+    "Review the score, risks, smallest test, and next action."
+  ],
+  "files": [
+    {
+      "filename": "index.html",
+      "content": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" /><title>Idea Scoreboard</title><link rel=\"stylesheet\" href=\"style.css\" /></head><body><main data-app-shape=\"business_idea_scorer\"><h1>Idea Scoreboard</h1><textarea id=\"idea-input\" data-template-marker=\"main-input\"></textarea><button id=\"score-idea\" data-template-marker=\"primary-action\">Score Idea</button><section data-template-marker=\"result-output\"><div id=\"idea-score\">0</div><ul id=\"idea-risks\" data-template-marker=\"risk_breakdown\"><li>No score yet.</li></ul><div id=\"idea-smallest-test\" data-template-marker=\"smallest-testable-version\">No score yet.</div><div id=\"idea-next-action\" data-template-marker=\"next-action\">No score yet.</div></section></main><script src=\"app.js\"></script></body></html>"
+    },
+    {
+      "filename": "style.css",
+      "content": "body{font-family:sans-serif;margin:0;padding:24px;}main{max-width:760px;margin:auto;}textarea{width:100%;min-height:140px;}button{margin-top:12px;padding:10px 14px;}section{margin-top:16px;border:1px solid #ccc;padding:14px;}"
+    },
+    {
+      "filename": "app.js",
+      "content": "function scoreIdea(){const text=document.getElementById('idea-input').value.trim();const words=text.split(/\\s+/).filter(Boolean).length;const score=Math.max(1,Math.min(10,Math.ceil(words/6)));document.getElementById('idea-score').textContent=String(score);document.getElementById('idea-risks').innerHTML='<li>Demand risk: '+(score>=7?'Medium':'High')+'</li><li>Execution risk: medium</li>';document.getElementById('idea-smallest-test').textContent='Smallest testable version: interview 3 users this week.';document.getElementById('idea-next-action').textContent='Next action: '+(score>=7?'Interview 3 users this week.':'Rewrite the offer in one sentence.');}document.getElementById('score-idea').addEventListener('click',scoreIdea);"
+    },
+    {
+      "filename": "README.md",
+      "content": "# Idea Scoreboard\n\nRun `python3 -m http.server 8080` and open `index.html`.\n\nLocal deterministic scoring only."
+    },
+    {
+      "filename": "TEST_PLAN.md",
+      "content": "# Test Plan\n\n- Open the app.\n- Paste a business idea.\n- Click Score Idea.\n- Confirm score, risks, smallest test, and next action update."
+    }
+  ],
+  "run_instructions": "Run `python3 -m http.server 8080` and open `index.html`.",
+  "test_instructions": "Paste an idea, click Score Idea, and confirm the local result updates.",
+  "codex_next_prompt": "Improve one small part of the local scorer without adding dependencies.",
+  "limitations": [
+    "Local prototype only."
+  ],
+  "mocked_parts": [
+    "Scoring is deterministic and simple."
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "title": "Interview Brief Sprint",
+  "summary": "Turn one messy interview note set into a local one-page brief and checklist in a single sprint.",
+  "workflow": "Software MVP",
+  "done_definition": "Done when one note set becomes a saved local brief and checklist another teammate can review.",
+  "next_tiny_action": "Open brief.md and draft the problem, user, and output sections.",
+  "plan_steps": [
+    "Pick one real interview note set and cut the scope to one brief template.",
+    "Create the local brief and checklist output with one obvious save path.",
+    "Run the flow once on the chosen note set and fix the first confusing step."
+  ],
+  "artifacts": [
+    {
+      "title": "Brief Draft",
+      "filename": "brief.md",
+      "content": "# Brief Draft\n\nProblem, user, output, and next steps."
+    }
+  ]
+}

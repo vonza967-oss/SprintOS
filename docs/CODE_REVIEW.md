@@ -1,0 +1,221 @@
+# SprintOS Code Review Checklist
+
+## Correctness Checklist
+- Helper extraction preserves behavior and does not silently change existing outputs, routes, or persisted metadata.
+- UI decomposition preserves the simplified main lane: `Create App` first on first open, App Draft summary and Project Command Center first inside a project, and advanced tools secondary.
+- Extracted UI helpers still escape dynamic HTML safely and do not introduce new injection paths.
+- AI schema validation is enforced before provider output is used.
+- OpenAI `app_file_generation` requests use Responses API `text.format` JSON Schema structured output; DeepSeek uses JSON object mode and shared validation.
+- Invalid AI output falls back safely to deterministic local output.
+- DeepSeek uses `DEEPSEEK_API_KEY` only, OpenAI uses `OPENAI_API_KEY` only, and the keys are never cross-wired.
+- `app_file_generation` validation rejects missing required files, path traversal, nested filenames, external CDN/script URLs, browser-side provider calls, and obvious hardcoded key patterns.
+- Canonical app-shape validation remains strict. Business idea scorer must preserve `idea-input`, `score-idea`, `idea-score`, `idea-risks`, `idea-smallest-test`, and `idea-next-action` plus required template markers and local `app.js` updates. Budget calculator must preserve numeric `budget-income`, numeric expense inputs, `budget-run`, `budget-savings`, `budget-breakdown`, and `budget-recommendation` plus required template markers and local `app.js` updates.
+- `app_shape_validation_failed` reports mean app files were returned but required app-specific surfaces were missing. In `report_only`, these failures must stop without creating offline app files and must not include raw provider responses.
+- `report_only` failures must not claim a local template was used unless fallback mode is `template` and files were actually generated.
+- Invalid AI route inputs are rejected instead of silently normalizing bad task/provider/mode values.
+- AI route resolution preserves offline fallback when a routed provider is disabled, missing a key, or otherwise unusable.
+- AI provider eval rows store score/status/cost metadata only and never store keys, raw prompts, or raw provider responses.
+- Local cost estimates are labeled as estimates and can be overridden without claiming billing accuracy.
+- Route recommendations stay explainable and prefer offline when provider usability or diagnostics are unstable.
+- New and legacy projects load with safe defaults.
+- Activity Timeline rows persist with safe defaults, stay small, and never break primary flows if event recording fails.
+- Status updates persist and survive reloads.
+- Resume fields stay consistent across UI, exports, and Codex handoff output.
+- Sprint generation, cut-scope flow, and artifact generation still work.
+- Exported ZIP contents and filenames are deterministic and sanitized.
+- Prototype package folders contain the required files for the selected prototype type.
+- AI-generated prototype packages keep one clear local input -> action -> output flow and do not degrade back into a report page or generic placeholder.
+- Prototype metadata reloads correctly and the latest project prototype is visible after refresh.
+- Deploy Pack rows reload correctly and only the latest Deploy Pack for the latest prototype is surfaced in project hydration.
+- Build Pack rows reload correctly and only the latest Build Pack for the latest prototype is surfaced in project hydration.
+- Workspace rows reload correctly and the latest workspace is surfaced in project hydration when available.
+- Workspace Snapshot rows reload correctly and the latest workspace snapshot is surfaced in project hydration when available.
+- Local Backup rows reload correctly and the latest local backup is surfaced in Today Dashboard state when available.
+- Setup Doctor stays local-only, deterministic, and limited to safe in-process checks plus existing backup create/verify helpers.
+- Setup Doctor export/API responses never expose `.env` contents, API keys, Authorization headers, raw prompts, or raw provider responses.
+- Guided Demo reports, ZIPs, API payloads, and activity rows never expose `.env` contents, API keys, Authorization headers, raw prompts, or raw provider responses.
+- Local Restore rows reload correctly and dry-run versus confirmed restore status is preserved.
+- Workspace Sync rows reload correctly and the latest Workspace Sync is surfaced in project hydration when available.
+- Workspace Release Pack rows reload correctly and the latest Workspace Release Pack is surfaced in project hydration when available.
+- Workspace Release Feedback and Release Iteration rows reload correctly, and project hydration surfaces latest count/recent items/latest release iteration when available.
+- Guided Demo rows reload correctly and the latest demo run is surfaced safely in Today Dashboard state and project hydration when available.
+- Focus Session rows reload correctly and the active/latest Focus Session is surfaced in project hydration when available.
+- Activity Timeline rows reload correctly and project hydration exposes `recent_activity_events`, `latest_activity_event`, and `recent_activity_count` when available.
+- Artifact History rows/grouping reload correctly and project hydration exposes `artifact_history`, `artifact_history_count`, and `latest_artifact_type` without changing latest-artifact hydration.
+- Today Dashboard summary stays deterministic for the same stored repo state and does not depend on network availability.
+- Today Dashboard recommendation order preserves the documented global priority ladder and does not surface done/abandoned projects unless an active Focus Session exists.
+- Today Dashboard can use latest activity as an additive recency/tie-breaker signal without rewriting the main ranking rules.
+- Today Dashboard can surface Setup Doctor status, latest backup warnings, AI provider warnings, and first-run Create App guidance without overpowering the main Continue This card.
+- Today Dashboard can surface Guided Demo onboarding and latest-demo links without turning into a wizard or separate demo dashboard.
+- Project Command Center summary stays deterministic for the same stored project state and does not silently depend on network availability.
+- Project Command Center recommendation order preserves the documented priority ladder instead of skipping ahead or surfacing multiple competing primary actions.
+- Project Command Center latest-activity summary stays additive and does not replace the main recommendation ladder.
+- Generated `ai_tool_stub` Build Packs keep SprintOS AI settings separate from generated-app runtime settings.
+- Pipeline run rows reload correctly and only the latest pipeline run is surfaced in project hydration.
+- Feedback rows persist with safe defaults and malformed import payloads fail gracefully.
+- Iteration briefs and Codex prompts stay deterministic and match the latest stored feedback scope.
+- Preview/file routes reject path traversal and only serve generated prototype files.
+- Deploy readiness checks fail on obvious missing files or network markers without getting clever.
+- Run & Verify catches browser-side provider calls or secret-like markers inside generated prototype/build files without requiring live network tests.
+- Deploy Pack preview/file routes reject path traversal and only serve generated deploy-pack files.
+- Build Pack preview/file routes reject path traversal and only serve generated build-pack files.
+- Workspace preview/file routes reject path traversal and only serve files inside the exported workspace folder.
+- Workspace Snapshot report/file routes reject path traversal and only serve files inside the generated snapshot folder.
+- Local Backup report/file routes reject path traversal and only serve files inside the generated backup report folder.
+- Local Restore report/file routes reject path traversal and only serve files inside the generated local restore report folder.
+- Workspace Sync report routes reject path traversal and only serve files inside the generated Workspace Sync report folder.
+- Workspace Release Pack file routes reject path traversal and only serve files inside the generated release-pack folder.
+- Focus Session report routes reject path traversal and only serve files inside the generated Focus Session report folder.
+- Pipeline report routes reject path traversal and only serve files inside the generated report folder.
+- One-click pipeline runs persist partial output when later steps fail instead of hiding it.
+- One-click pipeline runs skip Deploy Pack generation when readiness blockers exist.
+- Quick Launch rows reload correctly and only the latest Quick Launch is surfaced in project hydration.
+- Quick Launch routes reject path traversal and only serve files inside the generated Quick Launch report folder.
+- Guided Demo routes reject path traversal and only serve files inside the generated demo report folder.
+- Quick Launch reuses the existing project/sprint/pipeline flows instead of duplicating their logic.
+- Quick Launch preserves partial output when the pipeline finishes with blockers or warnings.
+- Verification rows reload correctly and only the latest verification run is surfaced in project hydration.
+- Verification scopes fail clearly on missing artifacts without crashing or inventing IDs.
+- Verification report routes reject path traversal and only serve files inside the generated verification report folder.
+- No new helper introduces unsafe path serving or path traversal gaps.
+- Launcher helpers use explicit argv with `subprocess.Popen(...)` and never use `shell=True`.
+- Launcher helpers handle the already-running SprintOS case without starting a second healthy local server.
+- Stop helpers do not kill arbitrary Python processes or non-SprintOS processes.
+- `share_ready` is only true when a prototype or Deploy Pack is actually usable.
+- `codex_ready` is only true when the linked Build Pack passes its basic checks.
+- Generated verification prompts/readiness summaries stay concise and grounded in the stored result.
+
+## UX Checklist
+- Resume Mode makes restart context obvious in one screen.
+- Status is visible in the dashboard and project detail view.
+- Filtering is simple and understandable.
+- Buttons map to clear actions: generate, park, mark done, add progress note, export.
+- Activity Timeline stays compact: recent events, status, time, summary, next tiny action, and optional report link only.
+- Artifact History stays compact, read-only, grouped, and clearly secondary to the Command Center.
+- Today Dashboard stays prominent near the top, shows one clear global recommendation, and keeps `Create App` as the only dominant creation path.
+- Focus Session surfaces one clear task, one done definition, one not-to-do line, one next tiny action, and one end-state capture path.
+- Prototype Builder actions map cleanly to generate, preview, ZIP, and Codex prompt copy.
+- Deploy Pack actions map cleanly to check readiness, generate, preview, ZIP, and deploy-instruction copy.
+- Build Pack actions map cleanly to target selection, generate, ZIP, prompt copy, and optional preview.
+- Workspace Export actions map cleanly to export, ZIP, README, and Codex prompt copy without turning the UI into an IDE.
+- Workspace Snapshot actions map cleanly to create, compare, report review, ZIP, and restore without turning the UI into a file manager.
+- Local Backup actions map cleanly to create, verify, ZIP/report review, dry-run restore, and explicit confirmed restore without turning the UI into a sync console.
+- Workspace Sync actions map cleanly to sync, report review, prompt/import-note copy, and progress-note save without turning the UI into an IDE.
+- Workspace Release Pack actions map cleanly to release creation, ZIP/download, tester/deploy guide review, and prompt/message copy without turning the UI into a deployment console.
+- Release Feedback actions map cleanly to manual entry, JSON import, release-iteration generation, and release-iteration prompt copy without turning the UI into a CRM.
+- One-click pipeline actions map cleanly to goal/target selection, run, report review, and prompt/share copy.
+- Create App actions map cleanly to raw idea input, one-click run, app-preview/open-source follow-through, and prompt/share copy while keeping classic `Plan Only` secondary.
+- Guided Demo actions map cleanly to quick/full run, demo project open, demo report review, and demo ZIP download.
+- Run & Verify actions map cleanly to scope selection, one-click run, report review, and prompt/readiness copy.
+- Project Command Center stays prominent near the top, shows one clear current state, and does not bury the primary `Do Next Step` action under advanced panels.
+- Project Command Center does not replace advanced panels or remove access to detailed controls.
+- The app lane reads as one ordered sequence: create app, open preview or source, prepare for Codex, check changes, test app, create testing package, add feedback, next prompt.
+- Selected project panels are grouped into Execute, Advanced Build Controls, App Workspace, Feedback, Technical Details, and AI rather than appearing as one flat sequence.
+- Execute stays open by default, while Technical Details and AI can stay collapsed by default unless the current state needs attention.
+- Internal artifact labels such as Build Pack, Deploy Pack, pipeline report, Artifact History, AI Diagnostics, and provider eval should stay behind advanced or technical disclosures instead of dominating the main lane.
+- Focus Session stays compact and local-only. It does not grow into a timer, notification system, or project-management layer.
+- Feedback Loop actions map cleanly to add feedback, import JSON, generate iteration brief, and copy the iteration prompt.
+- The UI stays usable on desktop and mobile without adding complexity.
+- Copy-to-clipboard actions show visible success/fallback feedback instead of failing silently.
+
+## Local-First / Privacy Checklist
+- Core behavior works without an API key.
+- No auth, sync, background jobs, or cloud-only dependencies were introduced.
+- No new non-stdlib dependency was introduced for modularization or health checks.
+- No frontend dependency or framework was introduced for UI decomposition.
+- Project data remains in local SQLite and filesystem exports.
+- AI calls remain optional and do not block offline mode.
+- No API key is exposed in UI payloads, logs, exports, ZIPs, metadata JSON, or generated artifacts.
+- Activity Timeline never stores `.env` contents, API keys, Authorization headers, raw provider prompts/responses, or full workspace file contents.
+- Artifact History endpoints and exports never expose `.env` contents, API keys, Authorization headers, raw provider prompts/responses, or full workspace file contents.
+- AI route rows store task/provider/model preferences only and never store keys.
+- AI diagnostics stay redacted and do not include raw prompts or raw provider responses.
+- AI provider eval exports and diagnostics stay redacted and never leak provider keys.
+- DeepSeek diagnostics record provider/model/base URL safely without storing raw requests, raw responses, or keys.
+- Generated prototypes stay static and usable without a backend or external network calls.
+- Generated browser apps never call OpenAI or DeepSeek directly and never expose provider keys in HTML, CSS, JS, metadata, exports, ZIPs, or UI payloads.
+- Generated Deploy Packs stay static, inspectable, and portable across basic hosting targets without deployment APIs.
+- Generated Build Packs stay local, dependency-light, and handoff-ready without package managers or auto-deployment hooks.
+- Generated workspace exports stay local-first, stdlib-only, and safe for Codex handoff without copying `.env`, auto-running git, creating remotes, or auto-deploying.
+- Workspace Snapshot and Restore stay local-only, never copy `.env`, preserve existing `.env` on restore, never restore `.git` internals, and never run commands.
+- Local Backup and Restore stay local-only, never copy `.env`, never copy `.git` internals, secret-scan text files, default restore to dry run, and require explicit confirmation for real restore.
+- Workspace Sync stays local-only, never uploads code, never exports `.env`, and only runs known generated smoke tests.
+- Workspace Release Pack stays local-only, never copies `.env`, never copies `.git` internals, never exports raw secrets, and never deploys automatically.
+- Release feedback intake stays local-only, never sends tester data externally, never stores raw prompts/responses, and redacts secrets from imported JSON.
+- Today Dashboard actions stay local-only, never invoke Codex automatically, never deploy automatically, never call GitHub, never run git, and never read/export `.env` contents.
+- Project Command Center recommended actions stay local-only, never invoke Codex automatically, never deploy automatically, never call GitHub, and never read/export `.env` contents.
+- Browser-only UI state such as collapsed sections or selected project mode never persists in SQLite.
+- Local runtime and launcher status payloads never expose API keys, `.env` contents, or raw environment variables.
+- Generated `ai_tool_stub` Build Packs stay mocked/offline by default, keep provider calls server-side only, and never expose API keys in browser assets or responses.
+- Generated pipeline report folders stay local, deterministic, and limited to report files rather than bundling full generated packages.
+- Generated Quick Launch report folders stay local, deterministic, and limited to report files rather than bundling full generated packages.
+- Guided Demo report folders stay local, deterministic, and limited to redacted report files rather than bundling workspaces or release folders directly.
+- Generated verification report folders stay local, deterministic, and limited to report files rather than bundling full generated packages.
+- Verification only runs known generated smoke tests inside generated Build Pack folders with explicit subprocess commands and no `shell=True`.
+- Prototype feedback stays in browser localStorage unless the user explicitly exports it.
+- No obvious API keys are hardcoded in source-like repo files.
+
+## Testing Checklist
+- Unit tests cover persistence defaults, status changes, resume plan generation, and exports.
+- Unit tests mock AI calls instead of making real network requests.
+- Unit tests cover malformed AI output and offline fallback behavior.
+- Unit tests cover `SPRINTOS_APP_GENERATION_FALLBACK_MODE`: default `template` keeps offline app fallback, while `report_only` stops `app_file_generation`, creates a sanitized failure report, says no app was created, and does not create offline app files.
+- Unit tests cover schema validation, per-action generation modes, diagnostics redaction, and local eval fixtures.
+- Unit tests cover AI routing persistence, presets, resolver behavior, diagnostics fields, and offline fallback with no real network calls.
+- Unit tests cover provider eval persistence, fake-provider fallback paths, route recommendations, and local cost estimation with no real network calls.
+- Unit tests cover DeepSeek provider config, parsing, fallback, endpoint safety, and hardcoded-key detection without real network calls.
+- No test makes a real provider network call.
+- Unit tests cover `app_file_generation` budget handling: app generation should use 90 seconds and 6000 output tokens when those env values are absent, while explicit lower values still trigger Setup Doctor and Create App preflight warnings.
+- Helper-level regression tests cover slugging, filename sanitization, JSON fallback behavior, path safety, selector behavior, and ZIP/report helpers.
+- Unit tests cover prototype generation, shape-specific fallback apps, prototype ZIP contents, and safe preview serving.
+- Unit tests cover `app_file_generation` schema validation, safe validation details, AI-generated prototype fallback behavior, and build/verification checks for local previewable app files.
+- Unit tests cover canonical app-shape contracts for business idea scorer and budget calculator, including valid live-style fixtures and missing-surface failures.
+- Verification checks should fail or warn when canonical fallback app surfaces are removed, such as idea risk/next-action outputs, budget savings/breakdown/recommendation outputs, or flashcard question/answer card outputs.
+- Unit tests cover deploy-pack generation, deploy ZIP contents, readiness checks, and safe deploy-pack file serving.
+- Unit tests cover Build Pack generation, Build Pack ZIP contents, generated smoke tests, and safe Build Pack file serving.
+- Unit tests cover workspace export persistence, copied-file rules, added docs/metadata, ZIP contents, and safe workspace file serving.
+- Unit tests cover workspace snapshot persistence, manifest/hash behavior, compare summaries, restore behavior, ZIP contents, and safe snapshot/restore file serving.
+- Unit tests cover local backup persistence, manifest behavior, secret exclusion, verification, restore safety, dashboard status, and safe local backup/local restore file serving.
+- Unit tests cover Workspace Sync persistence, mtime/git change detection, safe command gating, report contents, ZIP contents, and safe file serving.
+- Unit tests cover Workspace Release Pack persistence, release-type detection, copied-file exclusions, report contents, ZIP contents, and safe file serving.
+- Unit tests cover release-feedback persistence, JSON import, deterministic release-iteration decisions, prompt generation, dashboard/command integration, and export contents.
+- Unit tests cover generated `ai_tool_stub` runtime markers, `.env.example`, mocked fallback behavior, `/api/generate` frontend wiring, runtime metadata, and hardcoded-key detection.
+- Unit tests cover pipeline run persistence, deterministic selector behavior, pipeline ZIP contents, and safe pipeline report file serving.
+- Unit tests cover Quick Launch persistence, report contents, ZIP contents, and safe Quick Launch report file serving.
+- Unit tests cover Guided Demo persistence, report contents, ZIP contents, activity events, dashboard/setup integration, and safe demo report file serving.
+- Unit tests cover Today Dashboard summary structure, ranking, export behavior, safe run-action behavior, and project-list badge payloads.
+- Unit tests cover verification-run persistence, scope checks, report contents, ZIP contents, and safe verification file serving.
+- Unit tests cover Focus Session persistence, lifecycle transitions, report contents, ZIP contents, and safe file serving.
+- Unit tests cover Activity Timeline persistence, redaction, endpoints, hydration, export integration, and additive Today Dashboard/Command Center usage.
+- Unit tests cover Artifact History endpoints, grouping, export integration, ZIP inclusion, redaction, and selected-project UI rendering.
+- Unit tests cover feedback persistence, JSON import, summary generation, and iteration exports.
+- Unit tests cover Project Command Center summary structure, recommendation order, safe recommended-action execution, and export/report integration.
+- Existing Codex handoff tests still pass.
+- `scripts/smoke.py` still passes.
+- `scripts/smoke.py` verifies `/api/server_status` and confirms the status payload stays free of obvious secret markers.
+- `scripts/smoke.py` covers Today Dashboard empty state, Quick Launch updates, local backup create/verify/ZIP/dry-run restore, Artifact History endpoint/export, project ZIP inclusion, Workspace Release Pack flow, release-feedback intake, release-iteration generation, and safe Today Action output.
+- `scripts/smoke.py` also covers `GET /api/setup_doctor`, `GET /api/setup_doctor_export`, and the safe Setup Doctor action path.
+- `scripts/smoke.py` also covers the quick Guided Demo API path plus demo report retrieval.
+- `scripts/health.py` passes.
+- `scripts/health.py` still catches obvious hardcoded key patterns.
+- Changed Python files compile with `py_compile`.
+- `scripts/test_fast.py` still passes after the helper extraction.
+- Full tests still pass after the change.
+- Fast tests cover the changed area well enough for iteration confidence.
+- No coverage was removed without a specific reason.
+- No test makes a real network call.
+
+## Anti-Overbuild Checklist
+- The feature stays inside one focused PR-sized slice.
+- No frontend framework, scheduler, notification system, or project-management layer was added.
+- New abstractions are only introduced where they reduce duplication in persistence or export paths.
+- The solution improves restart momentum without redesigning the rest of the app.
+- Prototype Builder does not quietly turn into real deployment, analytics, auth, or a hosted app system.
+- Deploy Pack does not quietly turn into repo creation, host provisioning, cloud sync, or automatic deployment.
+- Build Pack does not quietly turn into repo creation, package-manager setup, provider integration, or automatic deployment.
+- Workspace Export does not quietly turn into IDE features, auto-git execution, remote creation, GitHub integration, or deployment automation.
+- Guided Demo does not quietly turn into a parallel product mode, auto-Codex runner, deploy flow, or external integration surface.
+- Workspace Release Pack does not quietly turn into deployment automation, repo creation, secret packaging, or a hosted release manager.
+- Workspace Snapshot does not quietly turn into backup sync, cloud storage, repo hosting, or full diff tooling.
+- Generated `ai_tool_stub` runtime does not quietly turn into a browser-side provider client, a dependency-heavy backend, or a required-online app.
+- Feedback Loop does not quietly turn into analytics, identity, or hosted research tooling.

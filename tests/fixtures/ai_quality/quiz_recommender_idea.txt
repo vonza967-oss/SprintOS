@@ -1,0 +1,1 @@
+Build a tiny quiz that helps founders choose whether they need a landing page, a calculator, or a static prototype first.

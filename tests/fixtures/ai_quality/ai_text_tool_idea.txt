@@ -1,0 +1,1 @@
+Make a tiny local writing helper that rewrites rough customer messages into cleaner support replies without needing a network connection.

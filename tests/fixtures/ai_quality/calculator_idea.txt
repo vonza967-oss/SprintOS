@@ -1,0 +1,1 @@
+Create a simple local calculator that scores whether a side project is worth testing this week based on pain, speed, and confidence.

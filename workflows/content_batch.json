@@ -1,0 +1,26 @@
+{
+  "id": "content_batch",
+  "name": "Content Batch",
+  "description": "Turn one idea into scripts, posts, captions, and a simple publishing batch.",
+  "best_for": [
+    "videos",
+    "social posts",
+    "threads",
+    "newsletters",
+    "blog posts"
+  ],
+  "outputs": [
+    "content angle",
+    "short scripts",
+    "post drafts",
+    "CTA",
+    "publishing checklist",
+    "done definition"
+  ],
+  "rules": [
+    "Batch outputs in one session.",
+    "Create publishable drafts, not topic lists.",
+    "End with scheduled or posted content.",
+    "Avoid building a long-term content calendar first."
+  ]
+}

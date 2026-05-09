@@ -1,0 +1,19 @@
+{
+  "title": "Support Reply Rewriter",
+  "summary": "Build a small local-first rewrite flow that turns one rough support draft into a cleaner reply.",
+  "workflow": "Software MVP",
+  "done_definition": "Done when one rough message can be pasted in, rewritten locally, and copied back out.",
+  "next_tiny_action": "Open readme-draft.md and define the single input, rewrite button, and output panel.",
+  "plan_steps": [
+    "Limit the tool to one input box, one rewrite action, and one output area.",
+    "Write deterministic rewrite templates and connect them to the local flow.",
+    "Test the same sample message twice and confirm the output stays stable."
+  ],
+  "artifacts": [
+    {
+      "title": "Rewrite Spec",
+      "filename": "rewrite-spec.md",
+      "content": "# Rewrite Spec\n\nOne input, one rewrite, one output."
+    }
+  ]
+}

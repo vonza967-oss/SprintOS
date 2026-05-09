@@ -1,0 +1,27 @@
+{
+  "id": "digital_product",
+  "name": "Digital Product Sprint",
+  "description": "Convert a topic into a sellable mini-kit, template, prompt pack, or checklist.",
+  "best_for": [
+    "templates",
+    "guides",
+    "Gumroad products",
+    "Notion kits",
+    "prompt packs"
+  ],
+  "outputs": [
+    "product promise",
+    "outline",
+    "template/checklist",
+    "sales page",
+    "pricing",
+    "launch post",
+    "done definition"
+  ],
+  "rules": [
+    "Make the product small enough to finish before motivation fades.",
+    "The buyer must get a visible result within 30 minutes.",
+    "Prefer $9-$29 products before subscriptions.",
+    "Package before polishing."
+  ]
+}
