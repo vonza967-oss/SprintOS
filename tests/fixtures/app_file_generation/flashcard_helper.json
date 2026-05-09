@@ -10,7 +10,7 @@
   "files": [
     {
       "filename": "index.html",
-      "content": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" /><title>Study Card Builder</title><link rel=\"stylesheet\" href=\"style.css\" /></head><body><main data-app-shape=\"flashcard_helper\"><h1>Study Card Builder</h1><textarea id=\"notes-input\" data-template-marker=\"main-input\" placeholder=\"Paste notes\"></textarea><button id=\"build-cards\" data-template-marker=\"primary-action\">Build Cards</button><section id=\"card-output\" data-template-marker=\"flashcard-cards\">No cards yet.</section><p>This uses local mocked card-building rules, not live AI.</p></main><script src=\"app.js\"></script></body></html>"
+      "content": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" /><title>Study Card Builder</title><link rel=\"stylesheet\" href=\"style.css\" /></head><body><main data-app-shape=\"flashcard_helper\"><h1>Study Card Builder</h1><textarea id=\"notes-input\" data-template-marker=\"main-input\" placeholder=\"Paste notes\"></textarea><button id=\"build-cards\" data-template-marker=\"primary-action\">Build Cards</button><section id=\"card-output\" data-template-marker=\"flashcard-cards\">No cards yet.</section><p>This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.</p></main><script src=\"app.js\"></script></body></html>"
     },
     {
       "filename": "style.css",
@@ -22,11 +22,11 @@
     },
     {
       "filename": "README.md",
-      "content": "# Study Card Builder\n\nRun `python3 -m http.server 8080` and open `index.html`.\n\nFlashcards are built with local deterministic rules."
+      "content": "# Study Card Builder\n\nRun `python3 -m http.server 8080` and open `index.html`.\n\nThis prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser."
     },
     {
       "filename": "TEST_PLAN.md",
-      "content": "# Test Plan\n\n- Open the app.\n- Paste notes with several sentences.\n- Click Build Cards.\n- Confirm cards appear in the card output area."
+      "content": "# Test Plan\n\n- Open the app.\n- Paste notes with several sentences.\n- Click Build Cards.\n- Confirm cards appear in the card output area.\n- Confirm the visible limitation note says the prototype builds study cards locally and does not call live AI or external services inside the browser."
     }
   ],
   "run_instructions": "Run `python3 -m http.server 8080` and open `index.html`.",

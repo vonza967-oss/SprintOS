@@ -1,9 +1,11 @@
 import contextlib
 import io
+import tempfile
 from pathlib import Path
 from unittest import mock
 
 import scripts.launch as launch
+import scripts.live_app_generation_acceptance as live_acceptance
 import scripts.readiness as readiness
 import scripts.test_fast as test_fast
 import scripts.test_full as test_full
@@ -67,6 +69,26 @@ class TestingToolTests(SprintOSTestCase):
         self.assertNotIn("openai.", source.lower())
         self.assertNotIn("deepseek", source.lower())
         self.assertNotIn("httpx.", source)
+
+    def test_live_acceptance_shape_policy_rejects_flashcard_without_limitation_note(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            (base / "index.html").write_text(
+                """<!doctype html><html><body><main data-app-shape="flashcard_helper"><textarea id="notes-input" data-template-marker="main-input"></textarea><button id="build-cards" data-template-marker="primary-action">Build Flashcards</button><section id="card-output" data-template-marker="flashcard-cards">Cards appear here.</section></main><script src="app.js"></script></body></html>""",
+                encoding="utf-8",
+            )
+            (base / "app.js").write_text(
+                "function buildCards(){const notes=document.getElementById('notes-input').value.trim();document.getElementById('card-output').innerHTML='<article class=\"flashcard-card\"><strong>Question</strong><p>Answer: '+notes+'</p></article>';}document.getElementById('build-cards').addEventListener('click', buildCards);",
+                encoding="utf-8",
+            )
+            (base / "README.md").write_text("# Study Card Builder\n\nRun locally.\n", encoding="utf-8")
+
+            result = live_acceptance._shape_result("flashcard_helper", base)
+
+        self.assertFalse(result["ok"])
+        self.assertTrue(
+            any(item["name"] == "flashcard helper: mocked/local limitation note exists" and item["status"] == "warn" for item in result["failures"])
+        )
 
     def test_readiness_script_runs_offline(self) -> None:
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):

@@ -694,6 +694,12 @@ def _app_file_generation_retry_instructions(instructions: str, retry_reason: str
                 "for example document.getElementById('budget-income').value and document.getElementById('budget-food').value, "
                 "then update budget-savings, budget-breakdown, and budget-recommendation."
             )
+        if any("flashcard_helper" in item or "flashcard_helper" in item.replace(" ", "_") for item in missing_surfaces):
+            missing_surface_note += (
+                "\n        - For flashcard_helper repairs, index.html must visibly include this exact limitation note near the flashcard UI: "
+                "\"This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.\" "
+                "Do not rely on README.md or TEST_PLAN.md alone."
+            )
     repair_note = f"""
 
         Retry repair for app_file_generation:

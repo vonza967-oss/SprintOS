@@ -10915,7 +10915,11 @@ def app_shape_prompt_contract(shape: str) -> str:
             """\
             Flashcard helper contract:
             - index.html must expose `notes-input` with `data-template-marker="main-input"`, `build-cards` with `data-template-marker="primary-action"`, and `card-output` with `data-template-marker="flashcard-cards"`.
-            - app.js must wire a click handler to `build-cards`, split notes locally into deterministic question/answer cards, render cards into `card-output`, and clearly state this is local/mocked, not live AI.
+            - index.html must include this visible limitation note near the flashcard UI: "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser."
+            - README.md and TEST_PLAN.md must also mention that Study Card Builder is local/demo/mocked and not live AI, but documentation alone is not enough; the limitation must be visible in the browser app UI.
+            - app.js must wire a click handler to `build-cards`, read `notes-input`, split notes locally into deterministic question/answer cards, render cards into `card-output`, and keep all behavior local in the browser.
+            - Do not call external URLs, fetch, XMLHttpRequest, sendBeacon, providers, APIs, OpenAI, DeepSeek, or any browser-side network path.
+            - The files array must contain exactly five files and no extra entries: index.html, style.css, app.js, README.md, TEST_PLAN.md. Do not include `test-plan.md`, sample notes, JSON data files, manifests, package files, or any sixth file.
             """
         ).strip(),
         "quiz_recommender": textwrap.dedent(
@@ -10965,9 +10969,11 @@ def app_file_generation_instructions(shape: str = "") -> str:
         - The app should expose a clear input, one primary action, and one visible output or result state.
         - The app.js file must contain actual browser interaction behavior.
         - app.js and index.html must expose the app-shape-specific surfaces SprintOS verification checks.
-        - The files list must include exactly: index.html, style.css, app.js, README.md, TEST_PLAN.md.
+        - The files list must include exactly five entries with exactly these filenames: index.html, style.css, app.js, README.md, TEST_PLAN.md.
+        - Do not include any sixth file, nested folder, lowercase `test-plan.md`, sample data file, package file, manifest, or duplicate documentation file.
         - For a business-idea scoring app, include a textarea input, score calculation, risk breakdown, smallest testable version, next action, and a visible result state.
         - For a budget calculator app, include numeric income and expense inputs, a Calculate Budget action, savings/surplus/deficit math, a spending breakdown, a recommendation, graceful handling for empty or invalid numbers, and a visible local/demo limitation note.
+        - For a study-card or flashcard app, include the exact visible limitation note: "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser."
         {shape_contract}
         """
     ).strip()
@@ -11764,7 +11770,7 @@ def flashcard_helper_html(ctx: Dict[str, Any]) -> str:
             <section class="hero">
               <h1>{html.escape(app_title)}</h1>
               <p>Paste study notes and create question/answer cards with deterministic local text rules.</p>
-              <p id="flashcard-local-note" class="notice" data-template-marker="local-mocked-note">Local/mocked limitation: this does not call AI; cards come from simple local sentence splitting.</p>
+              <p id="flashcard-local-note" class="notice" data-template-marker="local-mocked-note">This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.</p>
             </section>
             <div class="grid two">
               <section class="panel template-section" data-template-section="notes-input">
@@ -12282,7 +12288,7 @@ def prototype_readme(ctx: Dict[str, Any]) -> str:
     local_logic_notes = {
         "business_idea_scorer": "The score is deterministic. It checks for target-user clarity, pain language, and money/budget signals.",
         "budget_calculator": "Budget output is deterministic arithmetic over the income and expense fields.",
-        "flashcard_helper": "Flashcards are built with local sentence-splitting rules. This is not live AI generation.",
+        "flashcard_helper": "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.",
         "quiz_recommender": "The recommendation is a small deterministic score from the selected quiz answers.",
         "waitlist_page": "The waitlist confirmation is a mock local state change. It does not submit data.",
     }
@@ -12361,7 +12367,7 @@ def prototype_test_plan(ctx: Dict[str, Any]) -> str:
     shape_extra_step = {
         "business_idea_scorer": "In Idea Scorecard, paste a business idea and confirm the output includes a score, risks, smallest testable version, and next action.",
         "budget_calculator": "In Budget Snapshot, enter income and expenses and confirm monthly savings, spending breakdown, and recommendation update.",
-        "flashcard_helper": "In Study Card Builder, paste study notes and confirm question/answer cards appear with the local/mocked limitation note visible.",
+        "flashcard_helper": "In Study Card Builder, paste study notes and confirm question/answer cards appear with the visible note: This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.",
         "quiz_recommender": "Change quiz answers and confirm the recommendation text changes deterministically.",
         "waitlist_page": "Enter a fake name/email/note and confirm the page shows a local-only confirmation message.",
     }
@@ -12414,7 +12420,7 @@ def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
     test_lines = {
         "business_idea_scorer": "- Test `index.html` + `app.js`: paste an idea, click Score Idea, and assert score, risks, smallest testable version, and next action update.",
         "budget_calculator": "- Test `index.html` + `app.js`: change income/expenses, click Calculate Budget, and assert monthly savings, spending breakdown, and recommendation update.",
-        "flashcard_helper": "- Test `index.html` + `app.js`: paste notes, click Build Flashcards, and assert visible question/answer cards appear with the local/mocked note still visible.",
+        "flashcard_helper": "- Test `index.html` + `app.js`: paste notes, click Build Flashcards, and assert visible question/answer cards appear while this note remains visible: \"This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.\"",
         "landing_page": "- Test the main CTA state change and confirm no network is required.",
         "ai_text_tool": "- Test deterministic output for the same input and an empty-input fallback.",
         "calculator": "- Test score calculation, band thresholds, and explanation text.",
@@ -12424,7 +12430,7 @@ def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
     next_improvement_lines = {
         "business_idea_scorer": "Improve Idea Scorecard by making the risk breakdown more specific while preserving the existing `idea-input`, `score-idea`, `idea-score`, `idea-risks`, `idea-smallest-test`, and `idea-next-action` surfaces.",
         "budget_calculator": "Improve Budget Snapshot by adding one clearer budget category insight while preserving the existing `budget-income`, expense inputs, `budget-savings`, `budget-breakdown`, and `budget-recommendation` surfaces.",
-        "flashcard_helper": "Improve Study Card Builder by making generated cards easier to review while preserving `notes-input`, `build-cards`, `card-output`, and the visible local/mocked limitation note.",
+        "flashcard_helper": "Improve Study Card Builder by making generated cards easier to review while preserving `notes-input`, `build-cards`, `card-output`, and the visible limitation note: \"This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.\"",
         "landing_page": "Improve the local CTA confirmation copy without adding backend submission.",
         "ai_text_tool": "Improve the deterministic output formatting without adding provider calls.",
         "calculator": "Improve the explanation text for one score band without changing the local calculation contract.",

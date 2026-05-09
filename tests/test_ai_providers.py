@@ -153,6 +153,22 @@ class AIProviderTests(SprintOSTestCase):
         self.assertIn("document.getElementById('budget-income').value", files["app.js"])
         self.assertRegex(files["app.js"], r"document\.getElementById\('budget-(rent|food|housing|transport|other)'\)\.value")
 
+    def test_flashcard_helper_fixture_has_visible_local_ai_limitation_note(self) -> None:
+        payload = self.app_file_fixture("flashcard_helper.json")
+        files = self.app_file_contents(payload)
+        limitation = "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser."
+
+        checks = static_app_shape_verification_checks(
+            "flashcard_helper",
+            index_html=files["index.html"],
+            app_js=files["app.js"],
+            readme_text=files["README.md"],
+        )
+
+        self.assertIn(limitation, files["index.html"])
+        self.assertIn(limitation, files["README.md"])
+        self.assertFalse([item for item in checks if item["status"] != "pass"], checks)
+
     def test_budget_calculator_with_right_ids_but_no_value_reads_fails_shape_validation(self) -> None:
         payload = self.app_file_fixture("budget_calculator.json")
         payload["files"][2]["content"] = (
@@ -1004,6 +1020,51 @@ class AIProviderTests(SprintOSTestCase):
         self.assertIn("app_file_generation_retry:app_shape", provider_result.warnings)
         self.assertIn("Fix these missing required surfaces", calls[1]["instructions"])
         self.assertIn("risk_output_exists", calls[1]["instructions"])
+
+    def test_flashcard_helper_repair_guidance_requires_visible_limitation_note(self) -> None:
+        api_key = "sk-openai-app-retry-flashcard-shape-test"
+        bad_payload = self.app_file_fixture("flashcard_helper.json")
+        bad_payload["files"][0]["content"] = bad_payload["files"][0]["content"].replace(
+            'data-template-marker="flashcard-cards"',
+            'data-template-marker="plain-output"',
+        )
+        fixed_payload = self.app_file_fixture("flashcard_helper.json")
+        calls: list[dict[str, Any]] = []
+
+        def provider(**kwargs):
+            calls.append(kwargs)
+            payload = bad_payload if len(calls) == 1 else fixed_payload
+            return fake_provider_result(
+                text=json.dumps(payload),
+                parsed_json=payload,
+                ok=True,
+                provider="openai",
+                model=DEFAULT_OPENAI_MODEL,
+                task_name="app_file_generation",
+            )
+
+        data, provider_result = generate_json_with_ai(
+            task_name="app_file_generation",
+            instructions=sprintos.app_file_generation_instructions("flashcard_helper"),
+            user_input="Generate a local study card builder.",
+            expected_schema_description="app file generation schema",
+            fallback_factory=self.app_file_generation_payload(),
+            config=load_ai_provider_config(
+                {"SPRINTOS_AI_PROVIDER": "openai", "SPRINTOS_AI_ENABLED": "true", "OPENAI_API_KEY": api_key}
+            ),
+            provider_callable=provider,
+            validator=lambda candidate: sprintos.validate_app_file_payload_for_shape(candidate, "flashcard_helper"),
+        )
+
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(data["app_name"], "Study Card Builder")
+        self.assertTrue(provider_result.used_ai)
+        self.assertIn("app_file_generation_retry:app_shape", provider_result.warnings)
+        self.assertIn("For flashcard_helper repairs", calls[1]["instructions"])
+        self.assertIn(
+            "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.",
+            calls[1]["instructions"],
+        )
 
     def test_app_file_generation_does_not_retry_safety_validation_failure(self) -> None:
         api_key = "sk-openai-app-no-retry-safety-test"

@@ -3313,10 +3313,10 @@ class PrototypeBuilderTests(SprintOSTestCase):
                 "idea": "Build a study flashcard helper where students paste notes and get cards.",
                 "prototype_type": "ai_text_tool",
                 "name": "Study Card Builder",
-                "html": ["Study Card Builder", "Study notes", "Build Flashcards", "Question / answer cards", "Local/mocked limitation", 'data-app-shape="flashcard_helper"', 'data-template-marker="flashcard-cards"'],
+                "html": ["Study Card Builder", "Study notes", "Build Flashcards", "Question / answer cards", "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.", 'data-app-shape="flashcard_helper"', 'data-template-marker="flashcard-cards"'],
                 "js": ["sentenceCards", "buildCards", "question"],
-                "readme": ["Study Card Builder turns", "This is not live AI generation", "question/answer cards", "No OpenAI, DeepSeek"],
-                "test_plan": ["Test Plan — Study Card Builder", "question/answer cards appear with the local/mocked limitation note visible"],
+                "readme": ["Study Card Builder turns", "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.", "question/answer cards", "No OpenAI, DeepSeek"],
+                "test_plan": ["Test Plan — Study Card Builder", "question/answer cards appear with the visible note"],
                 "codex": ["Codex Build Prompt — Study Card Builder", "Improve Study Card Builder", "`notes-input`", "`card-output`"],
             },
             {
@@ -3406,7 +3406,15 @@ class PrototypeBuilderTests(SprintOSTestCase):
                 "calculate savings/surplus/deficit",
                 "visible local/demo limitation note",
             ],
-            "flashcard_helper": ["Flashcard helper contract", "question/answer cards"],
+            "flashcard_helper": [
+                "Flashcard helper contract",
+                "question/answer cards",
+                "index.html must include this visible limitation note",
+                "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.",
+                "Do not call external URLs, fetch, XMLHttpRequest, sendBeacon, providers, APIs, OpenAI, DeepSeek",
+                "The files array must contain exactly five files and no extra entries",
+                "Do not include `test-plan.md`, sample notes, JSON data files, manifests, package files, or any sixth file",
+            ],
             "quiz_recommender": ["Quiz/recommender contract", "Show Recommendation"],
             "waitlist_page": ["Landing page contract", "local-only confirmation"],
         }
@@ -3466,7 +3474,13 @@ class PrototypeBuilderTests(SprintOSTestCase):
                 "Build a study flashcard helper where students paste notes and get cards.",
                 "ai_text_tool",
                 "flashcard_helper",
-                ["notes-input", "build-cards", "card-output", "sentenceCards"],
+                [
+                    "notes-input",
+                    "build-cards",
+                    "card-output",
+                    "sentenceCards",
+                    "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.",
+                ],
             ),
         ]
 
