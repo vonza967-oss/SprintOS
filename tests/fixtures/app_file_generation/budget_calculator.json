@@ -1,0 +1,41 @@
+{
+  "app_name": "Budget Snapshot",
+  "app_type": "calculator",
+  "short_description": "Calculate monthly savings from income and expenses.",
+  "user_flow": [
+    "Enter income and expenses.",
+    "Click Calculate Budget.",
+    "Review savings, breakdown, and recommendation."
+  ],
+  "files": [
+    {
+      "filename": "index.html",
+      "content": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" /><title>Budget Snapshot</title><link rel=\"stylesheet\" href=\"style.css\" /></head><body><main data-app-shape=\"budget_calculator\"><h1>Budget Snapshot</h1><p id=\"budget-local-note\">Local demo: calculations stay in this browser and no provider or network call runs.</p><label>Income <input id=\"budget-income\" data-template-marker=\"main-input\" type=\"number\" value=\"3000\" /></label><label>Rent <input id=\"budget-rent\" type=\"number\" value=\"1200\" /></label><label>Food <input id=\"budget-food\" type=\"number\" value=\"450\" /></label><button id=\"budget-run\" data-template-marker=\"primary-action\">Calculate Budget</button><button id=\"budget-reset\" type=\"button\">Reset</button><section data-template-marker=\"result-output\"><div id=\"budget-savings\">Savings: $0</div><div id=\"budget-breakdown\" data-template-marker=\"spending-breakdown\">No breakdown yet.</div><div id=\"budget-recommendation\" data-template-marker=\"recommendation\">No recommendation yet.</div></section></main><script src=\"app.js\"></script></body></html>"
+    },
+    {
+      "filename": "style.css",
+      "content": "body{font-family:sans-serif;margin:0;padding:24px;}main{max-width:720px;margin:auto;}label{display:block;margin:10px 0;}input{padding:8px;}button{padding:10px 14px;}section{margin-top:16px;border:1px solid #ccc;padding:14px;}"
+    },
+    {
+      "filename": "app.js",
+      "content": "function money(n){return '$'+Math.round(n).toLocaleString();}function calculateBudget(){const income=Number(document.getElementById('budget-income').value)||0;const rent=Number(document.getElementById('budget-rent').value)||0;const food=Number(document.getElementById('budget-food').value)||0;const expenses=rent+food;const savings=income-expenses;document.getElementById('budget-savings').textContent='Savings: '+money(savings);document.getElementById('budget-breakdown').textContent='Income: '+money(income)+' | Rent: '+money(rent)+' | Food: '+money(food)+' | Expenses: '+money(expenses);document.getElementById('budget-recommendation').textContent=savings>0?'Put part of the surplus into a weekly buffer.':'Cut one flexible expense before adding new commitments.';}function resetBudget(){document.getElementById('budget-income').value='';document.getElementById('budget-rent').value='';document.getElementById('budget-food').value='';calculateBudget();}document.getElementById('budget-run').addEventListener('click',calculateBudget);document.getElementById('budget-reset').addEventListener('click',resetBudget);calculateBudget();"
+    },
+    {
+      "filename": "README.md",
+      "content": "# Budget Snapshot\n\nRun `python3 -m http.server 8080` and open `index.html`.\n\nAll calculations happen locally. This is a browser-only demo, not provider-backed financial advice."
+    },
+    {
+      "filename": "TEST_PLAN.md",
+      "content": "# Test Plan\n\n- Open the app.\n- Change income and expense numbers.\n- Click Calculate Budget.\n- Confirm savings, breakdown, and recommendation update."
+    }
+  ],
+  "run_instructions": "Run `python3 -m http.server 8080` and open `index.html`.",
+  "test_instructions": "Change the numbers, calculate, and confirm the budget result updates locally.",
+  "codex_next_prompt": "Improve the local budget calculator without adding dependencies.",
+  "limitations": [
+    "Local prototype only."
+  ],
+  "mocked_parts": [
+    "Recommendations are deterministic rules."
+  ]
+}
