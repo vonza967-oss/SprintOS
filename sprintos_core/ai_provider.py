@@ -678,7 +678,7 @@ def _app_file_generation_retry_instructions(instructions: str, retry_reason: str
         "provider_transient": "the provider did not return a usable response",
         "invalid_json": "the response was not parseable JSON",
         "json_shape": "the JSON shape did not match the app_file_generation contract",
-        "app_shape": "the app files missed required canonical app surfaces",
+        "app_shape": "the app files missed required app contract surfaces",
     }.get(retry_reason, "the first app_file_generation attempt could not be accepted")
     missing_surfaces = []
     if validation_result:
@@ -726,6 +726,8 @@ def _app_file_generation_retry_instructions(instructions: str, retry_reason: str
         - Include exactly these files: index.html, style.css, app.js, README.md, TEST_PLAN.md.
         - Ensure index.html links style.css and app.js.
         - Ensure app.js contains real local browser interaction behavior.
+        - For custom apps, include a clear title/purpose, app-specific sections, local/demo limitation note, practical README, and practical TEST_PLAN.
+        - For interactive custom apps, app.js must read at least one visible input, wire the primary action, and update a visible output/result area.
         - Preserve useful helper text, empty states, input-dependent outputs, and simple reset/clear behavior where appropriate.
         {missing_surface_note}
         - Do not include external URLs, network calls, provider calls, API keys, markdown fences, or placeholder-only files.

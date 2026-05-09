@@ -200,6 +200,200 @@ def _html_tag_id(tag: str) -> str:
     return match.group(1) if match else ""
 
 
+def _html_tags(html_text: str, tag_name: str) -> List[str]:
+    return [match.group(0) for match in re.finditer(rf"<\s*{re.escape(tag_name)}\b[^>]*>", html_text, flags=re.I)]
+
+
+def _html_tag_attr(tag: str, attr_name: str) -> str:
+    match = re.search(rf"\b{re.escape(attr_name)}\s*=\s*['\"]([^'\"]+)['\"]", tag, flags=re.I)
+    return match.group(1) if match else ""
+
+
+def _html_control_ids(html_text: str) -> List[str]:
+    ids: List[str] = []
+    for tag in _html_tags(html_text, "input"):
+        input_type = _html_tag_attr(tag, "type").lower()
+        if input_type in {"hidden", "button", "submit", "reset"}:
+            continue
+        element_id = _html_tag_id(tag)
+        if element_id:
+            ids.append(element_id)
+    for tag_name in ("textarea", "select"):
+        for tag in _html_tags(html_text, tag_name):
+            element_id = _html_tag_id(tag)
+            if element_id:
+                ids.append(element_id)
+    return ids
+
+
+def _html_action_ids(html_text: str) -> List[str]:
+    ids: List[str] = []
+    for tag in _html_tags(html_text, "button"):
+        element_id = _html_tag_id(tag)
+        if element_id:
+            ids.append(element_id)
+    for tag in _html_tags(html_text, "input"):
+        input_type = _html_tag_attr(tag, "type").lower()
+        if input_type in {"button", "submit"}:
+            element_id = _html_tag_id(tag)
+            if element_id:
+                ids.append(element_id)
+    return ids
+
+
+def _html_output_ids(html_text: str) -> List[str]:
+    output_terms = (
+        "output",
+        "result",
+        "summary",
+        "recommendation",
+        "breakdown",
+        "ranking",
+        "score",
+        "status",
+        "message",
+        "preview",
+        "cards",
+        "report",
+        "list",
+        "timeline",
+    )
+    ids: List[str] = []
+    for match in re.finditer(r"<\s*[\w:-]+\b[^>]*>", html_text, flags=re.I):
+        tag = match.group(0)
+        element_id = _html_tag_id(tag)
+        if not element_id:
+            continue
+        marker = _html_tag_attr(tag, "data-template-marker")
+        class_name = _html_tag_attr(tag, "class")
+        combined = _lower_join(element_id, marker, class_name)
+        if _has_any(combined, output_terms):
+            ids.append(element_id)
+    return ids
+
+
+def _html_visible_title(index_html: str) -> str:
+    h1_match = re.search(r"<\s*h1\b[^>]*>(.*?)</\s*h1\s*>", index_html, flags=re.I | re.S)
+    if h1_match:
+        return re.sub(r"<[^>]+>", " ", h1_match.group(1)).strip()
+    title_match = re.search(r"<\s*title\b[^>]*>(.*?)</\s*title\s*>", index_html, flags=re.I | re.S)
+    if title_match:
+        return re.sub(r"<[^>]+>", " ", title_match.group(1)).strip()
+    return ""
+
+
+def _significant_title_words(title: str) -> List[str]:
+    stop_words = {"the", "and", "for", "with", "app", "local", "demo", "prototype", "tool"}
+    words = [word.lower() for word in re.findall(r"[A-Za-z][A-Za-z0-9_-]{2,}", title)]
+    return [word for word in words if word not in stop_words]
+
+
+def _js_has_generic_event_handler(app_js: str) -> bool:
+    return bool(re.search(r"\.\s*addEventListener\(\s*['\"](?:click|submit|change|input)['\"]", app_js) or re.search(r"\.\s*on(?:click|submit|change|input)\b", app_js))
+
+
+def _js_reads_any_input_value(app_js: str, input_ids: Iterable[str]) -> bool:
+    return any(_js_reads_element_value(app_js, element_id) for element_id in input_ids)
+
+
+def _js_updates_any_output(app_js: str, output_ids: Iterable[str]) -> bool:
+    return any(_js_updates_element(app_js, element_id, ("textContent", "innerHTML", "value")) for element_id in output_ids)
+
+
+def _contains_placeholder_only_js(app_js: str) -> bool:
+    lowered = app_js.lower()
+    return any(marker in lowered for marker in ("coming soon", "todo", "placeholder", "lorem ipsum"))
+
+
+def _has_local_first_note(*texts: str) -> bool:
+    combined = _lower_join(*texts)
+    local_signal = _has_any(combined, ("local", "offline", "browser-only", "static", "demo", "prototype"))
+    limitation_signal = _has_any(combined, ("no external", "does not call", "no network", "no backend", "no cloud", "mock", "limitation"))
+    return local_signal and limitation_signal
+
+
+def universal_app_contract_verification_checks(
+    *,
+    index_html: str,
+    app_js: str = "",
+    readme_text: str = "",
+    test_plan_text: str = "",
+    path: str = "",
+) -> List[Dict[str, Any]]:
+    """Generic quality checks for non-canonical static prototype apps."""
+
+    label = "universal app"
+    input_ids = _html_control_ids(index_html)
+    action_ids = _html_action_ids(index_html)
+    output_ids = _html_output_ids(index_html)
+    has_interactive_ui = bool(input_ids or action_ids)
+    title = _html_visible_title(index_html)
+    title_words = _significant_title_words(title)
+    network_blockers = external_network_markers("index.html", index_html) + external_network_markers("style/app.js", app_js)
+    provider_markers = (
+        "api." + "op" + "enai.com",
+        "op" + "enai.com/v1",
+        "api." + "deep" + "seek.com",
+        "/chat/completions",
+        "/v1/responses",
+        "op" + "enai_api_key",
+        "deep" + "seek_api_key",
+    )
+    has_provider_marker = _has_any(_lower_join(index_html, app_js), provider_markers)
+
+    def check(name: str, ok: bool, pass_message: str, fail_message: str, status: str = "fail") -> Dict[str, Any]:
+        return {
+            "name": f"{label}: {name}",
+            "status": "pass" if ok else status,
+            "message": pass_message if ok else fail_message,
+            "path": path or None,
+        }
+
+    has_title = bool(title.strip()) and bool(re.search(r"<\s*h1\b", index_html, flags=re.I))
+    has_purpose = _has_any(index_html, ("purpose", "use this", "helps", "for ", "so you can", "designed for", "built for"))
+    has_sections = len(re.findall(r"<\s*(?:section|article|h2|h3|li)\b", index_html, flags=re.I)) >= 2
+    reads_input = (not input_ids) or _js_reads_any_input_value(app_js, input_ids)
+    action_wired = (not action_ids) or any(_js_handles_action(app_js, index_html, element_id) for element_id in action_ids) or _js_has_generic_event_handler(app_js)
+    has_output_surface = (not has_interactive_ui) or bool(output_ids)
+    updates_output = (not output_ids or not has_interactive_ui) or _js_updates_any_output(app_js, output_ids)
+    has_empty_state = (not has_interactive_ui) or _has_any(_lower_join(index_html, app_js), ("empty", "no ", "not yet", "enter", "add ", "start", "nothing", "ready"))
+    has_local_note = _has_local_first_note(index_html, readme_text, test_plan_text)
+    readme_lower = readme_text.lower()
+    test_plan_lower = test_plan_text.lower()
+    readme_mentions_title = not title_words or any(word in readme_lower for word in title_words[:3])
+    test_plan_mentions_title = not title_words or any(word in test_plan_lower for word in title_words[:3])
+    readme_practical = (
+        readme_mentions_title
+        and _has_any(readme_lower, ("purpose", "what it does", "overview", "helps"))
+        and _has_any(readme_lower, ("how to run", "run `", "open index.html", "http.server"))
+        and _has_any(readme_lower, ("test", "manual", "how to use"))
+        and _has_any(readme_lower, ("limit", "limitation", "local", "demo", "prototype"))
+        and _has_any(readme_lower, ("codex", "next step", "next steps"))
+    )
+    test_plan_practical = (
+        test_plan_mentions_title
+        and _has_any(test_plan_lower, ("happy path", "main path", "basic flow"))
+        and _has_any(test_plan_lower, ("edge", "empty", "invalid", "missing", "blank"))
+        and _has_any(test_plan_lower, ("local", "offline", "network", "external", "safety"))
+    )
+    no_network = not network_blockers and not has_provider_marker
+
+    return [
+        check("title and purpose are visible", has_title and has_purpose, "The app has a visible title and purpose.", "Add a visible h1 title and purpose/use-case copy."),
+        check("meaningful sections exist", has_sections, "The app has meaningful sections or screens.", "Add meaningful sections, screens, or content groups."),
+        check("input value is read when inputs exist", reads_input, "The app reads at least one input value when inputs exist.", "app.js must read at least one visible input value."),
+        check("primary action is wired when actions exist", action_wired, "The app wires the primary action.", "app.js must handle the primary button or form action."),
+        check("output surface exists for interactive flow", has_output_surface, "The app has an output surface for the interactive flow.", "Interactive apps need a visible output/result area."),
+        check("output surface updates", updates_output, "The app updates a visible output area.", "app.js must update a visible output/result area."),
+        check("placeholder-only behavior is avoided", not _contains_placeholder_only_js(app_js), "The app avoids placeholder-only behavior.", "Replace placeholder-only app.js behavior with local deterministic logic."),
+        check("useful empty state exists", has_empty_state, "The app has a useful empty or start state.", "Interactive apps need a useful empty/start state."),
+        check("local demo limitation note exists", has_local_note, "The app explains local/demo limitations.", "Add a local/demo limitation note and make clear no external service is required."),
+        check("README is practical and app-specific", readme_practical, "README includes purpose, run steps, tests, limitations, and Codex next steps.", "README must include purpose, how to run, manual test steps, limitations, and Codex next steps."),
+        check("TEST_PLAN is practical and app-specific", test_plan_practical, "TEST_PLAN includes happy path, edge cases, and safety/local-first checks.", "TEST_PLAN must include happy path, edge cases, and safety/local-first checks."),
+        check("no browser network or provider calls", no_network, "No browser network or provider calls were found.", "Remove browser network calls, provider endpoints, API calls, and key references."),
+    ]
+
+
 def infer_static_app_shape(
     project_text: str,
     prototype_type: str = "",

@@ -81,6 +81,68 @@ class AIProviderTests(SprintOSTestCase):
             "mocked_parts": ["Scoring is deterministic."],
         }
 
+    def custom_app_file_generation_payload(self) -> dict:
+        return {
+            "app_name": "Habit Sprint",
+            "app_type": "static_app",
+            "short_description": "Plan one tiny habit sprint locally.",
+            "user_flow": ["Enter a habit.", "Click Build Sprint.", "Review the local sprint plan."],
+            "files": [
+                {
+                    "filename": "index.html",
+                    "content": (
+                        '<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>Habit Sprint</title>'
+                        '<link rel="stylesheet" href="style.css" /></head><body><main><h1>Habit Sprint</h1>'
+                        '<p>Purpose: helps busy builders turn one habit idea into a seven-day local practice plan.</p>'
+                        '<p>This local demo runs in the browser only, uses deterministic rules, and does not call external services.</p>'
+                        '<section><h2>Habit input</h2><label for="habit-input">Habit to practice</label>'
+                        '<input id="habit-input" placeholder="Write for 10 minutes" /><button id="build-sprint">Build Sprint</button>'
+                        '<button id="reset-sprint" type="button">Clear</button></section>'
+                        '<section><h2>Sprint output</h2><div id="sprint-output" class="result">Empty state: enter a habit to create a tiny practice plan.</div></section>'
+                        '</main><script src="app.js"></script></body></html>'
+                    ),
+                },
+                {"filename": "style.css", "content": "body{font-family:sans-serif;padding:24px;}section{margin-top:16px}.result{border:1px solid #ccc;padding:12px}"},
+                {
+                    "filename": "app.js",
+                    "content": (
+                        "const habitInput=document.getElementById('habit-input');"
+                        "const sprintOutput=document.getElementById('sprint-output');"
+                        "function buildSprint(){const habit=habitInput.value.trim();"
+                        "if(!habit){sprintOutput.textContent='Empty state: enter one habit before building a sprint.';return;}"
+                        "sprintOutput.textContent='Seven-day sprint for '+habit+': do it for 10 minutes, track one signal, and review on day 7.';}"
+                        "function resetSprint(){habitInput.value='';sprintOutput.textContent='Empty state: enter a habit to create a tiny practice plan.';habitInput.focus();}"
+                        "document.getElementById('build-sprint').addEventListener('click',buildSprint);"
+                        "document.getElementById('reset-sprint').addEventListener('click',resetSprint);"
+                    ),
+                },
+                {
+                    "filename": "README.md",
+                    "content": (
+                        "# Habit Sprint\n\n## Purpose\nHabit Sprint helps a busy builder create a local seven-day habit practice plan.\n\n"
+                        "## How to run\nOpen `index.html` directly or run `python3 -m http.server 8080` in this folder.\n\n"
+                        "## Manual test steps\nEnter a habit, click **Build Sprint**, confirm the sprint output changes, then click **Clear**.\n\n"
+                        "## Limitations\nThis is a local deterministic demo. It has no backend, network calls, cloud sync, or live AI.\n\n"
+                        "## Codex next steps\nImprove the scoring rules or add one export action while keeping the app local-first."
+                    ),
+                },
+                {
+                    "filename": "TEST_PLAN.md",
+                    "content": (
+                        "# Habit Sprint Test Plan\n\n## Happy path\n- Enter `Write for 10 minutes` and click **Build Sprint**.\n"
+                        "- Confirm the Habit Sprint output includes the habit and a seven-day plan.\n\n"
+                        "## Edge cases\n- Leave the habit blank and confirm the empty state asks for a habit.\n- Click **Clear** and confirm the output resets.\n\n"
+                        "## Safety/local-first checks\n- Disable network access and confirm the app still works.\n- Confirm there are no external URLs, provider calls, API keys, or backend requests."
+                    ),
+                },
+            ],
+            "run_instructions": "Open index.html locally.",
+            "test_instructions": "Run the happy path and blank-input edge case.",
+            "codex_next_prompt": "Improve one small local habit-planning rule.",
+            "limitations": ["Local deterministic demo only."],
+            "mocked_parts": ["No backend or live AI is implemented."],
+        }
+
     def test_app_file_generation_openai_schema_is_shallow_strict_compatible(self) -> None:
         schema = build_ai_task_json_schema("app_file_generation")
         text_format = build_openai_text_format("app_file_generation")
@@ -307,34 +369,109 @@ class AIProviderTests(SprintOSTestCase):
                 self.assert_no_external_network_or_provider_calls(self.app_file_contents(self.app_file_fixture(filename)))
 
     def test_custom_app_shape_is_not_subject_to_canonical_fixture_requirements(self) -> None:
-        payload = {
-            "app_name": "Local Notes",
-            "app_type": "static_app",
-            "short_description": "Capture one local note.",
-            "user_flow": ["Type a note.", "Click Save.", "Read the local message."],
-            "files": [
-                {
-                    "filename": "index.html",
-                    "content": '<!doctype html><html><head><link rel="stylesheet" href="style.css" /></head><body><main><h1>Local Notes</h1><textarea id="note"></textarea><button id="save">Save</button><p id="output">No note yet.</p></main><script src="app.js"></script></body></html>',
-                },
-                {"filename": "style.css", "content": "body{font-family:sans-serif;}"},
-                {
-                    "filename": "app.js",
-                    "content": "document.getElementById('save').addEventListener('click',function(){document.getElementById('output').textContent=document.getElementById('note').value.trim()||'Empty note.';});",
-                },
-                {"filename": "README.md", "content": "# Local Notes\n\nRun locally."},
-                {"filename": "TEST_PLAN.md", "content": "# Test Plan\n\n- Save a note locally."},
-            ],
-            "run_instructions": "Open locally.",
-            "test_instructions": "Save a note.",
-            "codex_next_prompt": "Improve the local note flow.",
-            "limitations": ["Local only."],
-            "mocked_parts": ["None."],
-        }
+        payload = self.custom_app_file_generation_payload()
 
         result = sprintos.validate_app_file_payload_for_shape(payload, "custom_static_app")
 
         self.assertTrue(result["ok"], result)
+
+    def test_custom_interactive_app_passes_universal_contract(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+        _, provider = generate_json_with_ai(
+            task_name="app_file_generation",
+            instructions=sprintos.app_file_generation_instructions("custom_static_app"),
+            user_input="Generate a local habit sprint helper.",
+            expected_schema_description="app file generation schema",
+            fallback_factory=self.app_file_generation_payload(),
+            config=load_ai_provider_config(
+                {"SPRINTOS_AI_PROVIDER": "openai", "SPRINTOS_AI_ENABLED": "true", "OPENAI_API_KEY": "sk-openai-custom-contract"}
+            ),
+            provider_callable=lambda **_: fake_provider_result(text=json.dumps(payload), parsed_json=payload, ok=True, provider="openai"),
+            validator=lambda candidate: sprintos.validate_app_file_payload_for_shape(candidate, "custom_static_app"),
+        )
+
+        self.assertTrue(provider.used_ai)
+
+    def test_custom_app_with_placeholder_only_output_fails_universal_contract(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+        payload["files"][2]["content"] = (
+            "document.getElementById('build-sprint').addEventListener('click',function(){"
+            "const habit=document.getElementById('habit-input').value.trim();"
+            "document.getElementById('sprint-output').textContent='Results coming soon for '+habit;"
+            "});"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="custom_static_app")
+
+        self.assertTrue(any("placeholder-only_behavior_is_avoided" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_custom_app_with_inputs_but_no_input_reads_fails_universal_contract(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+        payload["files"][2]["content"] = (
+            "document.getElementById('build-sprint').addEventListener('click',function(){"
+            "document.getElementById('sprint-output').textContent='Seven-day sprint: do the habit for 10 minutes.';"
+            "});"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="custom_static_app")
+
+        self.assertTrue(any("input_value_is_read_when_inputs_exist" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_custom_app_with_action_button_but_no_event_handler_fails_universal_contract(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+        payload["files"][2]["content"] = (
+            "const habit=document.getElementById('habit-input').value.trim();"
+            "document.getElementById('sprint-output').textContent='Seven-day sprint for '+habit;"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="custom_static_app")
+
+        self.assertTrue(any("primary_action_is_wired_when_actions_exist" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_custom_non_interactive_informational_app_passes_universal_contract(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+        payload.update(
+            {
+                "app_name": "Launch Checklist",
+                "app_type": "static_app",
+                "short_description": "Explain a local launch checklist.",
+                "user_flow": ["Open the checklist.", "Review the sections.", "Pick the next local action."],
+            }
+        )
+        payload["files"][0]["content"] = (
+            '<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>Launch Checklist</title>'
+            '<link rel="stylesheet" href="style.css" /></head><body><main><h1>Launch Checklist</h1>'
+            '<p>Purpose: helps a solo builder review the next local launch steps before sharing a prototype.</p>'
+            '<p>This browser-only demo is informational, local, static, and does not call external services.</p>'
+            '<section><h2>Before sharing</h2><ul><li>Open the prototype.</li><li>Run the manual test plan.</li></ul></section>'
+            '<section><h2>Next action</h2><p>Package the static files and send them to one tester.</p></section>'
+            '</main><script src="app.js"></script></body></html>'
+        )
+        payload["files"][2]["content"] = "document.documentElement.dataset.ready='true';"
+        payload["files"][3]["content"] = (
+            "# Launch Checklist\n\n## Purpose\nLaunch Checklist explains the local steps before sharing a prototype.\n\n"
+            "## How to run\nOpen `index.html` directly or run `python3 -m http.server 8080`.\n\n"
+            "## Manual test steps\nRead each checklist section and confirm the next action is clear.\n\n"
+            "## Limitations\nThis is an informational local static demo with no network, backend, or live AI.\n\n"
+            "## Codex next steps\nAdd one small interactive checklist toggle if it remains useful."
+        )
+        payload["files"][4]["content"] = (
+            "# Launch Checklist Test Plan\n\n## Happy path\n- Open the page and read both checklist sections.\n\n"
+            "## Edge cases\n- Confirm the page remains useful with network disabled and no inputs available.\n\n"
+            "## Safety/local-first checks\n- Confirm there are no external URLs, network calls, API keys, provider calls, or backend requests."
+        )
+
+        result = sprintos.validate_app_file_payload_for_shape(payload, "custom_static_app")
+
+        self.assertTrue(result["ok"], result)
+
+    def test_custom_app_safety_still_blocks_browser_network_calls(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+        payload["files"][2]["content"] += "\nfetch('https://api.openai.com/v1/responses');"
+
+        provider = self.assert_app_generation_failure_code(payload, "app_safety_validation_failed", shape="custom_static_app")
+
+        self.assertIn("files:browser_network_calls", provider.validation_details["app_safety_failures"])
 
     def test_budget_calculator_with_right_ids_but_no_value_reads_fails_shape_validation(self) -> None:
         payload = self.app_file_fixture("budget_calculator.json")

@@ -144,6 +144,7 @@ from sprintos_core.verification_utils import (
     is_vague_next_action as helper_is_vague_next_action,
     metadata_has_unsafe_path as helper_metadata_has_unsafe_path,
     static_app_shape_verification_checks,
+    universal_app_contract_verification_checks,
 )
 from sprintos_core.zip_utils import build_zip_from_pairs, build_zip_from_reader
 
@@ -11051,12 +11052,17 @@ def app_file_generation_instructions(shape: str = "") -> str:
         - app_name must be concise: 2-5 words and under 48 characters.
         - short_description must be one short sentence under 140 characters.
         - The app should expose a clear input, one primary action, and one visible output or result state.
-        - Include a clear app title and purpose, meaningful helper text, useful empty states, and a primary action.
+        - For non-interactive informational apps, omit fake inputs/actions and instead make the purpose, target user/use case, sections, and next steps clear.
+        - Include a clear app title and purpose, target user or use case where inferable, meaningful helper text, useful empty states, and a primary action when interaction is appropriate.
+        - For arbitrary/custom prompts, design a useful local static prototype for the user's idea; do not force canonical IDs unless the required app shape explicitly names them.
+        - Interactive custom apps must include an input -> action -> output flow, app.js must read at least one input value, the primary action must be wired, and app.js must update a visible output area.
         - Include reset or clear behavior where it is simple and useful.
         - Outputs must depend on the user's input, not fixed canned text.
-        - README.md must be useful for a non-technical user, and TEST_PLAN.md must be practical and specific.
+        - Include a visible local/demo limitation note. Make clear the app is local/browser-only, mocked or deterministic where relevant, and not backed by live providers.
+        - README.md must include purpose, how to run, manual test steps, limitations, and Codex next steps.
+        - TEST_PLAN.md must include a happy path, edge cases, and safety/local-first checks.
         - The app.js file must contain actual browser interaction behavior.
-        - app.js and index.html must expose the app-shape-specific surfaces SprintOS verification checks.
+        - When a required app shape is named below, app.js and index.html must expose the app-shape-specific surfaces SprintOS verification checks.
         - The files list must include exactly five entries with exactly these filenames: index.html, style.css, app.js, README.md, TEST_PLAN.md.
         - Do not include any sixth file, nested folder, lowercase `test-plan.md`, sample data file, package file, manifest, or duplicate documentation file.
         - For a business-idea scoring app, include a textarea input, score calculation, risk breakdown, smallest testable version, next action, and a visible result state.
@@ -11098,8 +11104,6 @@ def validate_app_file_payload_for_shape(payload: Any, shape: str) -> Dict[str, A
     if not result.get("ok"):
         return result
     shape = str(shape or "").strip()
-    if not shape:
-        return result
     sanitized = dict(result.get("sanitized_payload") or {})
     files = prototype_files_from_app_payload(sanitized)
     checks = static_app_shape_verification_checks(
@@ -11108,6 +11112,13 @@ def validate_app_file_payload_for_shape(payload: Any, shape: str) -> Dict[str, A
         app_js=files.get("app.js") or "",
         readme_text=files.get("README.md") or "",
     )
+    if not checks:
+        checks = universal_app_contract_verification_checks(
+            index_html=files.get("index.html") or "",
+            app_js=files.get("app.js") or "",
+            readme_text=files.get("README.md") or "",
+            test_plan_text=files.get("TEST_PLAN.md") or "",
+        )
     failed_checks = [item for item in checks if str(item.get("status") or "") == "fail"]
     if failed_checks:
         updated = dict(result)
@@ -21179,16 +21190,35 @@ def append_static_app_shape_checks(
         files=files,
     )
     if not shape:
-        return ""
-    checks.extend(
-        static_app_shape_verification_checks(
-            shape,
-            index_html=files.get("index.html") or files.get("src/index.html") or "",
-            app_js=files.get("app.js") or files.get("src/app.js") or "",
-            readme_text=files.get("README.md") or "",
-            path=str(path or ""),
+        checks.extend(
+            universal_app_contract_verification_checks(
+                index_html=files.get("index.html") or files.get("src/index.html") or "",
+                app_js=files.get("app.js") or files.get("src/app.js") or "",
+                readme_text=files.get("README.md") or "",
+                test_plan_text=files.get("TEST_PLAN.md") or files.get("test-plan.md") or "",
+                path=str(path or ""),
+            )
         )
+        return ""
+    shape_checks = static_app_shape_verification_checks(
+        shape,
+        index_html=files.get("index.html") or files.get("src/index.html") or "",
+        app_js=files.get("app.js") or files.get("src/app.js") or "",
+        readme_text=files.get("README.md") or "",
+        path=str(path or ""),
     )
+    if shape_checks:
+        checks.extend(shape_checks)
+    else:
+        checks.extend(
+            universal_app_contract_verification_checks(
+                index_html=files.get("index.html") or files.get("src/index.html") or "",
+                app_js=files.get("app.js") or files.get("src/app.js") or "",
+                readme_text=files.get("README.md") or "",
+                test_plan_text=files.get("TEST_PLAN.md") or files.get("test-plan.md") or "",
+                path=str(path or ""),
+            )
+        )
     return shape
 
 
