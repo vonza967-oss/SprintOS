@@ -70,6 +70,7 @@ from sprintos_core.ai_schemas import (
     build_json_only_instructions,
     validate_ai_payload,
 )
+from sprintos_core.app_intent import app_intent_report_summary, review_app_intent
 from sprintos_core.constants import (
     BUILD_PACK_ROOT_FILES,
     BUILD_PACK_TARGET_FILES,
@@ -11079,6 +11080,13 @@ def app_file_generation_instructions(shape: str = "") -> str:
 
 def app_file_generation_user_input(project: Dict[str, Any], ctx: Dict[str, Any], app_type: str) -> str:
     shape = str(ctx.get("offline_template_shape") or "")
+    sprint = project.get("sprint") or {}
+    intent_review = sprint.get("_app_intent_review") if isinstance(sprint, dict) else {}
+    if not isinstance(intent_review, dict):
+        intent_review = {}
+    intent_brief = str(intent_review.get("enriched_generation_brief") or "").strip()
+    intent_status = str(intent_review.get("status") or "").strip()
+    answered_followups = intent_review.get("answered_followups") or []
     return textwrap.dedent(
         f"""\
         Project title: {ctx.get('title') or project.get('title') or 'SprintOS App'}
@@ -11094,6 +11102,9 @@ def app_file_generation_user_input(project: Dict[str, Any], ctx: Dict[str, Any],
         Current blocker: {ctx.get('current_blocker') or ''}
         Next tiny action: {ctx.get('next_tiny_action') or ''}
         Publish or test action: {ctx.get('publish_or_test_action') or ''}
+        App intent review status: {intent_status or 'not reviewed'}
+        App intent generation brief: {intent_brief or 'n/a'}
+        Answered follow-up details: {json.dumps(answered_followups, indent=2)}
         Existing feature bullets: {json.dumps(ctx.get('feature_bullets') or [], indent=2)}
         Feedback questions: {json.dumps(ctx.get('feedback_questions') or [], indent=2)}
         """
@@ -20158,6 +20169,7 @@ def quick_launch_manual_test_checklist_markdown() -> str:
 def quick_launch_report_markdown(payload: Dict[str, Any]) -> str:
     warnings = payload.get("warnings") or []
     blockers = payload.get("blockers") or []
+    intent_summary = app_intent_report_summary(payload.get("app_intent_review") or {})
     lines = [
         f"# Quick Launch Report — {payload['project_title']}",
         "",
@@ -20201,6 +20213,12 @@ def quick_launch_report_markdown(payload: Dict[str, Any]) -> str:
         f"- Task name: {payload.get('ai_task_name') or 'n/a'}",
         f"- Fallback reason: {payload.get('ai_fallback_reason') or 'none'}",
         f"- Fallback/error summary: {payload.get('ai_error_summary') or payload.get('_note') or 'none'}",
+        "",
+        "## App Intent Review",
+        f"- Status: {intent_summary.get('status') or 'not reviewed'}",
+        f"- App name guess: {intent_summary.get('app_name_guess') or 'n/a'}",
+        f"- App type guess: {intent_summary.get('app_type_guess') or 'n/a'}",
+        f"- Can generate with assumptions: {bool(intent_summary.get('can_generate_with_assumptions'))}",
         "",
         "## Status",
         payload["status"],
@@ -20286,6 +20304,7 @@ def quick_launch_artifact_index_markdown(payload: Dict[str, Any]) -> str:
 
 def write_quick_launch_report_folder(payload: Dict[str, Any], report_dir: Optional[Path] = None) -> Path:
     report_dir = report_dir or create_quick_launch_report_dir(payload["project_title"], payload["launch_goal"], payload["created_at"])
+    intent_summary = app_intent_report_summary(payload.get("app_intent_review") or {})
     file_contents = {
         "quick-launch-report.md": quick_launch_report_markdown(payload),
         "artifact-index.md": quick_launch_artifact_index_markdown(payload),
@@ -20323,6 +20342,7 @@ def write_quick_launch_report_folder(payload: Dict[str, Any], report_dir: Option
                 "generation_mode_requested": payload.get("generation_mode_requested") or "auto",
                 "ai_fallback_reason": payload.get("ai_fallback_reason") or "",
                 "ai_error_summary": payload.get("ai_error_summary") or "",
+                "app_intent_review": intent_summary,
                 "_mode": payload.get("_mode") or "offline",
                 "_note": payload.get("_note") or "",
             },
@@ -20341,6 +20361,7 @@ def build_quick_launch_payload(
     report_dir: Path,
     created_at: str,
     generation_mode: str = "auto",
+    app_intent_review: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     latest_prototype = project.get("latest_prototype") or latest_project_prototype(project["id"], include_prompt=True)
     latest_deploy_pack = project.get("latest_deploy_pack") or latest_project_deploy_pack(
@@ -20403,6 +20424,7 @@ def build_quick_launch_payload(
             "quick_launch_report": str(report_dir),
         },
         "end_output": str(project.get("desired_output") or ""),
+        "app_intent_review": dict(app_intent_review or {}),
     }
     payload["share_message"] = quick_launch_share_message(project, pipeline_run)
     ai_route = ai_generation_route_kwargs("quick_launch_summary", generation_mode)
@@ -20516,6 +20538,7 @@ def quick_launch_response(row: sqlite3.Row | Dict[str, Any]) -> Dict[str, Any]:
         "done_definition": str(metadata.get("done_definition") or ""),
         "generation_mode_requested": str(metadata.get("generation_mode_requested") or "auto"),
         "app_generation_fallback_mode": str(metadata.get("app_generation_fallback_mode") or "template"),
+        "app_intent_review": dict(metadata.get("app_intent_review") or {}),
         "used_ai": bool(metadata.get("used_ai")),
         "ai_provider": str(metadata.get("ai_provider") or "offline"),
         "ai_model": str(metadata.get("ai_model") or ""),
@@ -21080,6 +21103,8 @@ def run_quick_launch(
     build_target: str = "auto",
     generation_mode: str = "auto",
     fallback_mode: str = "",
+    intent_review_action: str = "",
+    follow_up_answers: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     idea = str(raw_idea or "").strip()
     if not idea:
@@ -21093,9 +21118,18 @@ def run_quick_launch(
     prototype_choice = normalize_pipeline_prototype_choice(prototype_type or "auto")
     selected_hosting_target = normalize_hosting_target(hosting_target or "static")
     build_choice = normalize_pipeline_build_target(build_target or "auto")
+    intent_action = str(intent_review_action or "").strip()
+    use_assumptions = intent_action == "generate_with_assumptions"
+    answered_followups = follow_up_answers if isinstance(follow_up_answers, list) else []
+    app_intent_review = review_app_intent(
+        idea,
+        answered_followups=answered_followups,
+        generate_with_assumptions=use_assumptions,
+    )
 
     sprint = generate_sprint(idea, "auto", timebox, energy, desired_output, generation_mode=requested_mode)
     sprint["title"] = title_from_idea(idea)
+    sprint["_app_intent_review"] = app_intent_review
     workflow_id = str(sprint.get("_workflow_id") or infer_workflow(idea, "auto", load_workflows()))
     project_id = save_project(
         idea,
@@ -21130,6 +21164,7 @@ def run_quick_launch(
         report_dir,
         created_at,
         generation_mode=requested_mode,
+        app_intent_review=app_intent_review,
     )
     payload["app_generation_fallback_mode"] = resolved_fallback_mode
     if payload.get("app_generation_failure"):
@@ -24737,6 +24772,7 @@ INDEX_HTML = r"""
         <button id="quickLaunchRun">Create App</button>
       </div>
       <div id="quickLaunchPreflight" class="muted" style="margin-top:10px"></div>
+      <div id="quickLaunchIntentReview" style="margin-top:10px"></div>
       <details class="resume-plan" style="margin-top:14px">
         <summary><strong>Advanced / Plan Only</strong></summary>
         <p class="muted" style="margin-top:12px">Use the classic planner when you want only the sprint plan without starting the main build lane.</p>
@@ -24865,6 +24901,7 @@ INDEX_HTML = r"""
         <div id="homeQuickLaunchPreflight" class="muted" style="margin-top:10px">
           <p><strong>Create App preflight</strong><br />Checking AI readiness. Create App can fall back to the local template if AI is unavailable.</p>
         </div>
+        <div id="homeQuickLaunchIntentReview" style="margin-top:10px"></div>
       </section>
     </div>
   </main>
@@ -24897,6 +24934,7 @@ let currentAiProviderEvalPayload = null;
 let currentAiRecommendations = null;
 let currentTodayDashboard = null;
 let currentLocalRestoreResult = null;
+let currentQuickLaunchIntentReview = null;
 let workflows = {};
 const pipelineGoals = {
   validate_fast: 'Validate fast',
@@ -25289,6 +25327,7 @@ function renderHomeCreateAppForm(prefix = 'homeQuickLaunch', title = 'Create you
         <button onclick="runQuickLaunch('home')">Create App</button>
       </div>
       <div id="${prefix}Preflight" class="muted" style="margin-top:10px"></div>
+      <div id="${prefix}IntentReview" style="margin-top:10px"></div>
       ${includeRecentProjects}
     </section>
   `;
@@ -25999,6 +26038,75 @@ function refreshQuickLaunchPreflight() {
       : '';
     node.innerHTML = `<p><strong>Create App preflight</strong><br />${esc(copy.summary)}</p>${detailHtml}`;
   });
+}
+
+function quickLaunchIntentReviewNode(source = 'sidebar') {
+  return $(source === 'home' ? 'homeQuickLaunchIntentReview' : 'quickLaunchIntentReview');
+}
+
+function collectFollowUpAnswers(source = 'sidebar') {
+  const node = quickLaunchIntentReviewNode(source);
+  if (!node) return [];
+  return Array.from(node.querySelectorAll('[data-intent-question]')).map((input) => ({
+    question: input.getAttribute('data-intent-question') || '',
+    answer: input.value.trim()
+  })).filter((item) => item.question && item.answer);
+}
+
+function clearQuickLaunchIntentReview(source = 'sidebar') {
+  const node = quickLaunchIntentReviewNode(source);
+  if (node) node.innerHTML = '';
+}
+
+function renderQuickLaunchIntentReview(source, review) {
+  const node = quickLaunchIntentReviewNode(source);
+  if (!node || !review) return;
+  currentQuickLaunchIntentReview = review;
+  const status = review.status || '';
+  if (status === 'ready_to_generate') {
+    node.innerHTML = '';
+    return;
+  }
+  const questions = (review.follow_up_questions || []).slice(0, 5);
+  const questionFields = questions.map((question, index) => `
+    <div class="field">
+      <label for="${source}-intent-answer-${index}">${esc(question)}</label>
+      <input id="${source}-intent-answer-${index}" data-intent-question="${esc(question)}" placeholder="Short answer" />
+    </div>
+  `).join('');
+  const assumptions = (review.assumptions || []).slice(0, 4);
+  const assumptionHtml = assumptions.length
+    ? `<ul>${assumptions.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`
+    : '';
+  const headline = status === 'needs_clarification'
+    ? 'SprintOS recommends a few answers first.'
+    : 'SprintOS can generate now with assumptions.';
+  node.innerHTML = `
+    <div class="resume-plan">
+      <p><strong>${esc(headline)}</strong></p>
+      <p class="muted">App guess: ${esc(review.app_name_guess || 'Local App')} · ${esc(review.app_type_guess || 'local app')}</p>
+      ${questionFields}
+      ${assumptionHtml ? `<details><summary><strong>Assumptions SprintOS can use now</strong></summary>${assumptionHtml}</details>` : ''}
+      <div class="button-row" style="margin-top:12px">
+        <button onclick="runQuickLaunch('${source}', { intent_review_action: 'answer_followups' })">Answer and Generate</button>
+        <button class="secondary" onclick="runQuickLaunch('${source}', { intent_review_action: 'generate_with_assumptions' })">Generate With Assumptions</button>
+      </div>
+    </div>
+  `;
+}
+
+async function reviewQuickLaunchIntent(source = 'sidebar', action = '') {
+  const payloadBody = quickLaunchPayload(source);
+  if (!payloadBody.raw_idea) return null;
+  const response = await api('/api/app_intent_review', {
+    method: 'POST',
+    body: JSON.stringify({
+      raw_idea: payloadBody.raw_idea,
+      intent_review_action: action,
+      follow_up_answers: collectFollowUpAnswers(source)
+    })
+  });
+  return response.app_intent_review || null;
 }
 
 function renderAiDiagnosticsPanel() {
@@ -27459,7 +27567,7 @@ function quickLaunchPayload(source = 'sidebar') {
   };
 }
 
-async function runQuickLaunch(source = 'sidebar') {
+async function runQuickLaunch(source = 'sidebar', options = {}) {
   const payloadBody = quickLaunchPayload(source);
   const raw = payloadBody.raw_idea;
   if (!raw) { alert('Dump a raw idea first.'); return; }
@@ -27468,10 +27576,21 @@ async function runQuickLaunch(source = 'sidebar') {
   $('quickLaunchLoader').classList.add('show');
   if ($('quickLaunchRun')) $('quickLaunchRun').disabled = true;
   try {
+    const intentAction = options.intent_review_action || '';
+    const intentReview = await reviewQuickLaunchIntent(source, intentAction);
+    if (intentReview && intentReview.status !== 'ready_to_generate' && !intentAction) {
+      $('quickLaunchLoader').classList.remove('show');
+      if ($('quickLaunchRun')) $('quickLaunchRun').disabled = false;
+      renderQuickLaunchIntentReview(source, intentReview);
+      return;
+    }
+    payloadBody.intent_review_action = intentAction;
+    payloadBody.follow_up_answers = collectFollowUpAnswers(source);
     const payload = await api('/api/quick_launch', {
       method: 'POST',
       body: JSON.stringify(payloadBody)
     });
+    clearQuickLaunchIntentReview(source);
     const projectPayload = await api('/api/project?id=' + encodeURIComponent(payload.project_id));
     renderSprint(projectPayload.project, payload);
     await loadProjects();
@@ -29473,6 +29592,23 @@ class SprintOSHandler(BaseHTTPRequestHandler):
                 except ValueError as exc:
                     self.send_json({"error": str(exc)}, status=400)
                 return
+            if path == "/api/app_intent_review":
+                raw_idea = str(body.get("raw_idea") or "").strip()
+                if not raw_idea:
+                    self.send_json({"error": "raw_idea is required"}, status=400)
+                    return
+                follow_up_answers = body.get("follow_up_answers")
+                action = str(body.get("intent_review_action") or "")
+                self.send_json(
+                    {
+                        "app_intent_review": review_app_intent(
+                            raw_idea,
+                            answered_followups=follow_up_answers if isinstance(follow_up_answers, list) else [],
+                            generate_with_assumptions=action == "generate_with_assumptions",
+                        )
+                    }
+                )
+                return
             if path == "/api/apply_ai_route_recommendations":
                 try:
                     if not body.get("apply"):
@@ -29520,6 +29656,8 @@ class SprintOSHandler(BaseHTTPRequestHandler):
                         build_target=str(body.get("build_target") or "auto"),
                         generation_mode=normalize_generation_mode(body.get("generation_mode") or "auto"),
                         fallback_mode=normalize_app_generation_fallback_mode(body.get("fallback_mode")),
+                        intent_review_action=str(body.get("intent_review_action") or ""),
+                        follow_up_answers=body.get("follow_up_answers") if isinstance(body.get("follow_up_answers"), list) else [],
                     )
                 except ValueError as exc:
                     message = str(exc)
@@ -29559,6 +29697,7 @@ class SprintOSHandler(BaseHTTPRequestHandler):
                         "run_command": quick_launch["run_command"],
                         "test_command": quick_launch["test_command"],
                         "generation_mode_requested": quick_launch["generation_mode_requested"],
+                        "app_intent_review": quick_launch.get("app_intent_review") or {},
                         "command_center": command_center,
                         "current_stage": command_center.get("stage_label", ""),
                         "recommended_action": command_center.get("recommended_action"),

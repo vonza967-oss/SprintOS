@@ -5723,6 +5723,83 @@ class _MovedPipelineRunTests:
         self.assertEqual(run_payload["pipeline_run_id"], payload["pipeline_run_id"])
 
 
+class AppIntentReviewTests(SprintOSTestCase):
+    def test_app_intent_review_ready_for_specific_mini_crm_prompt(self) -> None:
+        review = sprintos.review_app_intent(
+            "Build a local mini CRM for freelancers to track leads, status, next follow-up date, and notes."
+        )
+
+        self.assertEqual(review["status"], "ready_to_generate")
+        self.assertEqual(review["app_type_guess"], "Mini CRM")
+        self.assertLessEqual(len(review["follow_up_questions"]), 1)
+        self.assertIn("mini CRM", review["enriched_generation_brief"])
+
+    def test_app_intent_review_needs_clarification_for_vague_business_app(self) -> None:
+        review = sprintos.review_app_intent("Build me an app for my business.")
+
+        self.assertEqual(review["status"], "needs_clarification")
+        self.assertTrue(review["can_generate_with_assumptions"])
+        self.assertGreaterEqual(len(review["follow_up_questions"]), 3)
+        self.assertLessEqual(len(review["follow_up_questions"]), 5)
+        combined = " ".join(review["follow_up_questions"]).lower()
+        for forbidden in ("deployment", "auth", "billing", "cloud sync", "github", "production infrastructure"):
+            self.assertNotIn(forbidden, combined)
+        self.assertIn("business workflow", review["app_type_guess"].lower())
+
+    def test_app_intent_review_client_tracker_gets_practical_questions_and_assumptions(self) -> None:
+        review = sprintos.review_app_intent("Build a tracker for my clients.")
+
+        self.assertIn(review["status"], {"generate_with_assumptions_available", "needs_clarification"})
+        questions = review["follow_up_questions"]
+        self.assertGreaterEqual(len(questions), 3)
+        self.assertLessEqual(len(questions), 5)
+        combined_questions = " ".join(questions).lower()
+        for expected in ("client", "status", "follow-up"):
+            self.assertIn(expected, combined_questions)
+        self.assertTrue(any("client tracker" in item.lower() for item in review["assumptions"]))
+
+    def test_app_intent_review_generate_with_assumptions_creates_enriched_brief(self) -> None:
+        review = sprintos.review_app_intent(
+            "Build a tracker for my clients.",
+            generate_with_assumptions=True,
+        )
+
+        self.assertEqual(review["status"], "generate_with_assumptions_available")
+        self.assertIn("Safe assumptions", review["enriched_generation_brief"])
+        self.assertIn("client", review["enriched_generation_brief"].lower())
+
+    def test_app_intent_review_answered_followups_enrich_generation_brief(self) -> None:
+        answers = [
+            {"question": "Which client fields matter first?", "answer": "Name, email, status, next follow-up date, project value, and notes."},
+            {"question": "What should happen most often?", "answer": "Add a client, update status, and review overdue follow-ups."},
+            {"question": "What should the main output show?", "answer": "A dashboard with active clients and overdue follow-ups."},
+        ]
+        review = sprintos.review_app_intent("Build a tracker for my clients.", answered_followups=answers)
+        project = self.create_project(raw_idea="Build a tracker for my clients.")
+        project["sprint"]["_app_intent_review"] = review
+        ctx = sprintos.prototype_context_offline(project, "landing_page", prototype_id="intent-test")
+
+        brief = review["enriched_generation_brief"]
+        user_input = sprintos.app_file_generation_user_input(project, ctx, "static_app")
+
+        self.assertEqual(review["status"], "ready_to_generate")
+        self.assertIn("Answered follow-up details", brief)
+        self.assertIn("overdue follow-ups", brief)
+        self.assertIn("overdue follow-ups", user_input)
+
+    def test_quick_launch_generate_with_assumptions_stores_intent_review_metadata(self) -> None:
+        quick_launch = sprintos.run_quick_launch(
+            raw_idea="Build a tracker for my clients.",
+            intent_review_action="generate_with_assumptions",
+        )
+        project = sprintos.get_project(quick_launch["project_id"])
+        review = project["sprint"]["_app_intent_review"]
+
+        self.assertEqual(review["status"], "generate_with_assumptions_available")
+        self.assertIn("Safe assumptions", review["enriched_generation_brief"])
+        self.assertEqual(quick_launch["app_intent_review"]["status"], "generate_with_assumptions_available")
+
+
 class _MovedQuickLaunchTests:
     def app_file_generation_payload(self) -> dict:
         return {

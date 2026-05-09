@@ -831,6 +831,22 @@ class DashboardFlowTests(SprintOSTestCase):
         self.assertIn("current_stage", payload)
         self.assertIn("recommended_action", payload)
         self.assertIn("next_tiny_action", payload)
+        self.assertIn("app_intent_review", payload)
+
+    def test_app_intent_review_endpoint_returns_follow_up_questions_without_provider_call(self) -> None:
+        server = self.start_server()
+        payload = self.http_post_json(
+            server,
+            "/api/app_intent_review",
+            {"raw_idea": "Build me an app for my business."},
+        )
+        review = payload["app_intent_review"]
+
+        self.assertEqual(review["status"], "needs_clarification")
+        self.assertTrue(review["can_generate_with_assumptions"])
+        self.assertGreaterEqual(len(review["follow_up_questions"]), 3)
+        self.assertLessEqual(len(review["follow_up_questions"]), 5)
+        self.assertIn("enriched_generation_brief", review)
 
     def test_today_dashboard_returns_empty_state_when_no_projects_exist(self) -> None:
         summary = sprintos.build_today_dashboard_summary()
