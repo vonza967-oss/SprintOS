@@ -11060,7 +11060,8 @@ def app_file_generation_instructions(shape: str = "") -> str:
         - Outputs must depend on the user's input, not fixed canned text.
         - Include a visible local/demo limitation note. Make clear the app is local/browser-only, mocked or deterministic where relevant, and not backed by live providers.
         - README.md must include purpose, how to run, manual test steps, limitations, and Codex next steps.
-        - TEST_PLAN.md must include a happy path, edge cases, and safety/local-first checks.
+        - TEST_PLAN.md must be practical and app-specific with these sections: setup, happy path, edge cases, expected behavior, local-first/safety checks, limitations, and suggested Codex next improvements.
+        - TEST_PLAN.md must name the app or its main workflow, describe real inputs/actions/results to try, cover blank or invalid input where relevant, and confirm the browser app needs no network, backend, provider, API key, or external service.
         - The app.js file must contain actual browser interaction behavior.
         - When a required app shape is named below, app.js and index.html must expose the app-shape-specific surfaces SprintOS verification checks.
         - The files list must include exactly five entries with exactly these filenames: index.html, style.css, app.js, README.md, TEST_PLAN.md.
@@ -14042,27 +14043,55 @@ def build_pack_test_plan_md(ctx: Dict[str, Any]) -> str:
         "Confirm the fake/simulated parts are labeled clearly.",
         "Confirm no external network calls or package-manager setup are required.",
     ]
+    expected_behavior = "The main local flow updates a visible result or state without a backend."
+    edge_case = "Try the blank or minimal-input path and confirm the app shows a useful empty state instead of breaking."
     if ctx["build_target"] == "static_app":
         checks.append("Open `src/index.html` through a local static server and verify `style.css` and `app.js` load relatively.")
+        expected_behavior = "The static app remains browser-openable and its visible output changes from local user input."
     elif ctx["build_target"] == "python_stdlib_app":
         checks.append("Start `python3 app.py`, open `/`, and verify `/healthz` responds locally.")
+        edge_case = "Start the app with no optional local data and confirm the default route still responds."
+        expected_behavior = "The stdlib app serves its main route and health route locally with no external service."
     elif ctx["build_target"] == "ai_tool_stub":
         checks.append("Start `python3 app.py`, open `/`, and verify `/healthz` responds locally.")
         checks.append("Use `/api/generate` without a `.env` file and confirm the result stays in mocked/offline mode.")
         checks.append("Confirm the browser never receives `OPENAI_API_KEY` and only calls the local `/api/generate` endpoint.")
+        edge_case = "Run without `.env` and confirm mocked/offline output still works."
+        expected_behavior = "The app stays usable in mocked/offline mode and keeps any provider use server-side and optional."
     else:
         checks.append("Read `CODEX_BUILD_PROMPT.md` and confirm it is specific enough to start implementation immediately.")
+        edge_case = "Confirm the brief still gives a next step when no prototype runtime is available."
+        expected_behavior = "The package gives Codex enough local context to start a PR-sized implementation pass."
     bullet_lines = "\n".join(f"- [ ] {item}" for item in checks)
     return textwrap.dedent(
         f"""\
-        # Test Plan
+        # Test Plan — {ctx["prototype_app_name"]}
 
-        ## Commands
+        ## Setup
         - Run: `{ctx["run_command"]}`
         - Test: `{ctx["test_command"]}`
 
-        ## Checks
+        ## Happy path
+        - [ ] Run the documented smoke test command.
+        - [ ] Inspect the main local flow once manually.
+
+        ## Edge cases
+        - [ ] {edge_case}
+
+        ## Expected behavior
+        - [ ] {expected_behavior}
+        - [ ] Confirm the fake/simulated parts are labeled clearly.
+
+        ## Local-first/safety checks
         {bullet_lines}
+
+        ## Limitations
+        - This Build Pack is a local handoff package, not a deployed production app.
+        - No external network calls, package-manager setup, API keys, backend, auth, billing, or cloud sync are required for the default checks.
+
+        ## Suggested Codex next improvements
+        - Start with the suggested first task: {ctx["suggested_first_codex_task"]}
+        - Keep the next change PR-sized and preserve the local-first behavior verified above.
         """
     ).strip() + "\n"
 

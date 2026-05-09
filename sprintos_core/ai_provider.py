@@ -726,8 +726,10 @@ def _app_file_generation_retry_instructions(instructions: str, retry_reason: str
         - Include exactly these files: index.html, style.css, app.js, README.md, TEST_PLAN.md.
         - Ensure index.html links style.css and app.js.
         - Ensure app.js contains real local browser interaction behavior.
-        - For custom apps, include a clear title/purpose, app-specific sections, local/demo limitation note, practical README, and practical TEST_PLAN.
-        - For interactive custom apps, app.js must read at least one visible input, wire the primary action, and update a visible output/result area.
+        - For custom apps, include a clear visible h1 title, purpose/use-case copy, app-specific sections, a visible local/demo limitation note, practical README, and practical TEST_PLAN.
+        - For interactive custom apps, include meaningful visible input fields when the idea implies tracking/planning, one primary action button, a visible output/result/list area, app.js reading at least one input value, app.js handling the primary action, and app.js updating the visible output.
+        - TEST_PLAN.md must use practical app-specific sections for setup, happy path, edge cases, expected behavior, local-first/safety checks, limitations, and suggested Codex next improvements.
+        - The local/demo limitation must be visible in index.html and must also be reflected in README.md and TEST_PLAN.md.
         - Preserve useful helper text, empty states, input-dependent outputs, and simple reset/clear behavior where appropriate.
         {missing_surface_note}
         - Do not include external URLs, network calls, provider calls, API keys, markdown fences, or placeholder-only files.

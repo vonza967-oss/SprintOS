@@ -4078,6 +4078,72 @@ class BuildPackTests(SprintOSTestCase):
             "mocked_parts": ["The scoring logic is intentionally simple."],
         }
 
+    def generic_custom_app_file_payload(self) -> dict:
+        return {
+            "app_name": "Local Lead Tracker",
+            "app_type": "static_app",
+            "short_description": "Track leads locally in one browser session.",
+            "user_flow": ["Enter a lead.", "Click Add Lead.", "Review the local list and summary."],
+            "files": [
+                {
+                    "filename": "index.html",
+                    "content": (
+                        '<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>Local Lead Tracker</title>'
+                        '<link rel="stylesheet" href="style.css" /></head><body><main><h1>Local Lead Tracker</h1>'
+                        '<p>Purpose: helps a freelancer track leads locally before deciding what to follow up on next.</p>'
+                        '<p>This local demo runs only in the browser, uses deterministic rules, and does not call external services.</p>'
+                        '<section><h2>Add lead</h2><input id="lead-name" placeholder="Client name" />'
+                        '<button id="add-lead" type="button">Add Lead</button><button id="clear-leads" type="button">Clear</button></section>'
+                        '<section><h2>Results</h2><div id="lead-summary" class="result">Empty state: add a lead to build the local list.</div>'
+                        '<ul id="lead-list"></ul></section></main><script src="app.js"></script></body></html>'
+                    ),
+                },
+                {"filename": "style.css", "content": "body{font-family:sans-serif;padding:24px}.result{border:1px solid #ccc;padding:12px}"},
+                {
+                    "filename": "app.js",
+                    "content": (
+                        "const leadName=document.getElementById('lead-name');const leadSummary=document.getElementById('lead-summary');"
+                        "const leadList=document.getElementById('lead-list');let leads=[];"
+                        "function renderLeads(){if(!leads.length){leadSummary.textContent='Empty state: add a lead to build the local list.';leadList.innerHTML='';return;}"
+                        "leadSummary.textContent='Tracking '+leads.length+' local lead(s). Next action: follow up with '+leads[0]+'.';"
+                        "leadList.innerHTML=leads.map((lead,index)=>'<li>'+String(index+1)+'. '+lead+'</li>').join('');}"
+                        "function addLead(){const value=leadName.value.trim();if(!value){leadSummary.textContent='Empty state: enter a lead name first.';return;}"
+                        "leads.unshift(value);leadName.value='';renderLeads();}"
+                        "function clearLeads(){leads=[];renderLeads();leadName.focus();}"
+                        "document.getElementById('add-lead').addEventListener('click',addLead);"
+                        "document.getElementById('clear-leads').addEventListener('click',clearLeads);renderLeads();"
+                    ),
+                },
+                {
+                    "filename": "README.md",
+                    "content": (
+                        "# Local Lead Tracker\n\n## Purpose\nLocal Lead Tracker helps a freelancer track leads locally in a browser session.\n\n"
+                        "## How to run\nOpen `index.html` directly or run `python3 -m http.server 8080`.\n\n"
+                        "## Manual test steps\nEnter a lead, click **Add Lead**, confirm the summary and list update, then clear the list.\n\n"
+                        "## Limitations\nThis is a local deterministic demo. It has no backend, network calls, cloud sync, API keys, or live AI.\n\n"
+                        "## Codex next steps\nImprove one filtering or export behavior while preserving the local-first flow."
+                    ),
+                },
+                {
+                    "filename": "TEST_PLAN.md",
+                    "content": (
+                        "# Local Lead Tracker Test Plan\n\n## Setup\n- Open `index.html` or serve the folder locally.\n\n"
+                        "## Happy path\n- Enter `Acme Bakery` and click **Add Lead**.\n- Confirm the summary and list update from the input.\n\n"
+                        "## Edge cases\n- Submit a blank lead and confirm the empty state remains useful.\n- Clear all leads and confirm the start state returns.\n\n"
+                        "## Expected behavior\n- Output changes from local user input and no fixed canned list is used.\n\n"
+                        "## Local-first/safety checks\n- Confirm the app works offline with no external URLs, network calls, backend, provider calls, or API keys.\n\n"
+                        "## Limitations\n- Data is demo-only and stays in the current browser session.\n\n"
+                        "## Suggested Codex next improvements\n- Add one local export or persistence option without adding external services."
+                    ),
+                },
+            ],
+            "run_instructions": "Open index.html locally.",
+            "test_instructions": "Run the happy path and blank-input edge case.",
+            "codex_next_prompt": "Improve one local CRM rule while preserving the generic contract.",
+            "limitations": ["Local deterministic demo only."],
+            "mocked_parts": ["No backend or live AI is implemented."],
+        }
+
     def test_build_packs_table_is_created(self) -> None:
         with sprintos.db() as conn:
             tables = {
@@ -4125,6 +4191,56 @@ class BuildPackTests(SprintOSTestCase):
         self.assertEqual((build_pack_dir / "src" / "app.js").read_text(encoding="utf-8"), (prototype_dir / "app.js").read_text(encoding="utf-8"))
         self.assertIn("AI-generated prototype: yes", prompt)
         self.assertIn("Improve one small part only", prompt)
+
+    def test_static_build_pack_verification_passes_generic_custom_app_with_practical_test_plan(self) -> None:
+        payload = self.generic_custom_app_file_payload()
+        project = self.create_project(raw_idea="Create a local mini CRM for freelancers.", desired_output="a local freelancer CRM app")
+        prototype = self.generate_prototype(project, "landing_page")
+        for item in payload["files"]:
+            Path(prototype["path"], item["filename"]).write_text(item["content"], encoding="utf-8")
+        prototype["prototype_type"] = "custom_static_app"
+        prototype["prototype_label"] = "Custom Static App"
+        prototype["metadata"] = {
+            "app_name": payload["app_name"],
+            "app_type": payload["app_type"],
+            "short_description": payload["short_description"],
+            "user_flow": payload["user_flow"],
+            "limitations": payload["limitations"],
+            "mocked_parts": payload["mocked_parts"],
+        }
+        build_pack = self.generate_build_pack(project, prototype, build_target="static_app")
+
+        verification = self.run_verification(project, verification_scope="build_pack", build_pack_id=build_pack["id"])
+        checks = verification["metadata"]["checks"]
+
+        self.assertEqual(verification["status"], "passed", verification["blockers"])
+        self.assertIsNone(verification["metadata"].get("app_shape"))
+        self.assertTrue(any(item["name"] == "universal app: TEST_PLAN is practical and app-specific" and item["status"] == "pass" for item in checks))
+        self.assertFalse(any("TEST_PLAN must include happy path, edge cases" in item for item in verification["blockers"]))
+
+    def test_static_build_pack_verification_fails_generic_custom_app_with_placeholder_test_plan(self) -> None:
+        payload = self.generic_custom_app_file_payload()
+        project = self.create_project(raw_idea="Create a local mini CRM for freelancers.", desired_output="a local freelancer CRM app")
+        prototype = self.generate_prototype(project, "landing_page")
+        for item in payload["files"]:
+            Path(prototype["path"], item["filename"]).write_text(item["content"], encoding="utf-8")
+        prototype["prototype_type"] = "custom_static_app"
+        prototype["prototype_label"] = "Custom Static App"
+        prototype["metadata"] = {
+            "app_name": payload["app_name"],
+            "app_type": payload["app_type"],
+            "short_description": payload["short_description"],
+            "user_flow": payload["user_flow"],
+            "limitations": payload["limitations"],
+            "mocked_parts": payload["mocked_parts"],
+        }
+        build_pack = self.generate_build_pack(project, prototype, build_target="static_app")
+        Path(build_pack["path"], "TEST_PLAN.md").write_text("# Test Plan\n\n- Open the app.\n", encoding="utf-8")
+
+        verification = self.run_verification(project, verification_scope="build_pack", build_pack_id=build_pack["id"])
+
+        self.assertEqual(verification["status"], "failed")
+        self.assertTrue(any("TEST_PLAN must include happy path, edge cases, and safety/local-first checks" in item for item in verification["blockers"]))
 
     def test_python_stdlib_build_pack_generation_creates_required_files(self) -> None:
         project = self.create_project()

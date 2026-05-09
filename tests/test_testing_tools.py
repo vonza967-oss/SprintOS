@@ -138,6 +138,23 @@ class TestingToolTests(SprintOSTestCase):
         self.assertFalse(result["canonical_shape_applied"])
         universal.assert_called_once()
 
+    def test_live_acceptance_canonical_shape_uses_canonical_verifier(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            for name in ("index.html", "app.js", "README.md", "TEST_PLAN.md"):
+                (base / name).write_text("", encoding="utf-8")
+            with mock.patch.object(live_acceptance, "universal_app_contract_verification_checks", side_effect=AssertionError("universal verifier should not run")), \
+                 mock.patch.object(
+                     live_acceptance,
+                     "static_app_shape_verification_checks",
+                     return_value=[{"name": "business idea scorer: marker", "status": "pass", "message": "ok", "path": str(base / "index.html")}],
+                 ) as canonical:
+                result = live_acceptance._shape_result("business_idea_scorer", base, generic=False)
+
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["contract"], "canonical_app_shape_v1")
+        canonical.assert_called_once()
+
     def test_live_acceptance_report_redacts_unsafe_fields(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             run_root = Path(tmp)

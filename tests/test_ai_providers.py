@@ -15,6 +15,7 @@ from sprintos_core.ai_provider import (
     DEFAULT_DEEPSEEK_BASE_URL,
     DEFAULT_DEEPSEEK_MODEL,
     DEFAULT_OPENAI_MODEL,
+    _app_file_generation_retry_instructions,
     ai_enabled,
     call_deepseek_chat_completions,
     call_openai_responses,
@@ -139,6 +140,72 @@ class AIProviderTests(SprintOSTestCase):
             "run_instructions": "Open index.html locally.",
             "test_instructions": "Run the happy path and blank-input edge case.",
             "codex_next_prompt": "Improve one small local habit-planning rule.",
+            "limitations": ["Local deterministic demo only."],
+            "mocked_parts": ["No backend or live AI is implemented."],
+        }
+
+    def generic_tracker_payload(self, *, app_name: str, subject: str, field_id: str, action_id: str, output_id: str) -> dict:
+        return {
+            "app_name": app_name,
+            "app_type": "static_app",
+            "short_description": f"Track {subject} locally in one browser session.",
+            "user_flow": [f"Enter {subject}.", "Click the primary action.", "Review the local list and summary."],
+            "files": [
+                {
+                    "filename": "index.html",
+                    "content": (
+                        f'<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>{app_name}</title>'
+                        '<link rel="stylesheet" href="style.css" /></head><body><main>'
+                        f'<h1>{app_name}</h1><p>Purpose: helps one person plan and track {subject} locally before sharing anything.</p>'
+                        '<p>This local demo runs only in the browser, uses deterministic rules, and does not call external services.</p>'
+                        f'<section><h2>Add {subject}</h2><label for="{field_id}">Item</label><input id="{field_id}" />'
+                        f'<button id="{action_id}" type="button">Add Item</button><button id="clear-items" type="button">Clear</button></section>'
+                        f'<section><h2>Results</h2><div id="{output_id}" class="result">Empty state: add an item to build the local list.</div>'
+                        '<ul id="item-list"></ul></section></main><script src="app.js"></script></body></html>'
+                    ),
+                },
+                {"filename": "style.css", "content": "body{font-family:sans-serif;padding:24px}.result{border:1px solid #ccc;padding:12px}"},
+                {
+                    "filename": "app.js",
+                    "content": (
+                        f"const input=document.getElementById('{field_id}');const output=document.getElementById('{output_id}');"
+                        "const list=document.getElementById('item-list');let items=[];"
+                        "function render(){if(!items.length){output.textContent='Empty state: add an item to build the local list.';list.innerHTML='';return;}"
+                        f"output.textContent='{app_name} is tracking '+items.length+' local item(s).';"
+                        "list.innerHTML=items.map((item,index)=>'<li>'+String(index+1)+'. '+item+'</li>').join('');}"
+                        "function addItem(){const value=input.value.trim();if(!value){output.textContent='Empty state: enter a useful item first.';return;}"
+                        "items.unshift(value);input.value='';render();}"
+                        "function clearItems(){items=[];render();input.focus();}"
+                        f"document.getElementById('{action_id}').addEventListener('click',addItem);"
+                        "document.getElementById('clear-items').addEventListener('click',clearItems);render();"
+                    ),
+                },
+                {
+                    "filename": "README.md",
+                    "content": (
+                        f"# {app_name}\n\n## Purpose\n{app_name} helps one person track {subject} locally in a browser session.\n\n"
+                        "## How to run\nOpen `index.html` directly or run `python3 -m http.server 8080`.\n\n"
+                        "## Manual test steps\nEnter an item, click the primary action, confirm the result and list update, then clear the list.\n\n"
+                        "## Limitations\nThis is a local deterministic demo. It has no backend, network calls, cloud sync, API keys, or live AI.\n\n"
+                        "## Codex next steps\nImprove one sorting, filtering, or export behavior while preserving the local-first flow."
+                    ),
+                },
+                {
+                    "filename": "TEST_PLAN.md",
+                    "content": (
+                        f"# {app_name} Test Plan\n\n## Setup\n- Open `index.html` or serve the folder locally.\n\n"
+                        "## Happy path\n- Enter one realistic item and click the primary action.\n- Confirm the result summary and list update.\n\n"
+                        "## Edge cases\n- Submit a blank item and confirm the empty state remains useful.\n- Clear the list and confirm the start state returns.\n\n"
+                        "## Expected behavior\n- Output changes based on local user input and never uses canned fixed results.\n\n"
+                        "## Local-first/safety checks\n- Confirm the app works offline with no external URLs, network calls, backend, provider calls, or API keys.\n\n"
+                        "## Limitations\n- Data is demo-only and stays in the current browser session.\n\n"
+                        "## Suggested Codex next improvements\n- Add one local export or persistence option without adding external services."
+                    ),
+                },
+            ],
+            "run_instructions": "Open index.html locally.",
+            "test_instructions": "Run the happy path and blank-input edge case.",
+            "codex_next_prompt": "Improve one local planning rule while preserving the generic contract.",
             "limitations": ["Local deterministic demo only."],
             "mocked_parts": ["No backend or live AI is implemented."],
         }
@@ -391,6 +458,64 @@ class AIProviderTests(SprintOSTestCase):
         )
 
         self.assertTrue(provider.used_ai)
+
+    def test_habit_tracker_style_mocked_output_passes_universal_contract_without_canonical_shape(self) -> None:
+        payload = self.generic_tracker_payload(
+            app_name="Habit Tracker",
+            subject="daily habits",
+            field_id="habit-name",
+            action_id="add-habit",
+            output_id="habit-summary",
+        )
+
+        result = sprintos.validate_app_file_payload_for_shape(payload, "")
+
+        self.assertTrue(result["ok"], result)
+        files = self.app_file_contents(payload)
+        self.assertEqual(sprintos.infer_static_app_shape("Create a local habit tracker.", files=files), "")
+
+    def test_content_calendar_style_mocked_output_passes_universal_contract_without_canonical_shape(self) -> None:
+        payload = self.generic_tracker_payload(
+            app_name="Content Calendar",
+            subject="weekly post ideas",
+            field_id="post-idea",
+            action_id="add-post",
+            output_id="calendar-summary",
+        )
+
+        result = sprintos.validate_app_file_payload_for_shape(payload, "")
+
+        self.assertTrue(result["ok"], result)
+        files = self.app_file_contents(payload)
+        self.assertEqual(sprintos.infer_static_app_shape("Create a local content calendar planner.", files=files), "")
+
+    def test_custom_app_with_placeholder_test_plan_fails_universal_contract(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+        payload["files"][4]["content"] = "# Test Plan\n\n- Open the app.\n"
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="custom_static_app")
+
+        self.assertTrue(any("TEST_PLAN_is_practical_and_app-specific" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_generic_repair_guidance_names_input_output_test_plan_and_limitation_requirements(self) -> None:
+        repaired = _app_file_generation_retry_instructions(
+            "Base instructions",
+            "app_shape",
+            {
+                "validation_detail": {
+                    "app_shape_failures": [
+                        "universal_app_input_value_is_read_when_inputs_exist",
+                        "universal_app_TEST_PLAN_is_practical_and_app-specific",
+                        "universal_app_local_demo_limitation_note_exists",
+                    ]
+                }
+            },
+        )
+
+        self.assertIn("meaningful visible input fields", repaired)
+        self.assertIn("app.js updating the visible output", repaired)
+        self.assertIn("setup, happy path, edge cases, expected behavior, local-first/safety checks, limitations", repaired)
+        self.assertIn("local/demo limitation must be visible in index.html", repaired)
 
     def test_custom_app_with_placeholder_only_output_fails_universal_contract(self) -> None:
         payload = self.custom_app_file_generation_payload()
