@@ -702,6 +702,15 @@ def _app_file_generation_retry_instructions(instructions: str, retry_reason: str
                 "wire compare-options, rank options locally from the user's options/criteria, and update all three output surfaces. "
                 "Include the exact visible limitation note about simple deterministic local ranking."
             )
+        if any("pricing_roi_calculator" in item or "pricing_roi_calculator" in item.replace(" ", "_") for item in missing_surfaces):
+            missing_surface_note += (
+                "\n        - For pricing_roi_calculator repairs, index.html must include roi-price, roi-cost, roi-customers, roi-run, "
+                "roi-summary, roi-breakdown, and roi-recommendation. app.js must explicitly read "
+                "document.getElementById('roi-price').value, document.getElementById('roi-cost').value, and "
+                "document.getElementById('roi-customers').value, wire roi-run, calculate at least two useful metrics such as "
+                "monthly revenue, total cost, margin, break-even units, payback period, or simple ROI, and update all three output surfaces. "
+                "Include the exact visible limitation note about simple deterministic local pricing and ROI estimates."
+            )
         if any("flashcard_helper" in item or "flashcard_helper" in item.replace(" ", "_") for item in missing_surfaces):
             missing_surface_note += (
                 "\n        - For flashcard_helper repairs, index.html must visibly include this exact limitation note near the flashcard UI: "

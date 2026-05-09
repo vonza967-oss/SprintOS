@@ -64,6 +64,13 @@ CANONICAL_CASES = (
         "raw_idea": "Build a decision matrix app where I enter options and criteria, compare them locally, see a ranked list, recommendation, and tradeoff notes.",
         "desired_output": "a local decision matrix app",
     },
+    {
+        "name": "pricing_roi_calculator",
+        "display_name": "Pricing ROI Calculator",
+        "shape": "pricing_roi_calculator",
+        "raw_idea": "Build a pricing ROI calculator where I enter price, unit cost, customers, and investment, then see revenue, margin, break-even, payback, and a recommendation.",
+        "desired_output": "a local pricing ROI calculator app",
+    },
 )
 
 

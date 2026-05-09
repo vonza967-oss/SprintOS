@@ -144,6 +144,7 @@ class AIProviderTests(SprintOSTestCase):
             "budget_calculator.json": "budget_calculator",
             "decision_matrix.json": "decision_matrix",
             "flashcard_helper.json": "flashcard_helper",
+            "pricing_roi_calculator.json": "pricing_roi_calculator",
         }
         for filename, shape in cases.items():
             with self.subTest(filename=filename):
@@ -157,6 +158,7 @@ class AIProviderTests(SprintOSTestCase):
             "budget_calculator.json": "budget_calculator",
             "decision_matrix.json": "decision_matrix",
             "flashcard_helper.json": "flashcard_helper",
+            "pricing_roi_calculator.json": "pricing_roi_calculator",
         }
         for filename, shape in cases.items():
             with self.subTest(filename=filename):
@@ -271,8 +273,36 @@ class AIProviderTests(SprintOSTestCase):
         self.assertIn("Answer", app_js)
         self.assertIn("Empty state", app_js)
 
+    def test_pricing_roi_calculator_fixture_has_metrics_invalid_handling_and_reset(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        files = self.app_file_contents(payload)
+        app_js = files["app.js"]
+        limitation = "This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser."
+
+        checks = static_app_shape_verification_checks(
+            "pricing_roi_calculator",
+            index_html=files["index.html"],
+            app_js=app_js,
+            readme_text=files["README.md"],
+        )
+
+        self.assertIn(limitation, files["index.html"])
+        self.assertIn(limitation, files["README.md"])
+        self.assertFalse([item for item in checks if item["status"] != "pass"], checks)
+        self.assertIn("monthlyRevenue", app_js)
+        self.assertIn("totalCost", app_js)
+        self.assertIn("grossProfit", app_js)
+        self.assertIn("margin", app_js)
+        self.assertIn("breakEvenUnits", app_js)
+        self.assertIn("paybackMonths", app_js)
+        self.assertIn("simpleRoi", app_js)
+        self.assertIn("value<0", app_js)
+        self.assertIn("invalid or negative values treated as 0", app_js)
+        self.assertIn("resetRoi", app_js)
+        self.assertIn("roi-reset", files["index.html"])
+
     def test_improved_canonical_fixtures_do_not_use_network_or_provider_calls(self) -> None:
-        for filename in ("business_idea_scorer.json", "budget_calculator.json", "decision_matrix.json", "flashcard_helper.json"):
+        for filename in ("business_idea_scorer.json", "budget_calculator.json", "decision_matrix.json", "flashcard_helper.json", "pricing_roi_calculator.json"):
             with self.subTest(filename=filename):
                 self.assert_no_external_network_or_provider_calls(self.app_file_contents(self.app_file_fixture(filename)))
 
@@ -423,6 +453,93 @@ class AIProviderTests(SprintOSTestCase):
         self.assertTrue(any("options_input_is_read" in item for item in failures))
         self.assertTrue(any("criteria_input_is_read" in item for item in failures))
         self.assertTrue(any("ranking_logic_exists" in item for item in failures))
+
+    def test_pricing_roi_calculator_with_ids_but_no_price_read_fails(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        payload["files"][2]["content"] = (
+            "function calculateRoi(){"
+            "const price=49;const cost=Number(document.getElementById('roi-cost').value)||0;const customers=Number(document.getElementById('roi-customers').value)||0;"
+            "const monthlyRevenue=price*customers;const totalCost=cost*customers;const margin=monthlyRevenue>0?50:0;"
+            "document.getElementById('roi-summary').textContent='Monthly revenue: '+monthlyRevenue;"
+            "document.getElementById('roi-breakdown').textContent='Total cost: '+totalCost+' Margin: '+margin;"
+            "document.getElementById('roi-recommendation').textContent='Test pricing locally.';}"
+            "document.getElementById('roi-run').addEventListener('click',calculateRoi);"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="pricing_roi_calculator")
+
+        self.assertTrue(any("price_input_is_read" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_pricing_roi_calculator_reads_price_but_not_cost_or_customers_fails(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        payload["files"][2]["content"] = (
+            "function calculateRoi(){"
+            "const price=Number(document.getElementById('roi-price').value)||0;const cost=10;const customers=20;"
+            "const monthlyRevenue=price*customers;const totalCost=cost*customers;const margin=monthlyRevenue>0?50:0;"
+            "document.getElementById('roi-summary').textContent='Monthly revenue: '+monthlyRevenue;"
+            "document.getElementById('roi-breakdown').textContent='Total cost: '+totalCost+' Margin: '+margin;"
+            "document.getElementById('roi-recommendation').textContent='Test pricing locally.';}"
+            "document.getElementById('roi-run').addEventListener('click',calculateRoi);"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="pricing_roi_calculator")
+        failures = provider.validation_details["app_shape_failures"]
+
+        self.assertTrue(any("cost_input_is_read" in item for item in failures))
+        self.assertTrue(any("customers_input_is_read" in item for item in failures))
+
+    def test_pricing_roi_calculator_without_run_handler_fails(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace(
+            "document.getElementById('roi-run').addEventListener('click',calculateRoi);",
+            "",
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="pricing_roi_calculator")
+
+        self.assertTrue(any("calculate_action_is_wired" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_pricing_roi_calculator_without_summary_update_fails(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace("document.getElementById('roi-summary').textContent=", "const skippedSummary=")
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="pricing_roi_calculator")
+
+        self.assertTrue(any("summary_output_updates" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_pricing_roi_calculator_without_breakdown_update_fails(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace("document.getElementById('roi-breakdown').textContent=", "const skippedBreakdown=")
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="pricing_roi_calculator")
+
+        self.assertTrue(any("breakdown_output_updates" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_pricing_roi_calculator_without_recommendation_update_fails(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace("document.getElementById('roi-recommendation').textContent=", "const skippedRecommendation=")
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="pricing_roi_calculator")
+
+        self.assertTrue(any("recommendation_output_updates" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_placeholder_only_pricing_roi_calculator_fails(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        payload["files"][2]["content"] = (
+            "document.getElementById('roi-run').addEventListener('click',function(){"
+            "document.getElementById('roi-summary').textContent='ROI coming soon';"
+            "document.getElementById('roi-breakdown').textContent='Breakdown coming soon';"
+            "document.getElementById('roi-recommendation').textContent='Recommendation coming soon';"
+            "});"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="pricing_roi_calculator")
+        failures = provider.validation_details["app_shape_failures"]
+
+        self.assertTrue(any("price_input_is_read" in item for item in failures))
+        self.assertTrue(any("cost_input_is_read" in item for item in failures))
+        self.assertTrue(any("customers_input_is_read" in item for item in failures))
+        self.assertTrue(any("business_metric_logic_exists" in item for item in failures))
 
     def test_mocked_ai_budget_output_uses_improved_generation_contract(self) -> None:
         payload = self.app_file_fixture("budget_calculator.json")

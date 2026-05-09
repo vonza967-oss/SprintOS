@@ -10110,6 +10110,25 @@ def project_core_text(project: Dict[str, Any]) -> str:
 
 def offline_app_template_shape(project: Dict[str, Any], prototype_type: str) -> str:
     text = project_core_text(project)
+    if any(
+        marker in text
+        for marker in (
+            "pricing calculator",
+            "roi calculator",
+            "return on investment",
+            "unit economics",
+            "margin calculator",
+            "revenue calculator",
+            "break-even",
+            "break even",
+            "payback",
+            "price my product",
+            "estimate mrr",
+            "calculate profitability",
+            "profitability calculator",
+        )
+    ):
+        return "pricing_roi_calculator"
     if any(marker in text for marker in ("budget", "expense", "expenses", "income", "savings", "save money", "spending")):
         return "budget_calculator"
     if any(marker in text for marker in ("decision matrix", "compare options", "choose between", "tradeoff", "tradeoffs", "criteria")):
@@ -10140,6 +10159,7 @@ def offline_app_template_name(shape: str) -> str:
         "budget_calculator": "Budget Snapshot",
         "decision_matrix": "Decision Matrix",
         "flashcard_helper": "Study Card Builder",
+        "pricing_roi_calculator": "Pricing ROI Calculator",
         "quiz_recommender": "Quiz Recommender",
         "waitlist_page": "Waitlist Launch Page",
         "codex_app_brief": "Codex App Brief",
@@ -10754,7 +10774,7 @@ def prototype_context(
 
 def prototype_app_file_type(project: Dict[str, Any], prototype_type: str) -> str:
     shape = offline_app_template_shape(project, prototype_type)
-    if shape == "budget_calculator":
+    if shape in {"budget_calculator", "pricing_roi_calculator"}:
         return "calculator"
     if shape == "quiz_recommender":
         return "quiz"
@@ -10796,6 +10816,11 @@ def prototype_default_user_flow(ctx: Dict[str, Any]) -> List[str]:
             "Paste study notes.",
             "Click Build Flashcards.",
             "Review the generated question and answer cards.",
+        ],
+        "pricing_roi_calculator": [
+            "Enter price, cost, customers, and optional investment assumptions.",
+            "Click Calculate ROI.",
+            "Review revenue, cost, margin, payback, and the local recommendation.",
         ],
         "quiz_recommender": [
             "Answer the short local quiz.",
@@ -10848,7 +10873,7 @@ def prototype_primary_files_for_app_payload(ctx: Dict[str, Any]) -> Dict[str, st
 
 def prototype_app_title(ctx: Dict[str, Any]) -> str:
     shape = str(ctx.get("offline_template_shape") or "")
-    if shape in {"business_idea_scorer", "budget_calculator", "decision_matrix", "flashcard_helper"}:
+    if shape in {"business_idea_scorer", "budget_calculator", "decision_matrix", "flashcard_helper", "pricing_roi_calculator"}:
         return offline_app_template_name(shape)
     return str(ctx.get("title") or "Local Prototype")
 
@@ -10871,6 +10896,8 @@ def prototype_offline_app_file_generation_payload(
         mocked_parts.append("Flashcards are created with local text-splitting rules, not live AI.")
     if str(ctx.get("offline_template_shape") or "") == "decision_matrix":
         mocked_parts.append("Decision rankings are simple deterministic local rules, not live AI.")
+    if str(ctx.get("offline_template_shape") or "") == "pricing_roi_calculator":
+        mocked_parts.append("Pricing and ROI estimates are simple deterministic local rules, not financial advice.")
     return {
         "app_name": offline_app_template_name(str(ctx.get("offline_template_shape") or "")),
         "app_type": prototype_app_file_type(project, prototype_type),
@@ -10925,6 +10952,26 @@ def app_shape_prompt_contract(shape: str) -> str:
             - Treat blank, invalid, and negative values gracefully by using 0 for math and showing a short validation note instead of failing.
             - Include a simple reset or clear action when it can be done without extra complexity.
             - Include a clear local/demo limitation note and do not call external URLs, fetch, XMLHttpRequest, sendBeacon, providers, or browser-side APIs.
+            """
+        ).strip(),
+        "pricing_roi_calculator": textwrap.dedent(
+            """\
+            Pricing ROI calculator contract:
+            - index.html must expose a numeric price input with exact id `roi-price`, `type="number"`, and `data-template-marker="main-input"`.
+            - index.html must expose a numeric cost input with exact id `roi-cost` and `type="number"`.
+            - index.html must expose a numeric customer or unit count input with exact id `roi-customers` and `type="number"`.
+            - index.html must expose a Calculate ROI button with exact id `roi-run` and `data-template-marker="primary-action"`.
+            - index.html must expose a visible result area marked with `data-template-marker="result-output"` and a visible summary output with exact id `roi-summary`.
+            - index.html must expose a visible breakdown with exact id `roi-breakdown` and `data-template-marker="roi-breakdown"`.
+            - index.html must expose a visible recommendation with exact id `roi-recommendation` and `data-template-marker="recommendation"`.
+            - app.js must wire a click handler to `roi-run`, read `document.getElementById("roi-price").value`, read `document.getElementById("roi-cost").value`, read `document.getElementById("roi-customers").value`, and handle blank/invalid/negative numbers gracefully.
+            - app.js must calculate at least two useful business metrics locally, such as monthly revenue, total cost, gross profit, margin, break-even units, payback period, or simple ROI.
+            - app.js must update `roi-summary`, `roi-breakdown`, and `roi-recommendation` using values derived from the user's inputs.
+            - Include clear numeric labels, helper text explaining assumptions, a useful empty state, formatted results where reasonable, and a short assumption/caveat note.
+            - Include simple reset or clear behavior when it can be done without extra complexity.
+            - Include this visible limitation note near the calculator UI: "This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser."
+            - Do not call external URLs, fetch, XMLHttpRequest, sendBeacon, providers, APIs, OpenAI, DeepSeek, or any browser-side network path.
+            - The files array must contain exactly five files and no extra entries: index.html, style.css, app.js, README.md, TEST_PLAN.md. Do not include sample data files, manifests, package files, or any sixth file.
             """
         ).strip(),
         "decision_matrix": textwrap.dedent(
@@ -11014,6 +11061,7 @@ def app_file_generation_instructions(shape: str = "") -> str:
         - Do not include any sixth file, nested folder, lowercase `test-plan.md`, sample data file, package file, manifest, or duplicate documentation file.
         - For a business-idea scoring app, include a textarea input, score calculation, risk breakdown, smallest testable version, next action, and a visible result state.
         - For a budget calculator app, include numeric income and expense inputs, a Calculate Budget action, savings/surplus/deficit math, a spending breakdown, a recommendation, graceful handling for empty or invalid numbers, and a visible local/demo limitation note.
+        - For a pricing or ROI calculator app, include price, cost, and customer inputs, a Calculate ROI action, revenue/cost/margin/payback or ROI math, a breakdown, a recommendation, graceful handling for empty or invalid numbers, and the exact visible local/demo limitation note from the shape contract.
         - For a decision matrix app, include options and criteria inputs, a Compare Options action, deterministic ranking logic, a ranked list, recommendation explanation, tradeoff notes, graceful empty states, and the exact visible local/demo limitation note from the shape contract.
         - For a study-card or flashcard app, include the exact visible limitation note: "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser."
         {shape_contract}
@@ -11793,6 +11841,65 @@ def budget_calculator_html(ctx: Dict[str, Any]) -> str:
     ).strip() + "\n"
 
 
+def pricing_roi_calculator_html(ctx: Dict[str, Any]) -> str:
+    app_title = prototype_app_title(ctx)
+    feedback_section = prototype_feedback_section_html(ctx)
+    limitation = "This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser."
+    return textwrap.dedent(
+        f"""\
+        <!doctype html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>{html.escape(app_title)}</title>
+          <link rel="stylesheet" href="style.css" />
+        </head>
+        <body>
+          <div class="shell" data-app-shape="pricing_roi_calculator">
+            <div class="label">SprintOS prototype - Offline app template - deterministic pricing math</div>
+            <section class="hero">
+              <h1>{html.escape(app_title)}</h1>
+              <p>Estimate price, revenue, margin, break-even, and payback using simple local assumptions.</p>
+              <p class="notice" id="roi-local-note">{limitation}</p>
+            </section>
+            <div class="grid two">
+              <section class="panel template-section" data-template-section="roi-inputs">
+                <h2>Pricing assumptions</h2>
+                <p class="muted">Use monthly customers or units. Blank, invalid, and negative values are treated as 0 for this local estimate.</p>
+                <div class="grid">
+                  <label>Price per customer or unit<input id="roi-price" class="app-main-input" data-template-marker="main-input" type="number" min="0" value="49" /></label>
+                  <label>Cost per customer or unit<input id="roi-cost" type="number" min="0" value="18" /></label>
+                  <label>Customers or units per month<input id="roi-customers" type="number" min="0" value="40" /></label>
+                  <label>Time saved per customer (hours)<input id="roi-time-saved" type="number" min="0" value="1" /></label>
+                  <label>One-time investment<input id="roi-investment" type="number" min="0" value="1200" /></label>
+                </div>
+                <div class="button-row" style="margin-top:12px">
+                  <button id="roi-run" data-template-marker="primary-action">Calculate ROI</button>
+                  <button id="roi-reset" type="button">Clear</button>
+                </div>
+              </section>
+              <section id="result" class="panel template-section" data-template-section="roi-output">
+                <h2>Output</h2>
+                <div class="kpi">
+                  <div class="panel" data-template-marker="result-output"><div class="big" id="roi-summary">Run the calculator.</div><div class="muted">Monthly profit</div></div>
+                  <div class="panel"><div class="big" id="roi-margin">0%</div><div class="muted">Gross margin</div></div>
+                  <div class="panel"><div class="big" id="roi-payback">-</div><div class="muted">Payback</div></div>
+                </div>
+                <div id="roi-breakdown" class="result breakdown" data-template-marker="roi-breakdown" style="margin-top:12px">Enter assumptions to see revenue, cost, break-even, and ROI.</div>
+                <div id="roi-recommendation" class="notice" data-template-marker="recommendation" style="margin-top:12px">Recommendation will appear here.</div>
+                <p class="muted">Caveat: this is directional pricing math, not accounting, tax, or provider billing advice.</p>
+              </section>
+            </div>
+            {feedback_section}
+          </div>
+          <script src="app.js"></script>
+        </body>
+        </html>
+        """
+    ).strip() + "\n"
+
+
 def decision_matrix_html(ctx: Dict[str, Any]) -> str:
     app_title = prototype_app_title(ctx)
     feedback_section = prototype_feedback_section_html(ctx)
@@ -11955,6 +12062,8 @@ def prototype_index_html(ctx: Dict[str, Any]) -> str:
         return business_idea_scorer_html(ctx)
     if shape == "budget_calculator":
         return budget_calculator_html(ctx)
+    if shape == "pricing_roi_calculator":
+        return pricing_roi_calculator_html(ctx)
     if shape == "decision_matrix":
         return decision_matrix_html(ctx)
     if shape == "flashcard_helper":
@@ -12168,6 +12277,70 @@ def prototype_app_js(ctx: Dict[str, Any]) -> str:
             }
             document.getElementById('budget-run').addEventListener('click', calculateBudget);
             calculateBudget();
+            """
+        ).strip() + "\n"
+        return base_js + "\n" + feedback_js
+    if shape == "pricing_roi_calculator":
+        base_js = textwrap.dedent(
+            """\
+            function roiMoney(value) {
+              return '$' + Math.round(value).toLocaleString();
+            }
+            function roiNumber(id, label, invalid) {
+              const raw = document.getElementById(id).value;
+              const value = Number(raw);
+              if (raw.trim() === '') return 0;
+              if (!Number.isFinite(value) || value < 0) {
+                invalid.push(label);
+                return 0;
+              }
+              return value;
+            }
+            function calculateRoi() {
+              const invalid = [];
+              const price = roiNumber('roi-price', 'price', invalid);
+              const cost = roiNumber('roi-cost', 'cost', invalid);
+              const customers = roiNumber('roi-customers', 'customers', invalid);
+              const timeSaved = roiNumber('roi-time-saved', 'time saved', invalid);
+              const investment = roiNumber('roi-investment', 'investment', invalid);
+              const monthlyRevenue = price * customers;
+              const totalCost = cost * customers;
+              const grossProfit = monthlyRevenue - totalCost;
+              const margin = monthlyRevenue > 0 ? Math.round((grossProfit / monthlyRevenue) * 100) : 0;
+              const breakEvenUnits = price > cost ? Math.ceil(investment / (price - cost)) : 0;
+              const paybackMonths = grossProfit > 0 && investment > 0 ? Math.ceil(investment / grossProfit) : 0;
+              const simpleRoi = investment > 0 ? Math.round(((grossProfit * 12 - investment) / investment) * 100) : 0;
+              document.getElementById('roi-summary').textContent = 'Monthly profit: ' + roiMoney(grossProfit);
+              document.getElementById('roi-margin').textContent = margin + '%';
+              document.getElementById('roi-payback').textContent = paybackMonths ? paybackMonths + ' mo' : 'n/a';
+              document.getElementById('roi-breakdown').textContent =
+                'Monthly revenue: ' + roiMoney(monthlyRevenue) + '\\n' +
+                'Monthly cost: ' + roiMoney(totalCost) + '\\n' +
+                'Gross profit: ' + roiMoney(grossProfit) + '\\n' +
+                'Gross margin: ' + margin + '%\\n' +
+                'Break-even units: ' + (breakEvenUnits || 'n/a') + '\\n' +
+                'Simple annual ROI: ' + simpleRoi + '%\\n' +
+                'Time saved estimate: ' + (timeSaved * customers).toLocaleString() + ' hour(s) per month' +
+                (invalid.length ? '\\nValidation: invalid or negative values treated as 0: ' + invalid.join(', ') + '.' : '\\nValidation: inputs look usable; blanks count as 0.');
+              document.getElementById('roi-recommendation').textContent =
+                grossProfit <= 0
+                  ? 'Recommendation: raise price, reduce unit cost, or narrow the offer before investing more.'
+                  : margin < 35
+                    ? 'Recommendation: margin is thin. Test a higher price or lower delivery cost before scaling.'
+                    : paybackMonths && paybackMonths <= 3
+                      ? 'Recommendation: payback looks fast enough for a small test. Validate with real customers next.'
+                      : 'Recommendation: run a small pricing test and watch whether customer volume supports the payback period.';
+            }
+            function resetRoi() {
+              ['roi-price','roi-cost','roi-customers','roi-time-saved','roi-investment'].forEach((id) => {
+                document.getElementById(id).value = '';
+              });
+              calculateRoi();
+              document.getElementById('roi-price').focus();
+            }
+            document.getElementById('roi-run').addEventListener('click', calculateRoi);
+            document.getElementById('roi-reset').addEventListener('click', resetRoi);
+            calculateRoi();
             """
         ).strip() + "\n"
         return base_js + "\n" + feedback_js
@@ -12443,6 +12616,7 @@ def prototype_readme(ctx: Dict[str, Any]) -> str:
         "budget_calculator": "Enter income and expense numbers, click Calculate Budget, and confirm savings, breakdown, and recommendation update.",
         "decision_matrix": "Enter options and criteria, click Compare Options, and confirm the ranking, recommendation, and tradeoff notes update.",
         "flashcard_helper": "Paste study notes, click Build Flashcards, and confirm question/answer cards are created from the notes.",
+        "pricing_roi_calculator": "Enter price, cost, customers, and investment assumptions, click Calculate ROI, and confirm summary, breakdown, payback, and recommendation update.",
         "quiz_recommender": "Answer the quiz, click Show Recommendation, and confirm the recommendation changes from local inputs.",
         "waitlist_page": "Open the page, read the message, fill the mock CTA, and sanity-check whether the promise is clear.",
     }
@@ -12453,6 +12627,7 @@ def prototype_readme(ctx: Dict[str, Any]) -> str:
         "budget_calculator": "Budget output is deterministic arithmetic over the income and expense fields.",
         "decision_matrix": "This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser.",
         "flashcard_helper": "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.",
+        "pricing_roi_calculator": "This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser.",
         "quiz_recommender": "The recommendation is a small deterministic score from the selected quiz answers.",
         "waitlist_page": "The waitlist confirmation is a mock local state change. It does not submit data.",
     }
@@ -12461,6 +12636,7 @@ def prototype_readme(ctx: Dict[str, Any]) -> str:
         "budget_calculator": "Budget Snapshot calculates monthly savings from income and expense inputs, shows a spending breakdown, and gives a practical recommendation.",
         "decision_matrix": "Decision Matrix compares options against criteria, ranks them locally, and explains the recommendation and tradeoffs.",
         "flashcard_helper": "Study Card Builder turns pasted study notes into local question/answer cards for quick review.",
+        "pricing_roi_calculator": "Pricing ROI Calculator estimates revenue, costs, margin, break-even, payback, and a practical recommendation from local assumptions.",
         "quiz_recommender": "Quiz Recommender turns a few local answers into a deterministic recommendation.",
         "waitlist_page": "Waitlist Launch Page tests a simple signup promise with a local-only mock confirmation.",
     }
@@ -12534,6 +12710,7 @@ def prototype_test_plan(ctx: Dict[str, Any]) -> str:
         "budget_calculator": "In Budget Snapshot, enter income and expenses and confirm monthly savings, spending breakdown, and recommendation update.",
         "decision_matrix": "In Decision Matrix, enter at least two options and one criterion, then confirm the ranked list, recommendation, and tradeoff notes update.",
         "flashcard_helper": "In Study Card Builder, paste study notes and confirm question/answer cards appear with the visible note: This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.",
+        "pricing_roi_calculator": "In Pricing ROI Calculator, enter price, cost, customers, and investment assumptions, then confirm revenue, cost, margin, payback, breakdown, and recommendation update.",
         "quiz_recommender": "Change quiz answers and confirm the recommendation text changes deterministically.",
         "waitlist_page": "Enter a fake name/email/note and confirm the page shows a local-only confirmation message.",
     }
@@ -12559,7 +12736,7 @@ def prototype_test_plan(ctx: Dict[str, Any]) -> str:
 def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
     app_title = prototype_app_title(ctx)
     shape = str(ctx.get("offline_template_shape") or "")
-    effective_key = shape if shape in {"business_idea_scorer", "budget_calculator", "decision_matrix", "flashcard_helper"} else str(ctx["prototype_type"])
+    effective_key = shape if shape in {"business_idea_scorer", "budget_calculator", "decision_matrix", "flashcard_helper", "pricing_roi_calculator"} else str(ctx["prototype_type"])
     files = "\n".join(f"- `{name}`" for name in PROTOTYPE_FILES)
     feature_lines = "\n".join(f"- {item}" for item in ctx["feature_bullets"])
     screen_lines = "\n".join(f"- {item}" for item in ctx["screens"])
@@ -12568,6 +12745,7 @@ def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
         "budget_calculator": "- `budget_snapshots`: income, expenses, monthly savings, spending breakdown, recommendation, created_at if local history is later added.",
         "decision_matrix": "- `decision_runs`: options, criteria, ranked results, recommendation, tradeoff notes, created_at if local browser or file persistence is later added.",
         "flashcard_helper": "- `flashcard_sets`: source notes, generated question/answer cards, created_at if local browser or file persistence is later added.",
+        "pricing_roi_calculator": "- `pricing_roi_runs`: price, cost, customers, investment, revenue, margin, payback, recommendation, created_at if local browser or file persistence is later added.",
         "landing_page": "- `interest_signals`: optional local capture shape with `name`, `email`, `note`, `created_at` if persistence is later added.",
         "ai_text_tool": "- `runs`: input text, deterministic output, created_at if the real app later saves runs locally.",
         "calculator": "- `scenarios`: input values, score, explanation, created_at if saved comparisons become necessary.",
@@ -12579,6 +12757,7 @@ def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
         "budget_calculator": "- No API route is required for v1; keep budget math in `app.js` unless snapshots need local persistence.",
         "decision_matrix": "- No API route is required for v1; keep option ranking in `app.js` unless a later local save endpoint is added.",
         "flashcard_helper": "- No API route is required for v1; keep card building in `app.js` unless a later local import/export endpoint is added.",
+        "pricing_roi_calculator": "- No API route is required for v1; keep pricing and ROI math in `app.js` unless local scenario persistence is later added.",
         "landing_page": "- Avoid API routes unless you later add a real local save endpoint for feedback.",
         "ai_text_tool": "- One local generation route only if the real build moves mocked logic to a backend process.",
         "calculator": "- No API route is required unless calculations need persisted scenarios.",
@@ -12590,6 +12769,7 @@ def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
         "budget_calculator": "- Test `index.html` + `app.js`: change income/expenses, click Calculate Budget, and assert monthly savings, spending breakdown, and recommendation update.",
         "decision_matrix": "- Test `index.html` + `app.js`: enter options and criteria, click Compare Options, and assert ranking, recommendation, and tradeoff notes update from local input.",
         "flashcard_helper": "- Test `index.html` + `app.js`: paste notes, click Build Flashcards, and assert visible question/answer cards appear while this note remains visible: \"This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.\"",
+        "pricing_roi_calculator": "- Test `index.html` + `app.js`: change price, cost, customers, and investment, click Calculate ROI, and assert summary, breakdown, payback, and recommendation update from local input.",
         "landing_page": "- Test the main CTA state change and confirm no network is required.",
         "ai_text_tool": "- Test deterministic output for the same input and an empty-input fallback.",
         "calculator": "- Test score calculation, band thresholds, and explanation text.",
@@ -12601,6 +12781,7 @@ def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
         "budget_calculator": "Improve Budget Snapshot by adding one clearer budget category insight while preserving the existing `budget-income`, expense inputs, `budget-savings`, `budget-breakdown`, and `budget-recommendation` surfaces.",
         "decision_matrix": "Improve Decision Matrix by making the tradeoff explanation more useful while preserving `decision-options`, `decision-criteria`, `compare-options`, `decision-ranking`, `decision-recommendation`, and `decision-tradeoffs`.",
         "flashcard_helper": "Improve Study Card Builder by making generated cards easier to review while preserving `notes-input`, `build-cards`, `card-output`, and the visible limitation note: \"This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.\"",
+        "pricing_roi_calculator": "Improve Pricing ROI Calculator by making one assumption or recommendation clearer while preserving `roi-price`, `roi-cost`, `roi-customers`, `roi-run`, `roi-summary`, `roi-breakdown`, and `roi-recommendation`.",
         "landing_page": "Improve the local CTA confirmation copy without adding backend submission.",
         "ai_text_tool": "Improve the deterministic output formatting without adding provider calls.",
         "calculator": "Improve the explanation text for one score band without changing the local calculation contract.",
@@ -12952,6 +13133,11 @@ def prototype_has_input_and_result(index_html: str) -> bool:
             "card-output",
             "budget-savings",
             "budget-breakdown",
+            "decision-ranking",
+            "decision-recommendation",
+            "decision-tradeoffs",
+            "roi-summary",
+            "roi-breakdown",
         )
     )
     return has_input and has_action and has_result
@@ -21012,6 +21198,7 @@ def apply_static_app_shape_summary(result: Dict[str, Any], shape: str) -> None:
         "budget_calculator": "budget calculator",
         "decision_matrix": "decision matrix",
         "flashcard_helper": "flashcard helper",
+        "pricing_roi_calculator": "pricing ROI calculator",
         "quiz_recommender": "quiz recommender",
         "waitlist_page": "landing page",
     }.get(shape)

@@ -3310,6 +3310,16 @@ class PrototypeBuilderTests(SprintOSTestCase):
                 "codex": ["Codex Build Prompt — Budget Snapshot", "Improve Budget Snapshot", "`budget-income`", "`budget-breakdown`"],
             },
             {
+                "idea": "Build a pricing ROI calculator for unit economics, margin, break-even, and payback.",
+                "prototype_type": "calculator",
+                "name": "Pricing ROI Calculator",
+                "html": ["Pricing ROI Calculator", "Calculate ROI", "roi-price", "roi-cost", "roi-customers", "roi-breakdown", "This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser.", 'data-app-shape="pricing_roi_calculator"', 'data-template-marker="roi-breakdown"'],
+                "js": ["calculateRoi", "monthlyRevenue", "grossProfit", "paybackMonths", "roi-recommendation"],
+                "readme": ["Pricing ROI Calculator estimates", "This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser.", "revenue, costs, margin, break-even, payback", "No OpenAI, DeepSeek"],
+                "test_plan": ["Test Plan — Pricing ROI Calculator", "revenue, cost, margin, payback, breakdown, and recommendation"],
+                "codex": ["Codex Build Prompt — Pricing ROI Calculator", "Improve Pricing ROI Calculator", "`roi-price`", "`roi-breakdown`"],
+            },
+            {
                 "idea": "Build a decision matrix to compare options against criteria and explain tradeoffs.",
                 "prototype_type": "landing_page",
                 "name": "Decision Matrix",
@@ -3432,6 +3442,28 @@ class PrototypeBuilderTests(SprintOSTestCase):
                 "read `decision-criteria`",
                 "This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser.",
             ],
+            "pricing_roi_calculator": [
+                "Pricing ROI calculator contract",
+                "exact id `roi-price`",
+                "`type=\"number\"`",
+                "`data-template-marker=\"main-input\"`",
+                "exact id `roi-cost`",
+                "exact id `roi-customers`",
+                "exact id `roi-run`",
+                "`data-template-marker=\"primary-action\"`",
+                "exact id `roi-summary`",
+                "exact id `roi-breakdown`",
+                "`data-template-marker=\"roi-breakdown\"`",
+                "exact id `roi-recommendation`",
+                "`data-template-marker=\"recommendation\"`",
+                "read `document.getElementById(\"roi-price\").value`",
+                "read `document.getElementById(\"roi-cost\").value`",
+                "read `document.getElementById(\"roi-customers\").value`",
+                "blank/invalid/negative numbers gracefully",
+                "monthly revenue",
+                "break-even units",
+                "This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser.",
+            ],
             "flashcard_helper": [
                 "Flashcard helper contract",
                 "question/answer cards",
@@ -3503,6 +3535,12 @@ class PrototypeBuilderTests(SprintOSTestCase):
                 ["decision-options", "decision-criteria", "decision-ranking", "decision-recommendation", "decision-tradeoffs"],
             ),
             (
+                "Build a pricing ROI calculator for unit economics, margin, break-even, and payback.",
+                "calculator",
+                "pricing_roi_calculator",
+                ["roi-price", "roi-cost", "roi-customers", "roi-breakdown", "calculateRoi"],
+            ),
+            (
                 "Build a study flashcard helper where students paste notes and get cards.",
                 "ai_text_tool",
                 "flashcard_helper",
@@ -3551,6 +3589,18 @@ class PrototypeBuilderTests(SprintOSTestCase):
         self.assertEqual(verification["metadata"].get("app_shape"), "decision_matrix")
         self.assertTrue(
             any(item["name"] == "decision matrix: ranking output updates" and item["status"] == "pass" for item in verification["metadata"]["checks"])
+        )
+
+    def test_pricing_roi_offline_template_passes_app_specific_verification(self) -> None:
+        project = self.create_project(raw_idea="Build a pricing ROI calculator for unit economics, margin, break-even, and payback.")
+        prototype = self.generate_prototype(project, "calculator", generation_mode="offline")
+
+        verification = self.run_verification(project, verification_scope="prototype", prototype_id=prototype["id"])
+
+        self.assertEqual(verification["status"], "passed")
+        self.assertEqual(verification["metadata"].get("app_shape"), "pricing_roi_calculator")
+        self.assertTrue(
+            any(item["name"] == "pricing ROI calculator: business metric logic exists" and item["status"] == "pass" for item in verification["metadata"]["checks"])
         )
 
     def test_fake_deepseek_app_generation_writes_actual_app_files(self) -> None:
@@ -6204,6 +6254,28 @@ class _MovedVerificationRunTests:
         self.assertTrue(any(item["name"] == "flashcard helper: card output exists" and item["status"] == "fail" for item in failed_checks))
         self.assertTrue(any("Flashcard helper needs a `card-output` area" in item for item in failed["blockers"]))
 
+    def test_app_specific_verification_checks_pricing_roi_shape(self) -> None:
+        project = self.create_project(raw_idea="Build a pricing ROI calculator for unit economics, margin, break-even, and payback.")
+        prototype = self.generate_prototype(project, "calculator", generation_mode="offline")
+        passed = self.run_verification(project, verification_scope="prototype", prototype_id=prototype["id"])
+        passed_checks = passed["metadata"]["checks"]
+
+        self.assertEqual(passed["metadata"].get("app_shape"), "pricing_roi_calculator")
+        self.assertTrue(any(item["name"] == "pricing ROI calculator: summary output updates" and item["status"] == "pass" for item in passed_checks))
+
+        package_dir = Path(prototype["path"])
+        (package_dir / "app.js").write_text(
+            "document.getElementById('roi-run').addEventListener('click', function(){document.getElementById('roi-summary').textContent='Coming soon';document.getElementById('roi-breakdown').textContent='Coming soon';document.getElementById('roi-recommendation').textContent='Coming soon';});",
+            encoding="utf-8",
+        )
+
+        failed = self.run_verification(project, verification_scope="prototype", prototype_id=prototype["id"])
+        failed_checks = failed["metadata"]["checks"]
+
+        self.assertEqual(failed["status"], "failed")
+        self.assertTrue(any(item["name"] == "pricing ROI calculator: price input is read" and item["status"] == "fail" for item in failed_checks))
+        self.assertTrue(any("Pricing ROI calculator needs app.js to read the `roi-price` value" in item for item in failed["blockers"]))
+
     def test_app_specific_verification_requires_shape_update_markers(self) -> None:
         scorer_html = """<!doctype html><html><body><textarea id="idea-input" data-template-marker="main-input"></textarea><button id="score-idea" data-template-marker="primary-action">Score Idea</button><section data-template-marker="result-output"><div id="idea-score">0</div><ul id="idea-risks" data-template-marker="risk_breakdown"></ul><div id="idea-smallest-test" data-template-marker="smallest-testable-version"></div><div id="idea-next-action" data-template-marker="next-action"></div></section></body></html>"""
         scorer_checks = static_app_shape_verification_checks(
@@ -6228,6 +6300,14 @@ class _MovedVerificationRunTests:
             app_js="document.getElementById('build-cards').addEventListener('click', function(){document.getElementById('card-output').textContent='Cards ready';});",
         )
         self.assertTrue(any(item["name"] == "flashcard helper: flashcard content renders" and item["status"] == "fail" for item in flashcard_checks))
+
+        pricing_html = """<!doctype html><html><body><input id="roi-price" data-template-marker="main-input" type="number" /><input id="roi-cost" type="number" /><input id="roi-customers" type="number" /><button id="roi-run" data-template-marker="primary-action">Calculate ROI</button><section data-template-marker="result-output"><div id="roi-summary"></div></section><div id="roi-breakdown" data-template-marker="roi-breakdown"></div><div id="roi-recommendation" data-template-marker="recommendation"></div><p>This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser.</p></body></html>"""
+        pricing_checks = static_app_shape_verification_checks(
+            "pricing_roi_calculator",
+            index_html=pricing_html,
+            app_js="document.getElementById('roi-run').addEventListener('click', function(){const price=Number(document.getElementById('roi-price').value||0);const cost=Number(document.getElementById('roi-cost').value||0);const customers=Number(document.getElementById('roi-customers').value||0);const monthlyRevenue=price*customers;const totalCost=cost*customers;document.getElementById('roi-summary').textContent=String(monthlyRevenue-totalCost);document.getElementById('roi-recommendation').textContent='Recommendation';});",
+        )
+        self.assertTrue(any(item["name"] == "pricing ROI calculator: breakdown output updates" and item["status"] == "fail" for item in pricing_checks))
 
     def test_canonical_app_behavior_verification_requires_input_action_and_output_evidence(self) -> None:
         scorer_html = """<!doctype html><html><body><textarea id="idea-input" data-template-marker="main-input"></textarea><button id="score-idea" data-template-marker="primary-action">Score Idea</button><section data-template-marker="result-output"><div id="idea-score">0</div><ul id="idea-risks" data-template-marker="risk_breakdown"></ul><div id="idea-smallest-test" data-template-marker="smallest-testable-version"></div><div id="idea-next-action" data-template-marker="next-action"></div></section></body></html>"""
@@ -6299,6 +6379,18 @@ class _MovedVerificationRunTests:
             app_js=decision_js.replace("document.getElementById('decision-criteria').value", "document.getElementById('other-criteria').value"),
         )
         self.assertTrue(any(item["name"] == "decision matrix: criteria input is read" and item["status"] == "fail" for item in no_criteria_checks))
+
+        pricing_html = """<!doctype html><html><body><input id="roi-price" data-template-marker="main-input" type="number" /><input id="roi-cost" type="number" /><input id="roi-customers" type="number" /><button id="roi-run" data-template-marker="primary-action">Calculate ROI</button><section data-template-marker="result-output"><div id="roi-summary"></div></section><div id="roi-breakdown" data-template-marker="roi-breakdown"></div><div id="roi-recommendation" data-template-marker="recommendation"></div><p>This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser.</p></body></html>"""
+        pricing_js = """function calculateRoi(){const price=Number(document.getElementById('roi-price').value||0);const cost=Number(document.getElementById('roi-cost').value||0);const customers=Number(document.getElementById('roi-customers').value||0);const monthlyRevenue=price*customers;const totalCost=cost*customers;const margin=monthlyRevenue>0?Math.round(((monthlyRevenue-totalCost)/monthlyRevenue)*100):0;document.getElementById('roi-summary').textContent='Monthly profit: '+(monthlyRevenue-totalCost);document.getElementById('roi-breakdown').textContent='Revenue: '+monthlyRevenue+' Cost: '+totalCost+' Margin: '+margin;document.getElementById('roi-recommendation').textContent='Run a pricing test.';}document.getElementById('roi-run').addEventListener('click',calculateRoi);"""
+        pricing_checks = static_app_shape_verification_checks("pricing_roi_calculator", index_html=pricing_html, app_js=pricing_js)
+        self.assertFalse([item for item in pricing_checks if item["status"] == "fail"])
+
+        no_customer_checks = static_app_shape_verification_checks(
+            "pricing_roi_calculator",
+            index_html=pricing_html,
+            app_js=pricing_js.replace("document.getElementById('roi-customers').value", "document.getElementById('other-customers').value"),
+        )
+        self.assertTrue(any(item["name"] == "pricing ROI calculator: customers input is read" and item["status"] == "fail" for item in no_customer_checks))
 
     def test_custom_app_shape_is_not_subject_to_canonical_behavior_checks(self) -> None:
         html = """<!doctype html><html><body><textarea id="idea-input" data-template-marker="main-input"></textarea><button id="score-idea" data-template-marker="primary-action">Score Idea</button><div id="idea-score" data-template-marker="result-output"></div></body></html>"""

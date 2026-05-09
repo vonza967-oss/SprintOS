@@ -66,6 +66,7 @@ APP_SPECIFIC_VERIFY_SHAPES = {
     "budget_calculator": "budget calculator",
     "decision_matrix": "decision matrix",
     "flashcard_helper": "flashcard helper",
+    "pricing_roi_calculator": "pricing ROI calculator",
     "quiz_recommender": "quiz recommender",
     "waitlist_page": "landing page",
 }
@@ -224,10 +225,24 @@ def infer_static_app_shape(
     readme_text = files.get("README.md") or ""
     signal = _lower_join(project_text, prototype_type, metadata_text, html_text, js_text, readme_text)
 
-    if _has_any(signal, ("budget-income", "budget calculator", "budget snapshot")):
-        return "budget_calculator"
+    if _has_any(
+        signal,
+        (
+            "roi-price",
+            "roi calculator",
+            "pricing calculator",
+            "pricing roi",
+            "return on investment",
+            "unit economics",
+            "break-even",
+            "payback",
+        ),
+    ):
+        return "pricing_roi_calculator"
     if _has_any(signal, ("decision-options", "decision-criteria", "compare-options", "decision-ranking", "decision matrix")):
         return "decision_matrix"
+    if _has_any(signal, ("budget-income", "budget calculator", "budget snapshot")):
+        return "budget_calculator"
     if _has_any(signal, ("notes-input", "build-cards", "card-output", "flashcard helper", "study card builder")):
         return "flashcard_helper"
     if _has_any(signal, ("idea-input", "score-idea", "business idea scorer", "business idea scorecard")):
@@ -238,10 +253,29 @@ def infer_static_app_shape(
         return "waitlist_page"
 
     project_signal = _lower_join(project_text, metadata_text)
-    if _has_any(project_signal, ("budget", "expense", "expenses", "income", "savings", "spending")):
-        return "budget_calculator"
+    if _has_any(
+        project_signal,
+        (
+            "pricing calculator",
+            "roi calculator",
+            "return on investment",
+            "unit economics",
+            "margin calculator",
+            "revenue calculator",
+            "break-even",
+            "break even",
+            "payback",
+            "price my product",
+            "estimate mrr",
+            "calculate profitability",
+            "profitability calculator",
+        ),
+    ):
+        return "pricing_roi_calculator"
     if _has_any(project_signal, ("decision matrix", "compare options", "choose between", "tradeoff", "tradeoffs", "criteria")):
         return "decision_matrix"
+    if _has_any(project_signal, ("budget", "expense", "expenses", "income", "savings", "spending")):
+        return "budget_calculator"
     if _has_any(project_signal, ("flashcard", "flash card", "study notes", "exam", "memorize", "revision")):
         return "flashcard_helper"
     if _has_any(project_signal, ("business idea", "startup idea", "idea scorer", "idea scoring", "score my idea", "validate idea")):
@@ -371,6 +405,57 @@ def static_app_shape_verification_checks(
             check("ranking logic exists", has_ranking_logic, "Decision matrix includes deterministic ranking logic.", "Decision matrix needs concrete local ranking logic, not placeholder text."),
             check("empty state exists", has_empty_state, "Decision matrix handles empty or weak input.", "Decision matrix should explain what to enter when options or criteria are missing.", status="warn"),
             check("local limitation note exists", has_local_note, "Decision matrix explains local deterministic limits.", "Decision matrix should explain that ranking is local and deterministic.", status="warn"),
+        ]
+
+    if shape == "pricing_roi_calculator":
+        number_tags = _html_number_input_tags(index_html)
+        has_price = any("roi-price" in tag for tag in number_tags)
+        has_cost = any("roi-cost" in tag for tag in number_tags)
+        has_customers = any("roi-customers" in tag for tag in number_tags)
+        reads_price = _js_reads_element_value(app_js, "roi-price")
+        reads_cost = _js_reads_element_value(app_js, "roi-cost")
+        reads_customers = _js_reads_element_value(app_js, "roi-customers")
+        has_action = _html_has_id(index_html, "roi-run") and _html_id_has_data_marker(index_html, "roi-run", "primary-action")
+        has_event_handler = _js_handles_action(app_js, index_html, "roi-run")
+        has_summary = _html_has_id(index_html, "roi-summary") and _html_has_data_marker(index_html, "result-output")
+        has_summary_update = _js_updates_element(app_js, "roi-summary", ("textContent", "innerHTML"))
+        has_breakdown = _html_has_id(index_html, "roi-breakdown") and _html_id_has_data_marker(index_html, "roi-breakdown", "roi-breakdown")
+        has_breakdown_update = _js_updates_element(app_js, "roi-breakdown", ("textContent", "innerHTML"))
+        has_recommendation = _html_has_id(index_html, "roi-recommendation") and _html_id_has_data_marker(index_html, "roi-recommendation", "recommendation")
+        has_recommendation_update = _js_updates_element(app_js, "roi-recommendation")
+        metric_terms = (
+            "monthlyrevenue",
+            "revenue",
+            "totalcost",
+            "grossprofit",
+            "profit",
+            "margin",
+            "breakeven",
+            "break-even",
+            "payback",
+            "roi",
+            "returnoninvestment",
+        )
+        metric_count = sum(1 for marker in metric_terms if marker in app_js.replace("_", "").replace("-", "").lower())
+        has_metric_logic = metric_count >= 2 and _has_any(app_js, ("*", "/", "-", "+")) and not _has_any(app_js.lower(), ("coming soon", "todo"))
+        has_invalid_handling = _has_any(combined, ("invalid", "negative", "blank", "empty", "treated as 0", "enter a non-negative", "0 for math"))
+        has_local_note = _has_any(combined, ("estimates pricing and roi locally", "simple deterministic calculations", "does not call live ai", "external services inside the browser"))
+        return [
+            check("price cost customer inputs exist", has_price and has_cost and has_customers, "Pricing ROI calculator has numeric price, cost, and customer inputs.", "Pricing ROI calculator needs numeric `roi-price`, `roi-cost`, and `roi-customers` inputs."),
+            check("price input is read", reads_price, "Pricing ROI calculator reads price before calculating.", "Pricing ROI calculator needs app.js to read the `roi-price` value."),
+            check("cost input is read", reads_cost, "Pricing ROI calculator reads cost before calculating.", "Pricing ROI calculator needs app.js to read the `roi-cost` value."),
+            check("customers input is read", reads_customers, "Pricing ROI calculator reads customers before calculating.", "Pricing ROI calculator needs app.js to read the `roi-customers` value."),
+            check("calculate action marker exists", has_action, "Pricing ROI calculator has the canonical ROI action.", "Pricing ROI calculator needs the `roi-run` button marked as the primary action."),
+            check("calculate action is wired", has_event_handler, "Pricing ROI calculator wires the ROI action in app.js.", "Pricing ROI calculator needs app.js to handle the `roi-run` action."),
+            check("summary output exists", has_summary, "Pricing ROI calculator has the summary output.", "Pricing ROI calculator needs a `roi-summary` output in the result area."),
+            check("summary output updates", has_summary_update, "Pricing ROI calculator updates the summary output.", "Pricing ROI calculator needs app.js to update `roi-summary`."),
+            check("breakdown output exists", has_breakdown, "Pricing ROI calculator has the breakdown output.", "Pricing ROI calculator needs a `roi-breakdown` output."),
+            check("breakdown output updates", has_breakdown_update, "Pricing ROI calculator updates the breakdown output.", "Pricing ROI calculator needs app.js to update `roi-breakdown`."),
+            check("recommendation output exists", has_recommendation, "Pricing ROI calculator has the recommendation output.", "Pricing ROI calculator needs a `roi-recommendation` output."),
+            check("recommendation output updates", has_recommendation_update, "Pricing ROI calculator updates the recommendation output.", "Pricing ROI calculator needs app.js to update `roi-recommendation`."),
+            check("business metric logic exists", has_metric_logic, "Pricing ROI calculator includes deterministic business metric logic.", "Pricing ROI calculator needs concrete revenue, cost, margin, break-even, payback, or ROI calculations, not placeholder text."),
+            check("invalid input handling exists", has_invalid_handling, "Pricing ROI calculator handles blank, invalid, or negative input.", "Pricing ROI calculator should explain how blank, invalid, or negative inputs are handled.", status="warn"),
+            check("local limitation note exists", has_local_note, "Pricing ROI calculator explains local deterministic limits.", "Pricing ROI calculator should explain that estimates are local deterministic calculations.", status="warn"),
         ]
 
     if shape == "flashcard_helper":
