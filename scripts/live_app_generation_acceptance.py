@@ -19,7 +19,11 @@ sys.path.insert(0, str(ROOT))
 import sprintos
 from sprintos_core.ai_provider import ai_enabled, load_ai_provider_config
 from sprintos_core.env_utils import load_local_env
-from sprintos_core.verification_utils import static_app_shape_verification_checks
+from sprintos_core.verification_utils import (
+    infer_static_app_shape,
+    static_app_shape_verification_checks,
+    universal_app_contract_verification_checks,
+)
 
 
 ACCEPTANCE_REQUIRED_APP_FILES = (
@@ -72,6 +76,44 @@ CANONICAL_CASES = (
         "desired_output": "a local pricing ROI calculator app",
     },
 )
+GENERIC_CUSTOM_CASES = (
+    {
+        "name": "habit_tracker",
+        "display_name": "Habit Tracker",
+        "shape": "",
+        "contract": "universal_app_contract_v1",
+        "case_summary": "Local habit tracker with habit entry, completion marking, daily progress, and day reset.",
+        "raw_idea": "Create a local habit tracker that lets a user enter habits, mark completion, see today's progress, and reset the day.",
+        "desired_output": "a local habit tracker app",
+    },
+    {
+        "name": "mini_crm",
+        "display_name": "Mini CRM",
+        "shape": "",
+        "contract": "universal_app_contract_v1",
+        "case_summary": "Local freelancer lead tracker with status, next follow-up date, and notes.",
+        "raw_idea": "Create a local mini CRM for freelancers to track leads, status, next follow-up date, and notes.",
+        "desired_output": "a local freelancer CRM app",
+    },
+    {
+        "name": "inventory_tracker",
+        "display_name": "Inventory Tracker",
+        "shape": "",
+        "contract": "universal_app_contract_v1",
+        "case_summary": "Local small-shop inventory tracker with quantity thresholds and low-stock alerts.",
+        "raw_idea": "Create a local inventory tracker for a small shop with item name, quantity, reorder threshold, and low-stock alerts.",
+        "desired_output": "a local small-shop inventory tracker app",
+    },
+    {
+        "name": "content_calendar",
+        "display_name": "Content Calendar",
+        "shape": "",
+        "contract": "universal_app_contract_v1",
+        "case_summary": "Local content calendar with post ideas, channels, deadlines, statuses, and weekly overview.",
+        "raw_idea": "Create a local content calendar planner with post idea, channel, deadline, status, and a weekly overview.",
+        "desired_output": "a local content calendar planner app",
+    },
+)
 
 
 def _redact(value: Any) -> Any:
@@ -93,7 +135,10 @@ def _redact(value: Any) -> Any:
     if isinstance(value, list):
         return [_redact(item) for item in value]
     if isinstance(value, str):
-        return sprintos.activity_redact_text(value, limit=500)
+        text = value
+        for pattern in SECRET_TEXT_PATTERNS:
+            text = pattern.sub("[redacted]", text)
+        return sprintos.activity_redact_text(text, limit=500)
     return value
 
 
@@ -228,21 +273,67 @@ def _zip_safety_result(zip_name: str, zip_bytes: bytes) -> dict[str, Any]:
     }
 
 
-def _shape_result(shape: str, prototype_path: Path) -> dict[str, Any]:
+def _case_sets(case_set: str) -> tuple[dict[str, str], ...]:
+    if case_set == "canonical":
+        return CANONICAL_CASES
+    if case_set == "generic":
+        return GENERIC_CUSTOM_CASES
+    if case_set == "all":
+        return CANONICAL_CASES + GENERIC_CUSTOM_CASES
+    raise ValueError(f"Unknown case set: {case_set}")
+
+
+def _case_contract(case: dict[str, str]) -> str:
+    return str(case.get("contract") or ("canonical_app_shape_v1" if case.get("shape") else "universal_app_contract_v1"))
+
+
+def _shape_result(shape: str, prototype_path: Path, *, project_text: str = "", generic: bool = False) -> dict[str, Any]:
     index_html = (prototype_path / "index.html").read_text(encoding="utf-8") if (prototype_path / "index.html").exists() else ""
     app_js = (prototype_path / "app.js").read_text(encoding="utf-8") if (prototype_path / "app.js").exists() else ""
     readme_text = (prototype_path / "README.md").read_text(encoding="utf-8") if (prototype_path / "README.md").exists() else ""
-    checks = static_app_shape_verification_checks(
-        shape,
-        index_html=index_html,
-        app_js=app_js,
-        readme_text=readme_text,
-        path=str(prototype_path / "index.html"),
-    )
+    test_plan_text = (prototype_path / "TEST_PLAN.md").read_text(encoding="utf-8") if (prototype_path / "TEST_PLAN.md").exists() else ""
+    files = {
+        "index.html": index_html,
+        "app.js": app_js,
+        "README.md": readme_text,
+        "TEST_PLAN.md": test_plan_text,
+    }
+    inferred_shape = ""
+    canonical_shape_applied = False
+    if generic or not shape:
+        inferred_shape = infer_static_app_shape(project_text, files=files)
+        canonical_shape_applied = bool(inferred_shape)
+        checks = universal_app_contract_verification_checks(
+            index_html=index_html,
+            app_js=app_js,
+            readme_text=readme_text,
+            test_plan_text=test_plan_text,
+            path=str(prototype_path / "index.html"),
+        )
+        if canonical_shape_applied:
+            checks.append(
+                {
+                    "name": "universal app: no canonical shape is inferred",
+                    "status": "fail",
+                    "message": f"Generic/custom case was incorrectly inferred as canonical shape `{inferred_shape}`.",
+                    "path": str(prototype_path / "index.html"),
+                }
+            )
+    else:
+        checks = static_app_shape_verification_checks(
+            shape,
+            index_html=index_html,
+            app_js=app_js,
+            readme_text=readme_text,
+            path=str(prototype_path / "index.html"),
+        )
     failures = [item for item in checks if str(item.get("status") or "") != "pass"]
     return {
         "ok": not failures,
         "shape": shape,
+        "contract": "universal_app_contract_v1" if (generic or not shape) else "canonical_app_shape_v1",
+        "inferred_canonical_shape": inferred_shape,
+        "canonical_shape_applied": canonical_shape_applied,
         "checks": checks,
         "failures": failures,
     }
@@ -286,12 +377,113 @@ def _package_result(project: dict[str, Any], prototype: dict[str, Any]) -> dict[
     }
 
 
+def _write_custom_ai_prototype_package(project: dict[str, Any], case: dict[str, str]) -> dict[str, Any]:
+    prototype_type = "ai_text_tool"
+    created_at = sprintos.now_iso()
+    prototype_id = sprintos.uuid.uuid4().hex
+    ctx = sprintos.prototype_context_offline(project, prototype_type, prototype_id=prototype_id)
+    ctx.update(
+        {
+            "title": case.get("display_name") or sprintos.title_from_idea(str(project.get("raw_idea") or "")),
+            "prototype_type": prototype_type,
+            "prototype_label": sprintos.PROTOTYPE_TYPES[prototype_type],
+            "offline_template_shape": "",
+        }
+    )
+    fallback_payload = sprintos.prototype_offline_app_file_generation_payload(project, prototype_type, prototype_id, ctx=ctx)
+    fallback_payload = dict(fallback_payload)
+    fallback_payload["app_name"] = str(case.get("display_name") or fallback_payload.get("app_name") or "Local Prototype")
+    fallback_payload["app_type"] = "static_app"
+    ai_route = sprintos.ai_generation_route_kwargs("app_file_generation", "ai")
+    app_payload, provider_result = sprintos.generate_json_with_ai(
+        task_name="app_file_generation",
+        instructions=sprintos.app_file_generation_instructions(""),
+        user_input=sprintos.app_file_generation_user_input(project, ctx, "static_app"),
+        expected_schema_description=json.dumps(fallback_payload, indent=2),
+        fallback_factory=fallback_payload,
+        config=sprintos.app_generation_budget_config(ai_route["config"]),
+        generation_mode=ai_route["generation_mode"],
+        validator=lambda candidate: sprintos.validate_app_file_payload_for_shape(candidate, ""),
+        route_used=ai_route["route_used"],
+        route_id=ai_route["route_id"],
+        unavailable_error=ai_route["unavailable_error"],
+        unavailable_fallback_reason=ai_route["unavailable_fallback_reason"],
+    )
+    sprintos.record_ai_diagnostic(
+        "app_file_generation",
+        provider_result,
+        metadata={
+            "project_id": str(project.get("id") or ""),
+            "prototype_id": prototype_id,
+            "prototype_type": prototype_type,
+            "provider_warnings": list(provider_result.warnings or []),
+        },
+    )
+    if not provider_result.used_ai:
+        reason = sprintos.activity_redact_text(provider_result.fallback_reason or provider_result.error or "AI app generation failed.", limit=360)
+        raise RuntimeError(f"Generic/custom app generation did not create app files: {reason}")
+
+    ctx = sprintos.apply_ai_metadata(ctx, "app_file_generation", provider_result)
+    ctx["app_generation_fallback_mode"] = "report_only"
+    ctx["app_generation_fallback_used"] = False
+    primary_files = sprintos.prototype_files_from_app_payload(app_payload)
+    package_slug = sprintos.slugify(str(project.get("title") or project.get("sprint", {}).get("title") or "prototype"), "prototype")
+    base_name = f"{package_slug}-{sprintos.prototype_folder_timestamp(created_at)}"
+    package_dir = sprintos.prototype_export_dir() / base_name
+    counter = 2
+    while package_dir.exists():
+        package_dir = sprintos.prototype_export_dir() / f"{base_name}-{counter}"
+        counter += 1
+    package_dir.mkdir(parents=True, exist_ok=True)
+    primary_files = sprintos.ensure_prototype_feedback_capture(ctx, primary_files)
+    files = {
+        "index.html": primary_files["index.html"],
+        "style.css": primary_files["style.css"],
+        "app.js": primary_files["app.js"],
+        "README.md": primary_files["README.md"],
+        "feedback-questions.md": sprintos.prototype_feedback_markdown(ctx),
+        "feedback-import-instructions.md": sprintos.prototype_feedback_import_instructions(ctx),
+        "TEST_PLAN.md": primary_files["TEST_PLAN.md"],
+        "test-plan.md": primary_files["test-plan.md"],
+        "codex-build-prompt.md": sprintos.prototype_codex_prompt(ctx),
+    }
+    metadata = sprintos.prototype_metadata(project, prototype_id, prototype_type, created_at, list(sprintos.PROTOTYPE_FILES), ai_source=ctx, app_payload=app_payload)
+    files["prototype.json"] = json.dumps(metadata, indent=2)
+    for name, content in files.items():
+        (package_dir / name).write_text(content, encoding="utf-8")
+    title = f"{str(app_payload.get('app_name') or ctx['title'])} - {ctx['prototype_label']}"
+    with sprintos.db() as conn:
+        conn.execute(
+            """
+            INSERT INTO prototypes (id, project_id, prototype_type, title, path, created_at, metadata_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                prototype_id,
+                project["id"],
+                prototype_type,
+                title,
+                str(package_dir),
+                created_at,
+                json.dumps(metadata),
+            ),
+        )
+        conn.execute("UPDATE projects SET updated_at = ? WHERE id = ?", (created_at, project["id"]))
+        conn.commit()
+    prototype = sprintos.get_prototype(prototype_id, include_prompt=True)
+    if prototype is None:
+        raise RuntimeError("Generic/custom prototype was not saved correctly.")
+    return prototype
+
+
 def _case_failure(case: dict[str, str], exc: Exception) -> dict[str, Any]:
     reason = f"{type(exc).__name__}: {sprintos.activity_redact_text(str(exc), limit=360)}"
     return {
         "name": case["name"],
         "display_name": case.get("display_name") or case["name"],
-        "shape": case["shape"],
+        "shape": case.get("shape") or "",
+        "contract": _case_contract(case),
+        "case_summary": case.get("case_summary") or "",
         "status": "fail",
         "ok": False,
         "ai": {"ok": False, "used_ai": False, "diagnostic": {}},
@@ -300,19 +492,23 @@ def _case_failure(case: dict[str, str], exc: Exception) -> dict[str, Any]:
         "prototype_zip": {"ok": False},
         "package": {"ok": False},
         "safety": {"ok": False, "blockers": [reason], "warnings": []},
-        "shape_checks": {"ok": False, "shape": case["shape"], "checks": [], "failures": [reason]},
+        "shape_checks": {"ok": False, "shape": case.get("shape") or "", "checks": [], "failures": [reason]},
         "failure_reasons": [reason],
     }
 
 
 def _run_case(case: dict[str, str]) -> dict[str, Any]:
     project = _create_offline_project(case["raw_idea"], case["desired_output"])
-    prototype = sprintos.write_prototype_package(
-        project,
-        "landing_page",
-        generation_mode="ai",
-        fallback_mode="report_only",
-    )
+    is_generic = _case_contract(case) == "universal_app_contract_v1"
+    if is_generic:
+        prototype = _write_custom_ai_prototype_package(project, case)
+    else:
+        prototype = sprintos.write_prototype_package(
+            project,
+            "landing_page",
+            generation_mode="ai",
+            fallback_mode="report_only",
+        )
     prototype_path = Path(str(prototype.get("path") or ""))
     readiness = sprintos.check_deploy_readiness(prototype)
     prototype_zip_name, prototype_zip_bytes = sprintos.build_prototype_zip(prototype)
@@ -326,7 +522,7 @@ def _run_case(case: dict[str, str]) -> dict[str, Any]:
         "path": str(preview_path),
     }
     package = _package_result(project, prototype)
-    shape_checks = _shape_result(case["shape"], prototype_path)
+    shape_checks = _shape_result(case.get("shape") or "", prototype_path, project_text=str(case.get("raw_idea") or ""), generic=is_generic)
     safety_blockers = [sprintos.activity_redact_text(str(item), limit=360) for item in (readiness.get("blockers") or [])]
     safety_warnings = [sprintos.activity_redact_text(str(item), limit=360) for item in (readiness.get("warnings") or [])]
     safety = {
@@ -374,7 +570,9 @@ def _run_case(case: dict[str, str]) -> dict[str, Any]:
         {
             "name": case["name"],
             "display_name": case.get("display_name") or case["name"],
-            "shape": case["shape"],
+            "shape": case.get("shape") or "",
+            "contract": _case_contract(case),
+            "case_summary": case.get("case_summary") or "",
             "status": "pass" if ok else "fail",
             "ok": ok,
             "project_id": project.get("id"),
@@ -396,16 +594,18 @@ def _markdown_case(item: dict[str, Any]) -> list[str]:
     lines = [
         f"## {item.get('display_name') or item['name']}",
         "",
-        f"- Case: `{item['name']}` / `{item.get('shape')}`",
+        f"- Case: `{item['name']}` / `{item.get('contract') or item.get('shape')}`",
         f"- Overall: {'PASS' if item.get('ok') else 'FAIL'}",
         f"- AI used: {'PASS' if (item.get('ai') or {}).get('used_ai') else 'FAIL'}",
         f"- Required files: {'PASS' if (item.get('files') or {}).get('ok') else 'FAIL'}",
         f"- Preview path: {'PASS' if (item.get('preview') or {}).get('ok') else 'FAIL'}",
         f"- Package build: {'PASS' if (item.get('package') or {}).get('ok') else 'FAIL'}",
         f"- Safety: {'PASS' if (item.get('safety') or {}).get('ok') else 'FAIL'}",
-        f"- Shape: {'PASS' if (item.get('shape_checks') or {}).get('ok') else 'FAIL'}",
+        f"- Verification contract: {'PASS' if (item.get('shape_checks') or {}).get('ok') else 'FAIL'}",
         "",
     ]
+    if item.get("case_summary"):
+        lines.insert(3, f"- Case summary: {item.get('case_summary')}")
     reasons = item.get("failure_reasons") or []
     if reasons:
         lines.extend(["### Failure Reasons", ""])
@@ -425,6 +625,7 @@ def _write_reports(run_root: Path, payload: dict[str, Any]) -> None:
         f"- Generated at: {redacted['generated_at']}",
         f"- Provider: {redacted['provider']}",
         f"- Model: {redacted['model']}",
+        f"- Case set: {redacted.get('case_set') or 'canonical'}",
         f"- Overall: {'PASS' if redacted['ok'] else 'FAIL'}",
         f"- JSON report: `{report_json}`",
         f"- Artifact root: `{run_root}`",
@@ -440,14 +641,14 @@ def _write_reports(run_root: Path, payload: dict[str, Any]) -> None:
             "- `generated_at`: ISO timestamp for the acceptance run.",
             "- `provider` / `model`: resolved live provider configuration.",
             "- `run_root`: local export folder containing reports and generated artifacts.",
-            "- `cases[]`: one result per canonical shape.",
+            "- `cases[]`: one result per selected canonical or generic/custom case.",
             "- `cases[].ai`: redacted provider diagnostic with `used_ai`.",
             "- `cases[].files`: required app package file existence result for `index.html`, `style.css`, `app.js`, `README.md`, and `TEST_PLAN.md`.",
             "- `cases[].preview`: local preview route and resolved index path.",
             "- `cases[].prototype_zip`: generated prototype ZIP metadata and ZIP safety result.",
             "- `cases[].package`: static Build Pack files, ZIP, ZIP safety, smoke, and verification result.",
             "- `cases[].safety`: local static safety/readiness blockers and warnings.",
-            "- `cases[].shape_checks`: canonical shape verification checks and failures.",
+            "- `cases[].shape_checks`: canonical shape or universal app contract verification checks and failures.",
             "- `cases[].failure_reasons`: actionable redacted reasons for failures.",
             "",
             "Reports intentionally omit API keys, `.env` contents, Authorization headers, raw prompts, raw provider payloads, raw provider responses, and full stack traces.",
@@ -462,6 +663,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--confirm-live-provider", action="store_true", help="Required. Allows real provider calls for this script only.")
     parser.add_argument("--provider", choices=("openai", "deepseek"), default="", help="Provider to test. Defaults to SPRINTOS_AI_PROVIDER.")
     parser.add_argument("--model", default="", help="Optional model override for this acceptance run.")
+    parser.add_argument(
+        "--case-set",
+        choices=("canonical", "generic", "all"),
+        default="canonical",
+        help="Acceptance cases to run. Defaults to canonical for backward compatibility.",
+    )
     return parser.parse_args()
 
 
@@ -492,6 +699,7 @@ def main() -> int:
                 "generated_at": generated_at,
                 "provider": config.provider,
                 "model": config.model,
+                "case_set": args.case_set,
                 "run_root": str(run_root),
                 "cases": [],
                 "failure_reasons": ["Configured provider is not enabled or its API key is missing."],
@@ -513,7 +721,7 @@ def main() -> int:
     )
 
     cases = []
-    for case in CANONICAL_CASES:
+    for case in _case_sets(args.case_set):
         try:
             cases.append(_run_case(case))
         except Exception as exc:
@@ -530,6 +738,7 @@ def main() -> int:
             "generated_at": generated_at,
             "provider": config.provider,
             "model": config.model,
+            "case_set": args.case_set,
             "run_root": str(run_root),
             "cases": cases,
             "failure_reasons": failure_reasons,

@@ -6398,6 +6398,49 @@ class _MovedVerificationRunTests:
 
         self.assertEqual(checks, [])
 
+    def test_generic_output_markers_count_as_input_action_output(self) -> None:
+        html = """<!doctype html><html><body><textarea id="habitInput"></textarea><button id="addButton">Add Habits</button><p id="summary">No habits yet.</p><div id="progressPill">0%</div><ul id="habitList"></ul></body></html>"""
+
+        self.assertTrue(sprintos.prototype_has_input_and_result(html))
+
+    def test_universal_app_checks_use_test_plan_text_for_generic_builds(self) -> None:
+        project = self.create_project(raw_idea="Create a local habit tracker for daily routines.", desired_output="a local static app")
+        checks = []
+        sprintos.append_static_app_shape_checks(
+            checks,
+            project,
+            prototype_type="ai_text_tool",
+            metadata={"app_name": "Habit Tracker", "app_type": "static_app", "short_description": "Track habits locally."},
+            files={
+                "src/index.html": (
+                    '<!doctype html><html><head><title>Habit Tracker</title></head><body><main><h1>Habit Tracker</h1>'
+                    '<p>Purpose: helps a person track daily habits locally.</p>'
+                    '<p>This local demo runs in the browser only and does not call external services.</p>'
+                    '<section><h2>Add habits</h2><textarea id="habitInput"></textarea><button id="addButton">Add Habits</button></section>'
+                    '<section><h2>Progress</h2><p id="summary">Empty state: add a habit.</p><ul id="habitList"></ul></section>'
+                    '</main></body></html>'
+                ),
+                "src/app.js": (
+                    "const input=document.getElementById('habitInput');const summary=document.getElementById('summary');"
+                    "document.getElementById('addButton').addEventListener('click',function(){const value=input.value.trim();"
+                    "summary.textContent=value?'Tracking '+value:'Empty state: add a habit.';});"
+                ),
+                "README.md": (
+                    "# Habit Tracker\n\n## Purpose\nTrack habits locally.\n\n## How to run\nOpen `index.html` or run `python3 -m http.server 8080`.\n\n"
+                    "## Manual test steps\nAdd a habit and confirm the summary updates.\n\n## Limitations\nLocal demo only, no backend or network.\n\n"
+                    "## Codex next steps\nImprove one local tracking rule."
+                ),
+                "TEST_PLAN.md": (
+                    "# Habit Tracker Test Plan\n\n## Happy path\n- Add a habit and confirm the summary updates.\n\n"
+                    "## Edge cases\n- Submit a blank habit and confirm the empty state remains useful.\n\n"
+                    "## Safety/local-first checks\n- Confirm the app works offline with no external services."
+                ),
+            },
+        )
+
+        self.assertFalse([item for item in checks if item["status"] == "fail"], checks)
+        self.assertTrue(any(item["name"] == "universal app: TEST_PLAN is practical and app-specific" for item in checks))
+
     def test_secondary_app_shape_checks_cover_quiz_and_waitlist_apps(self) -> None:
         quiz_checks = static_app_shape_verification_checks(
             "quiz_recommender",

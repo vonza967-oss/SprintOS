@@ -1,5 +1,7 @@
 import contextlib
 import io
+import json
+import sys
 import tempfile
 from pathlib import Path
 from unittest import mock
@@ -89,6 +91,93 @@ class TestingToolTests(SprintOSTestCase):
         self.assertTrue(
             any(item["name"] == "flashcard helper: mocked/local limitation note exists" and item["status"] == "warn" for item in result["failures"])
         )
+
+    def test_live_acceptance_refuses_without_live_confirmation(self) -> None:
+        with mock.patch.object(sys, "argv", ["live_app_generation_acceptance.py"]), \
+             mock.patch.object(live_acceptance, "load_ai_provider_config", side_effect=AssertionError("provider config should not load")), \
+             contextlib.redirect_stdout(io.StringIO()) as stdout:
+            result = live_acceptance.main()
+
+        self.assertEqual(result, 2)
+        self.assertIn("--confirm-live-provider", stdout.getvalue())
+
+    def test_live_acceptance_defaults_to_canonical_cases(self) -> None:
+        with mock.patch.object(sys, "argv", ["live_app_generation_acceptance.py"]):
+            args = live_acceptance.parse_args()
+
+        self.assertEqual(args.case_set, "canonical")
+        self.assertEqual(live_acceptance._case_sets(args.case_set), live_acceptance.CANONICAL_CASES)
+        self.assertNotIn("habit_tracker", [item["name"] for item in live_acceptance._case_sets(args.case_set)])
+
+    def test_live_acceptance_can_select_generic_or_all_cases(self) -> None:
+        with mock.patch.object(sys, "argv", ["live_app_generation_acceptance.py", "--case-set", "generic"]):
+            generic_args = live_acceptance.parse_args()
+        with mock.patch.object(sys, "argv", ["live_app_generation_acceptance.py", "--case-set", "all"]):
+            all_args = live_acceptance.parse_args()
+
+        self.assertEqual([item["name"] for item in live_acceptance._case_sets(generic_args.case_set)], [item["name"] for item in live_acceptance.GENERIC_CUSTOM_CASES])
+        all_names = [item["name"] for item in live_acceptance._case_sets(all_args.case_set)]
+        self.assertIn("idea_scorer", all_names)
+        self.assertIn("habit_tracker", all_names)
+
+    def test_live_acceptance_generic_shape_uses_universal_verifier(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            for name in ("index.html", "app.js", "README.md", "TEST_PLAN.md"):
+                (base / name).write_text("", encoding="utf-8")
+            with mock.patch.object(live_acceptance, "static_app_shape_verification_checks", side_effect=AssertionError("canonical verifier should not run")), \
+                 mock.patch.object(
+                     live_acceptance,
+                     "universal_app_contract_verification_checks",
+                     return_value=[{"name": "universal app: marker", "status": "pass", "message": "ok", "path": str(base / "index.html")}],
+                 ) as universal:
+                result = live_acceptance._shape_result("", base, project_text="Track habits locally.", generic=True)
+
+        self.assertTrue(result["ok"], result)
+        self.assertEqual(result["contract"], "universal_app_contract_v1")
+        self.assertFalse(result["canonical_shape_applied"])
+        universal.assert_called_once()
+
+    def test_live_acceptance_report_redacts_unsafe_fields(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            run_root = Path(tmp)
+            payload = {
+                "ok": False,
+                "generated_at": "2026-05-09T00:00:00",
+                "provider": "openai",
+                "model": "test-model",
+                "case_set": "generic",
+                "run_root": str(run_root),
+                "raw_prompt": "Create a secret app with sk-live-unsafe1234567890",
+                "raw_provider_response": "Authorization: Bearer unsafe-token",
+                "cases": [
+                    {
+                        "name": "habit_tracker",
+                        "display_name": "Habit Tracker",
+                        "contract": "universal_app_contract_v1",
+                        "case_summary": "Safe local habit tracker summary.",
+                        "ok": False,
+                        "ai": {"used_ai": True},
+                        "files": {"ok": True},
+                        "preview": {"ok": True},
+                        "package": {"ok": True},
+                        "safety": {"ok": False},
+                        "shape_checks": {"ok": True},
+                        "failure_reasons": ["Authorization: Bearer unsafe-token sk-live-unsafe1234567890"],
+                    }
+                ],
+                "failure_reasons": ["sk-live-unsafe1234567890"],
+            }
+
+            live_acceptance._write_reports(run_root, payload)
+            report_json = json.loads((run_root / "live-app-generation-acceptance.json").read_text(encoding="utf-8"))
+            report_md = (run_root / "live-app-generation-acceptance.md").read_text(encoding="utf-8")
+
+        self.assertEqual(report_json["raw_prompt"], "[redacted]")
+        self.assertEqual(report_json["raw_provider_response"], "[redacted]")
+        self.assertIn("Safe local habit tracker summary.", report_md)
+        self.assertNotIn("sk-live-unsafe1234567890", report_md)
+        self.assertNotIn("unsafe-token", report_md)
 
     def test_readiness_script_runs_offline(self) -> None:
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):

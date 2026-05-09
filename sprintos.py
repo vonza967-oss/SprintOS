@@ -13150,6 +13150,11 @@ def prototype_has_input_and_result(index_html: str) -> bool:
             "roi-summary",
             "roi-breakdown",
         )
+    ) or bool(
+        re.search(
+            r"\b(?:id|class)\s*=\s*['\"][^'\"]*(?:result|output|summary|progress|message|list|status|preview|report|recommendation|breakdown|ranking|cards|timeline|empty-state)[^'\"]*['\"]",
+            lowered,
+        )
     )
     return has_input and has_action and has_result
 
@@ -21794,6 +21799,7 @@ def verify_build_pack_artifact(project: Dict[str, Any], build_pack: Optional[Dic
                 "src/index.html": index_text,
                 "src/app.js": app_text,
                 "README.md": prompt_text + "\n" + ((base / "README.md").read_text(encoding="utf-8") if (base / "README.md").exists() else ""),
+                "TEST_PLAN.md": (base / "TEST_PLAN.md").read_text(encoding="utf-8") if (base / "TEST_PLAN.md").exists() else "",
             },
             path=base / "src" / "index.html",
         )
