@@ -1,0 +1,1 @@
+Generate a bare-bones landing page for a local-first planning tool so I can show the concept to three testers this afternoon.

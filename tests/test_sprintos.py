@@ -3310,13 +3310,33 @@ class PrototypeBuilderTests(SprintOSTestCase):
                 "codex": ["Codex Build Prompt — Budget Snapshot", "Improve Budget Snapshot", "`budget-income`", "`budget-breakdown`"],
             },
             {
+                "idea": "Build a pricing ROI calculator for unit economics, margin, break-even, and payback.",
+                "prototype_type": "calculator",
+                "name": "Pricing ROI Calculator",
+                "html": ["Pricing ROI Calculator", "Calculate ROI", "roi-price", "roi-cost", "roi-customers", "roi-breakdown", "This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser.", 'data-app-shape="pricing_roi_calculator"', 'data-template-marker="roi-breakdown"'],
+                "js": ["calculateRoi", "monthlyRevenue", "grossProfit", "paybackMonths", "roi-recommendation"],
+                "readme": ["Pricing ROI Calculator estimates", "This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser.", "revenue, costs, margin, break-even, payback", "No OpenAI, DeepSeek"],
+                "test_plan": ["Test Plan — Pricing ROI Calculator", "revenue, cost, margin, payback, breakdown, and recommendation"],
+                "codex": ["Codex Build Prompt — Pricing ROI Calculator", "Improve Pricing ROI Calculator", "`roi-price`", "`roi-breakdown`"],
+            },
+            {
+                "idea": "Build a decision matrix to compare options against criteria and explain tradeoffs.",
+                "prototype_type": "landing_page",
+                "name": "Decision Matrix",
+                "html": ["Decision Matrix", "Compare Options", "decision-options", "decision-criteria", "decision-ranking", "This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser.", 'data-app-shape="decision_matrix"', 'data-template-marker="tradeoffs"'],
+                "js": ["compareDecisionOptions", "scoreOption", "decisionTradeoffs"],
+                "readme": ["Decision Matrix compares", "This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser.", "ranking, recommendation, and tradeoff notes", "No OpenAI, DeepSeek"],
+                "test_plan": ["Test Plan — Decision Matrix", "ranked list, recommendation, and tradeoff notes update"],
+                "codex": ["Codex Build Prompt — Decision Matrix", "Improve Decision Matrix", "`decision-options`", "`decision-tradeoffs`"],
+            },
+            {
                 "idea": "Build a study flashcard helper where students paste notes and get cards.",
                 "prototype_type": "ai_text_tool",
                 "name": "Study Card Builder",
-                "html": ["Study Card Builder", "Study notes", "Build Flashcards", "Question / answer cards", "Local/mocked limitation", 'data-app-shape="flashcard_helper"', 'data-template-marker="flashcard-cards"'],
+                "html": ["Study Card Builder", "Study notes", "Build Flashcards", "Question / answer cards", "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.", 'data-app-shape="flashcard_helper"', 'data-template-marker="flashcard-cards"'],
                 "js": ["sentenceCards", "buildCards", "question"],
-                "readme": ["Study Card Builder turns", "This is not live AI generation", "question/answer cards", "No OpenAI, DeepSeek"],
-                "test_plan": ["Test Plan — Study Card Builder", "question/answer cards appear with the local/mocked limitation note visible"],
+                "readme": ["Study Card Builder turns", "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.", "question/answer cards", "No OpenAI, DeepSeek"],
+                "test_plan": ["Test Plan — Study Card Builder", "question/answer cards appear with the visible note"],
                 "codex": ["Codex Build Prompt — Study Card Builder", "Improve Study Card Builder", "`notes-input`", "`card-output`"],
             },
             {
@@ -3406,7 +3426,53 @@ class PrototypeBuilderTests(SprintOSTestCase):
                 "calculate savings/surplus/deficit",
                 "visible local/demo limitation note",
             ],
-            "flashcard_helper": ["Flashcard helper contract", "question/answer cards"],
+            "decision_matrix": [
+                "Decision matrix contract",
+                "exact id `decision-options`",
+                "`data-template-marker=\"main-input\"`",
+                "exact id `decision-criteria`",
+                "exact id `compare-options`",
+                "`data-template-marker=\"primary-action\"`",
+                "exact id `decision-ranking`",
+                "exact id `decision-recommendation`",
+                "`data-template-marker=\"recommendation\"`",
+                "exact id `decision-tradeoffs`",
+                "`data-template-marker=\"tradeoffs\"`",
+                "read `decision-options`",
+                "read `decision-criteria`",
+                "This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser.",
+            ],
+            "pricing_roi_calculator": [
+                "Pricing ROI calculator contract",
+                "exact id `roi-price`",
+                "`type=\"number\"`",
+                "`data-template-marker=\"main-input\"`",
+                "exact id `roi-cost`",
+                "exact id `roi-customers`",
+                "exact id `roi-run`",
+                "`data-template-marker=\"primary-action\"`",
+                "exact id `roi-summary`",
+                "exact id `roi-breakdown`",
+                "`data-template-marker=\"roi-breakdown\"`",
+                "exact id `roi-recommendation`",
+                "`data-template-marker=\"recommendation\"`",
+                "read `document.getElementById(\"roi-price\").value`",
+                "read `document.getElementById(\"roi-cost\").value`",
+                "read `document.getElementById(\"roi-customers\").value`",
+                "blank/invalid/negative numbers gracefully",
+                "monthly revenue",
+                "break-even units",
+                "This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser.",
+            ],
+            "flashcard_helper": [
+                "Flashcard helper contract",
+                "question/answer cards",
+                "index.html must include this visible limitation note",
+                "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.",
+                "Do not call external URLs, fetch, XMLHttpRequest, sendBeacon, providers, APIs, OpenAI, DeepSeek",
+                "The files array must contain exactly five files and no extra entries",
+                "Do not include `test-plan.md`, sample notes, JSON data files, manifests, package files, or any sixth file",
+            ],
             "quiz_recommender": ["Quiz/recommender contract", "Show Recommendation"],
             "waitlist_page": ["Landing page contract", "local-only confirmation"],
         }
@@ -3463,10 +3529,28 @@ class PrototypeBuilderTests(SprintOSTestCase):
                 ["budget-income", "budget-breakdown", "budget-recommendation", "calculateBudget"],
             ),
             (
+                "Build a decision matrix to compare options against criteria and choose a recommended option.",
+                "landing_page",
+                "decision_matrix",
+                ["decision-options", "decision-criteria", "decision-ranking", "decision-recommendation", "decision-tradeoffs"],
+            ),
+            (
+                "Build a pricing ROI calculator for unit economics, margin, break-even, and payback.",
+                "calculator",
+                "pricing_roi_calculator",
+                ["roi-price", "roi-cost", "roi-customers", "roi-breakdown", "calculateRoi"],
+            ),
+            (
                 "Build a study flashcard helper where students paste notes and get cards.",
                 "ai_text_tool",
                 "flashcard_helper",
-                ["notes-input", "build-cards", "card-output", "sentenceCards"],
+                [
+                    "notes-input",
+                    "build-cards",
+                    "card-output",
+                    "sentenceCards",
+                    "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.",
+                ],
             ),
         ]
 
@@ -3494,6 +3578,30 @@ class PrototypeBuilderTests(SprintOSTestCase):
                 self.assertEqual(metadata["offline_template_shape"], shape)
                 for marker in markers:
                     self.assertIn(marker, combined)
+
+    def test_decision_matrix_offline_template_passes_app_specific_verification(self) -> None:
+        project = self.create_project(raw_idea="Build a decision matrix to compare options against criteria.")
+        prototype = self.generate_prototype(project, "landing_page", generation_mode="offline")
+
+        verification = self.run_verification(project, verification_scope="prototype", prototype_id=prototype["id"])
+
+        self.assertEqual(verification["status"], "passed")
+        self.assertEqual(verification["metadata"].get("app_shape"), "decision_matrix")
+        self.assertTrue(
+            any(item["name"] == "decision matrix: ranking output updates" and item["status"] == "pass" for item in verification["metadata"]["checks"])
+        )
+
+    def test_pricing_roi_offline_template_passes_app_specific_verification(self) -> None:
+        project = self.create_project(raw_idea="Build a pricing ROI calculator for unit economics, margin, break-even, and payback.")
+        prototype = self.generate_prototype(project, "calculator", generation_mode="offline")
+
+        verification = self.run_verification(project, verification_scope="prototype", prototype_id=prototype["id"])
+
+        self.assertEqual(verification["status"], "passed")
+        self.assertEqual(verification["metadata"].get("app_shape"), "pricing_roi_calculator")
+        self.assertTrue(
+            any(item["name"] == "pricing ROI calculator: business metric logic exists" and item["status"] == "pass" for item in verification["metadata"]["checks"])
+        )
 
     def test_fake_deepseek_app_generation_writes_actual_app_files(self) -> None:
         os.environ["SPRINTOS_AI_PROVIDER"] = "deepseek"
@@ -3970,6 +4078,72 @@ class BuildPackTests(SprintOSTestCase):
             "mocked_parts": ["The scoring logic is intentionally simple."],
         }
 
+    def generic_custom_app_file_payload(self) -> dict:
+        return {
+            "app_name": "Local Lead Tracker",
+            "app_type": "static_app",
+            "short_description": "Track leads locally in one browser session.",
+            "user_flow": ["Enter a lead.", "Click Add Lead.", "Review the local list and summary."],
+            "files": [
+                {
+                    "filename": "index.html",
+                    "content": (
+                        '<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>Local Lead Tracker</title>'
+                        '<link rel="stylesheet" href="style.css" /></head><body><main><h1>Local Lead Tracker</h1>'
+                        '<p>Purpose: helps a freelancer track leads locally before deciding what to follow up on next.</p>'
+                        '<p>This local demo runs only in the browser, uses deterministic rules, and does not call external services.</p>'
+                        '<section><h2>Add lead</h2><input id="lead-name" placeholder="Client name" />'
+                        '<button id="add-lead" type="button">Add Lead</button><button id="clear-leads" type="button">Clear</button></section>'
+                        '<section><h2>Results</h2><div id="lead-summary" class="result">Empty state: add a lead to build the local list.</div>'
+                        '<ul id="lead-list"></ul></section></main><script src="app.js"></script></body></html>'
+                    ),
+                },
+                {"filename": "style.css", "content": "body{font-family:sans-serif;padding:24px}.result{border:1px solid #ccc;padding:12px}"},
+                {
+                    "filename": "app.js",
+                    "content": (
+                        "const leadName=document.getElementById('lead-name');const leadSummary=document.getElementById('lead-summary');"
+                        "const leadList=document.getElementById('lead-list');let leads=[];"
+                        "function renderLeads(){if(!leads.length){leadSummary.textContent='Empty state: add a lead to build the local list.';leadList.innerHTML='';return;}"
+                        "leadSummary.textContent='Tracking '+leads.length+' local lead(s). Next action: follow up with '+leads[0]+'.';"
+                        "leadList.innerHTML=leads.map((lead,index)=>'<li>'+String(index+1)+'. '+lead+'</li>').join('');}"
+                        "function addLead(){const value=leadName.value.trim();if(!value){leadSummary.textContent='Empty state: enter a lead name first.';return;}"
+                        "leads.unshift(value);leadName.value='';renderLeads();}"
+                        "function clearLeads(){leads=[];renderLeads();leadName.focus();}"
+                        "document.getElementById('add-lead').addEventListener('click',addLead);"
+                        "document.getElementById('clear-leads').addEventListener('click',clearLeads);renderLeads();"
+                    ),
+                },
+                {
+                    "filename": "README.md",
+                    "content": (
+                        "# Local Lead Tracker\n\n## Purpose\nLocal Lead Tracker helps a freelancer track leads locally in a browser session.\n\n"
+                        "## How to run\nOpen `index.html` directly or run `python3 -m http.server 8080`.\n\n"
+                        "## Manual test steps\nEnter a lead, click **Add Lead**, confirm the summary and list update, then clear the list.\n\n"
+                        "## Limitations\nThis is a local deterministic demo. It has no backend, network calls, cloud sync, API keys, or live AI.\n\n"
+                        "## Codex next steps\nImprove one filtering or export behavior while preserving the local-first flow."
+                    ),
+                },
+                {
+                    "filename": "TEST_PLAN.md",
+                    "content": (
+                        "# Local Lead Tracker Test Plan\n\n## Setup\n- Open `index.html` or serve the folder locally.\n\n"
+                        "## Happy path\n- Enter `Acme Bakery` and click **Add Lead**.\n- Confirm the summary and list update from the input.\n\n"
+                        "## Edge cases\n- Submit a blank lead and confirm the empty state remains useful.\n- Clear all leads and confirm the start state returns.\n\n"
+                        "## Expected behavior\n- Output changes from local user input and no fixed canned list is used.\n\n"
+                        "## Local-first/safety checks\n- Confirm the app works offline with no external URLs, network calls, backend, provider calls, or API keys.\n\n"
+                        "## Limitations\n- Data is demo-only and stays in the current browser session.\n\n"
+                        "## Suggested Codex next improvements\n- Add one local export or persistence option without adding external services."
+                    ),
+                },
+            ],
+            "run_instructions": "Open index.html locally.",
+            "test_instructions": "Run the happy path and blank-input edge case.",
+            "codex_next_prompt": "Improve one local CRM rule while preserving the generic contract.",
+            "limitations": ["Local deterministic demo only."],
+            "mocked_parts": ["No backend or live AI is implemented."],
+        }
+
     def test_build_packs_table_is_created(self) -> None:
         with sprintos.db() as conn:
             tables = {
@@ -4017,6 +4191,56 @@ class BuildPackTests(SprintOSTestCase):
         self.assertEqual((build_pack_dir / "src" / "app.js").read_text(encoding="utf-8"), (prototype_dir / "app.js").read_text(encoding="utf-8"))
         self.assertIn("AI-generated prototype: yes", prompt)
         self.assertIn("Improve one small part only", prompt)
+
+    def test_static_build_pack_verification_passes_generic_custom_app_with_practical_test_plan(self) -> None:
+        payload = self.generic_custom_app_file_payload()
+        project = self.create_project(raw_idea="Create a local mini CRM for freelancers.", desired_output="a local freelancer CRM app")
+        prototype = self.generate_prototype(project, "landing_page")
+        for item in payload["files"]:
+            Path(prototype["path"], item["filename"]).write_text(item["content"], encoding="utf-8")
+        prototype["prototype_type"] = "custom_static_app"
+        prototype["prototype_label"] = "Custom Static App"
+        prototype["metadata"] = {
+            "app_name": payload["app_name"],
+            "app_type": payload["app_type"],
+            "short_description": payload["short_description"],
+            "user_flow": payload["user_flow"],
+            "limitations": payload["limitations"],
+            "mocked_parts": payload["mocked_parts"],
+        }
+        build_pack = self.generate_build_pack(project, prototype, build_target="static_app")
+
+        verification = self.run_verification(project, verification_scope="build_pack", build_pack_id=build_pack["id"])
+        checks = verification["metadata"]["checks"]
+
+        self.assertEqual(verification["status"], "passed", verification["blockers"])
+        self.assertIsNone(verification["metadata"].get("app_shape"))
+        self.assertTrue(any(item["name"] == "universal app: TEST_PLAN is practical and app-specific" and item["status"] == "pass" for item in checks))
+        self.assertFalse(any("TEST_PLAN must include happy path, edge cases" in item for item in verification["blockers"]))
+
+    def test_static_build_pack_verification_fails_generic_custom_app_with_placeholder_test_plan(self) -> None:
+        payload = self.generic_custom_app_file_payload()
+        project = self.create_project(raw_idea="Create a local mini CRM for freelancers.", desired_output="a local freelancer CRM app")
+        prototype = self.generate_prototype(project, "landing_page")
+        for item in payload["files"]:
+            Path(prototype["path"], item["filename"]).write_text(item["content"], encoding="utf-8")
+        prototype["prototype_type"] = "custom_static_app"
+        prototype["prototype_label"] = "Custom Static App"
+        prototype["metadata"] = {
+            "app_name": payload["app_name"],
+            "app_type": payload["app_type"],
+            "short_description": payload["short_description"],
+            "user_flow": payload["user_flow"],
+            "limitations": payload["limitations"],
+            "mocked_parts": payload["mocked_parts"],
+        }
+        build_pack = self.generate_build_pack(project, prototype, build_target="static_app")
+        Path(build_pack["path"], "TEST_PLAN.md").write_text("# Test Plan\n\n- Open the app.\n", encoding="utf-8")
+
+        verification = self.run_verification(project, verification_scope="build_pack", build_pack_id=build_pack["id"])
+
+        self.assertEqual(verification["status"], "failed")
+        self.assertTrue(any("TEST_PLAN must include happy path, edge cases, and safety/local-first checks" in item for item in verification["blockers"]))
 
     def test_python_stdlib_build_pack_generation_creates_required_files(self) -> None:
         project = self.create_project()
@@ -5499,6 +5723,163 @@ class _MovedPipelineRunTests:
         self.assertEqual(run_payload["pipeline_run_id"], payload["pipeline_run_id"])
 
 
+class AppIntentReviewTests(SprintOSTestCase):
+    def test_app_intent_review_ready_for_specific_mini_crm_prompt(self) -> None:
+        review = sprintos.review_app_intent(
+            "Build a local mini CRM for freelancers to track leads, status, next follow-up date, and notes."
+        )
+        blueprint = review["app_blueprint"]
+
+        self.assertEqual(review["status"], "ready_to_generate")
+        self.assertEqual(review["app_type_guess"], "Mini CRM")
+        self.assertLessEqual(len(review["follow_up_questions"]), 1)
+        self.assertIn("mini CRM", review["enriched_generation_brief"])
+        self.assertIn("freelancer", blueprint["target_user"].lower())
+        self.assertIn("Leads or clients", blueprint["main_records"])
+        self.assertIn("Status", blueprint["key_fields"])
+        self.assertIn("Add lead", blueprint["primary_actions"])
+        self.assertIn("Pipeline summary", blueprint["main_outputs"])
+        self.assertIn("App Blueprint v1", blueprint["generation_brief"])
+        self.assertFalse(blueprint["assumptions"])
+
+    def test_app_intent_review_needs_clarification_for_vague_business_app(self) -> None:
+        review = sprintos.review_app_intent("Build me an app for my business.")
+
+        self.assertEqual(review["status"], "needs_clarification")
+        self.assertTrue(review["can_generate_with_assumptions"])
+        self.assertGreaterEqual(len(review["follow_up_questions"]), 3)
+        self.assertLessEqual(len(review["follow_up_questions"]), 5)
+        combined = " ".join(review["follow_up_questions"]).lower()
+        for forbidden in ("deployment", "auth", "billing", "cloud sync", "github", "production infrastructure"):
+            self.assertNotIn(forbidden, combined)
+        self.assertIn("business workflow", review["app_type_guess"].lower())
+
+    def test_app_blueprint_generate_with_assumptions_marks_assumptions(self) -> None:
+        review = sprintos.review_app_intent(
+            "Build me an app for my business.",
+            generate_with_assumptions=True,
+        )
+        blueprint = review["app_blueprint"]
+
+        self.assertEqual(review["status"], "generate_with_assumptions_available")
+        self.assertGreaterEqual(len(blueprint["assumptions"]), 3)
+        self.assertIn("Explicit assumptions", blueprint["generation_brief"])
+        self.assertIn("local business workflow tracker", " ".join(blueprint["assumptions"]).lower())
+        self.assertIn("local-first", " ".join(blueprint["limitations"]).lower())
+
+    def test_app_intent_review_client_tracker_gets_practical_questions_and_assumptions(self) -> None:
+        review = sprintos.review_app_intent("Build a tracker for my clients.")
+
+        self.assertIn(review["status"], {"generate_with_assumptions_available", "needs_clarification"})
+        questions = review["follow_up_questions"]
+        self.assertGreaterEqual(len(questions), 3)
+        self.assertLessEqual(len(questions), 5)
+        combined_questions = " ".join(questions).lower()
+        for expected in ("client", "status", "follow-up"):
+            self.assertIn(expected, combined_questions)
+        self.assertTrue(any("client tracker" in item.lower() for item in review["assumptions"]))
+
+    def test_app_intent_review_generate_with_assumptions_creates_enriched_brief(self) -> None:
+        review = sprintos.review_app_intent(
+            "Build a tracker for my clients.",
+            generate_with_assumptions=True,
+        )
+
+        self.assertEqual(review["status"], "generate_with_assumptions_available")
+        self.assertIn("Safe assumptions", review["enriched_generation_brief"])
+        self.assertIn("client", review["enriched_generation_brief"].lower())
+
+    def test_app_intent_review_answered_followups_enrich_generation_brief(self) -> None:
+        answers = [
+            {"question": "Which client fields matter first?", "answer": "Name, email, status, next follow-up date, project value, and notes."},
+            {"question": "What should happen most often?", "answer": "Add a client, update status, and review overdue follow-ups."},
+            {"question": "What should the main output show?", "answer": "A dashboard with active clients and overdue follow-ups."},
+        ]
+        review = sprintos.review_app_intent("Build a tracker for my clients.", answered_followups=answers)
+        project = self.create_project(raw_idea="Build a tracker for my clients.")
+        project["sprint"]["_app_intent_review"] = review
+        ctx = sprintos.prototype_context_offline(project, "landing_page", prototype_id="intent-test")
+
+        brief = review["enriched_generation_brief"]
+        user_input = sprintos.app_file_generation_user_input(project, ctx, "static_app")
+
+        self.assertEqual(review["status"], "ready_to_generate")
+        self.assertIn("Answered follow-up details", brief)
+        self.assertIn("overdue follow-ups", brief)
+        self.assertIn("overdue follow-ups", user_input)
+        self.assertIn("App blueprint generation brief", user_input)
+        self.assertIn("Use answered follow-up details", review["app_blueprint"]["generation_brief"])
+        self.assertEqual(review["app_blueprint"]["follow_up_answers_used"], answers)
+        self.assertIn("Email", review["app_blueprint"]["key_fields"])
+        self.assertIn("Dashboard", " ".join(review["app_blueprint"]["main_outputs"]))
+
+    def test_app_blueprint_questions_avoid_external_service_topics(self) -> None:
+        review = sprintos.review_app_intent("Build me an app for my business.")
+        combined_questions = " ".join(review["follow_up_questions"]).lower()
+        combined_next_steps = " ".join(review["app_blueprint"]["codex_next_steps"]).lower()
+
+        for forbidden in ("deployment", "auth", "billing", "cloud", "github"):
+            self.assertNotIn(forbidden, combined_questions)
+            self.assertNotIn(forbidden, combined_next_steps)
+
+    def test_app_blueprint_preserves_app_file_contract_and_shape_paths(self) -> None:
+        canonical_project = self.create_project(
+            raw_idea="Create a personal budget calculator where users enter income and expenses and see savings."
+        )
+        budget_snapshot_project = self.create_project(
+            raw_idea="Create a Budget Snapshot where users enter monthly income and expenses and see savings, spending breakdown, and a recommendation."
+        )
+        generic_project = self.create_project(
+            raw_idea="Create a local mini CRM for freelancers to track leads, status, next follow-up date, and notes."
+        )
+        self.assertEqual(sprintos.offline_app_template_shape(canonical_project, "auto"), "budget_calculator")
+        self.assertEqual(sprintos.offline_app_template_shape(budget_snapshot_project, "auto"), "budget_calculator")
+        self.assertEqual(set(sprintos.APP_FILE_GENERATION_REQUIRED_FILES), {"index.html", "style.css", "app.js", "README.md", "TEST_PLAN.md"})
+        self.assertNotIn("manifest.json", sprintos.app_file_generation_instructions(""))
+        generic_review = sprintos.review_app_intent(str(generic_project["raw_idea"]))
+        self.assertEqual(generic_review["app_blueprint"]["app_type_guess"], "Mini CRM")
+
+    def test_app_intent_review_does_not_block_specific_broad_prompts(self) -> None:
+        prompts = [
+            "Create a local lesson planner for teachers with lesson topic, objectives, activities, materials, homework, and class notes.",
+            "Create a local booking tracker for a barber to manage client names, service type, appointment time, status, and daily schedule.",
+            "Create a local client onboarding checklist for an agency with client name, onboarding tasks, owner, due date, status, and progress summary.",
+            "Create a local project tracker for a small agency with project name, client, deadline, status, owner, next action, and workload summary.",
+        ]
+
+        for prompt in prompts:
+            with self.subTest(prompt=prompt):
+                review = sprintos.review_app_intent(prompt)
+                self.assertNotEqual(review["status"], "needs_clarification")
+                self.assertIn(review["status"], {"ready_to_generate", "generate_with_assumptions_available"})
+                self.assertTrue(review["app_blueprint"]["main_records"])
+                self.assertTrue(review["app_blueprint"]["key_fields"])
+                self.assertTrue(review["app_blueprint"]["primary_actions"])
+
+    def test_app_intent_review_budget_notes_do_not_create_budget_blueprint(self) -> None:
+        review = sprintos.review_app_intent(
+            "Create a local event planner with event name, date, tasks, vendors, budget notes, and readiness summary."
+        )
+
+        self.assertNotEqual(review["status"], "needs_clarification")
+        self.assertNotEqual(review["app_type_guess"], "Budget Calculator")
+        self.assertNotEqual(review["app_blueprint"]["app_type_guess"], "Budget Calculator")
+
+    def test_quick_launch_generate_with_assumptions_stores_intent_review_metadata(self) -> None:
+        quick_launch = sprintos.run_quick_launch(
+            raw_idea="Build a tracker for my clients.",
+            intent_review_action="generate_with_assumptions",
+        )
+        project = sprintos.get_project(quick_launch["project_id"])
+        review = project["sprint"]["_app_intent_review"]
+
+        self.assertEqual(review["status"], "generate_with_assumptions_available")
+        self.assertIn("Safe assumptions", review["enriched_generation_brief"])
+        self.assertIn("app_blueprint", review)
+        self.assertIn("app_blueprint", quick_launch["app_intent_review"])
+        self.assertEqual(quick_launch["app_intent_review"]["status"], "generate_with_assumptions_available")
+
+
 class _MovedQuickLaunchTests:
     def app_file_generation_payload(self) -> dict:
         return {
@@ -6085,6 +6466,28 @@ class _MovedVerificationRunTests:
         self.assertTrue(any(item["name"] == "budget calculator: income and expense input markers exist" and item["status"] == "fail" for item in checks))
         self.assertTrue(any("Budget calculator needs `budget-income` and expense input markers" in item for item in failed["blockers"]))
 
+    def test_app_specific_verification_checks_decision_matrix_shape(self) -> None:
+        project = self.create_project(raw_idea="Build a decision matrix to compare options against criteria.")
+        prototype = self.generate_prototype(project, "landing_page", generation_mode="offline")
+        passed = self.run_verification(project, verification_scope="prototype", prototype_id=prototype["id"])
+        passed_checks = passed["metadata"]["checks"]
+
+        self.assertEqual(passed["metadata"].get("app_shape"), "decision_matrix")
+        self.assertTrue(any(item["name"] == "decision matrix: ranking output updates" and item["status"] == "pass" for item in passed_checks))
+
+        package_dir = Path(prototype["path"])
+        (package_dir / "app.js").write_text(
+            "document.getElementById('compare-options').addEventListener('click', function(){document.getElementById('decision-ranking').textContent='Coming soon';document.getElementById('decision-recommendation').textContent='Coming soon';document.getElementById('decision-tradeoffs').textContent='Coming soon';});",
+            encoding="utf-8",
+        )
+
+        failed = self.run_verification(project, verification_scope="prototype", prototype_id=prototype["id"])
+        failed_checks = failed["metadata"]["checks"]
+
+        self.assertEqual(failed["status"], "failed")
+        self.assertTrue(any(item["name"] == "decision matrix: options input is read" and item["status"] == "fail" for item in failed_checks))
+        self.assertTrue(any("Decision matrix needs app.js to read the `decision-options` value" in item for item in failed["blockers"]))
+
     def test_app_specific_verification_checks_flashcard_helper_outputs_and_local_note(self) -> None:
         project = self.create_project(raw_idea="Build a study flashcard helper where students paste notes and get cards.")
         prototype = self.generate_prototype(project, "ai_text_tool", generation_mode="offline")
@@ -6124,6 +6527,28 @@ class _MovedVerificationRunTests:
         self.assertTrue(any(item["name"] == "flashcard helper: card output exists" and item["status"] == "fail" for item in failed_checks))
         self.assertTrue(any("Flashcard helper needs a `card-output` area" in item for item in failed["blockers"]))
 
+    def test_app_specific_verification_checks_pricing_roi_shape(self) -> None:
+        project = self.create_project(raw_idea="Build a pricing ROI calculator for unit economics, margin, break-even, and payback.")
+        prototype = self.generate_prototype(project, "calculator", generation_mode="offline")
+        passed = self.run_verification(project, verification_scope="prototype", prototype_id=prototype["id"])
+        passed_checks = passed["metadata"]["checks"]
+
+        self.assertEqual(passed["metadata"].get("app_shape"), "pricing_roi_calculator")
+        self.assertTrue(any(item["name"] == "pricing ROI calculator: summary output updates" and item["status"] == "pass" for item in passed_checks))
+
+        package_dir = Path(prototype["path"])
+        (package_dir / "app.js").write_text(
+            "document.getElementById('roi-run').addEventListener('click', function(){document.getElementById('roi-summary').textContent='Coming soon';document.getElementById('roi-breakdown').textContent='Coming soon';document.getElementById('roi-recommendation').textContent='Coming soon';});",
+            encoding="utf-8",
+        )
+
+        failed = self.run_verification(project, verification_scope="prototype", prototype_id=prototype["id"])
+        failed_checks = failed["metadata"]["checks"]
+
+        self.assertEqual(failed["status"], "failed")
+        self.assertTrue(any(item["name"] == "pricing ROI calculator: price input is read" and item["status"] == "fail" for item in failed_checks))
+        self.assertTrue(any("Pricing ROI calculator needs app.js to read the `roi-price` value" in item for item in failed["blockers"]))
+
     def test_app_specific_verification_requires_shape_update_markers(self) -> None:
         scorer_html = """<!doctype html><html><body><textarea id="idea-input" data-template-marker="main-input"></textarea><button id="score-idea" data-template-marker="primary-action">Score Idea</button><section data-template-marker="result-output"><div id="idea-score">0</div><ul id="idea-risks" data-template-marker="risk_breakdown"></ul><div id="idea-smallest-test" data-template-marker="smallest-testable-version"></div><div id="idea-next-action" data-template-marker="next-action"></div></section></body></html>"""
         scorer_checks = static_app_shape_verification_checks(
@@ -6148,6 +6573,14 @@ class _MovedVerificationRunTests:
             app_js="document.getElementById('build-cards').addEventListener('click', function(){document.getElementById('card-output').textContent='Cards ready';});",
         )
         self.assertTrue(any(item["name"] == "flashcard helper: flashcard content renders" and item["status"] == "fail" for item in flashcard_checks))
+
+        pricing_html = """<!doctype html><html><body><input id="roi-price" data-template-marker="main-input" type="number" /><input id="roi-cost" type="number" /><input id="roi-customers" type="number" /><button id="roi-run" data-template-marker="primary-action">Calculate ROI</button><section data-template-marker="result-output"><div id="roi-summary"></div></section><div id="roi-breakdown" data-template-marker="roi-breakdown"></div><div id="roi-recommendation" data-template-marker="recommendation"></div><p>This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser.</p></body></html>"""
+        pricing_checks = static_app_shape_verification_checks(
+            "pricing_roi_calculator",
+            index_html=pricing_html,
+            app_js="document.getElementById('roi-run').addEventListener('click', function(){const price=Number(document.getElementById('roi-price').value||0);const cost=Number(document.getElementById('roi-cost').value||0);const customers=Number(document.getElementById('roi-customers').value||0);const monthlyRevenue=price*customers;const totalCost=cost*customers;document.getElementById('roi-summary').textContent=String(monthlyRevenue-totalCost);document.getElementById('roi-recommendation').textContent='Recommendation';});",
+        )
+        self.assertTrue(any(item["name"] == "pricing ROI calculator: breakdown output updates" and item["status"] == "fail" for item in pricing_checks))
 
     def test_canonical_app_behavior_verification_requires_input_action_and_output_evidence(self) -> None:
         scorer_html = """<!doctype html><html><body><textarea id="idea-input" data-template-marker="main-input"></textarea><button id="score-idea" data-template-marker="primary-action">Score Idea</button><section data-template-marker="result-output"><div id="idea-score">0</div><ul id="idea-risks" data-template-marker="risk_breakdown"></ul><div id="idea-smallest-test" data-template-marker="smallest-testable-version"></div><div id="idea-next-action" data-template-marker="next-action"></div></section></body></html>"""
@@ -6208,11 +6641,94 @@ class _MovedVerificationRunTests:
         )
         self.assertTrue(any(item["name"] == "flashcard helper: card output updates" and item["status"] == "fail" for item in no_card_output_checks))
 
+        decision_html = """<!doctype html><html><body><textarea id="decision-options" data-template-marker="main-input"></textarea><textarea id="decision-criteria"></textarea><button id="compare-options" data-template-marker="primary-action">Compare Options</button><section data-template-marker="result-output"><ol id="decision-ranking"></ol></section><div id="decision-recommendation" data-template-marker="recommendation"></div><div id="decision-tradeoffs" data-template-marker="tradeoffs"></div><p>This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser.</p></body></html>"""
+        decision_js = """function compareOptions(){const options=document.getElementById('decision-options').value.trim().split('\n');const criteria=document.getElementById('decision-criteria').value.trim().split('\n');const ranked=options.map((option,index)=>({option,score:criteria.length+index})).sort((a,b)=>b.score-a.score);document.getElementById('decision-ranking').innerHTML=ranked.map(item=>'<li>'+item.option+'</li>').join('');document.getElementById('decision-recommendation').textContent='Recommendation: '+ranked[0].option;document.getElementById('decision-tradeoffs').textContent='Tradeoffs depend on '+criteria.join(', ');}document.getElementById('compare-options').addEventListener('click',compareOptions);"""
+        decision_checks = static_app_shape_verification_checks("decision_matrix", index_html=decision_html, app_js=decision_js)
+        self.assertFalse([item for item in decision_checks if item["status"] == "fail"])
+
+        no_criteria_checks = static_app_shape_verification_checks(
+            "decision_matrix",
+            index_html=decision_html,
+            app_js=decision_js.replace("document.getElementById('decision-criteria').value", "document.getElementById('other-criteria').value"),
+        )
+        self.assertTrue(any(item["name"] == "decision matrix: criteria input is read" and item["status"] == "fail" for item in no_criteria_checks))
+
+        pricing_html = """<!doctype html><html><body><input id="roi-price" data-template-marker="main-input" type="number" /><input id="roi-cost" type="number" /><input id="roi-customers" type="number" /><button id="roi-run" data-template-marker="primary-action">Calculate ROI</button><section data-template-marker="result-output"><div id="roi-summary"></div></section><div id="roi-breakdown" data-template-marker="roi-breakdown"></div><div id="roi-recommendation" data-template-marker="recommendation"></div><p>This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser.</p></body></html>"""
+        pricing_js = """function calculateRoi(){const price=Number(document.getElementById('roi-price').value||0);const cost=Number(document.getElementById('roi-cost').value||0);const customers=Number(document.getElementById('roi-customers').value||0);const monthlyRevenue=price*customers;const totalCost=cost*customers;const margin=monthlyRevenue>0?Math.round(((monthlyRevenue-totalCost)/monthlyRevenue)*100):0;document.getElementById('roi-summary').textContent='Monthly profit: '+(monthlyRevenue-totalCost);document.getElementById('roi-breakdown').textContent='Revenue: '+monthlyRevenue+' Cost: '+totalCost+' Margin: '+margin;document.getElementById('roi-recommendation').textContent='Run a pricing test.';}document.getElementById('roi-run').addEventListener('click',calculateRoi);"""
+        pricing_checks = static_app_shape_verification_checks("pricing_roi_calculator", index_html=pricing_html, app_js=pricing_js)
+        self.assertFalse([item for item in pricing_checks if item["status"] == "fail"])
+
+        no_customer_checks = static_app_shape_verification_checks(
+            "pricing_roi_calculator",
+            index_html=pricing_html,
+            app_js=pricing_js.replace("document.getElementById('roi-customers').value", "document.getElementById('other-customers').value"),
+        )
+        self.assertTrue(any(item["name"] == "pricing ROI calculator: customers input is read" and item["status"] == "fail" for item in no_customer_checks))
+
     def test_custom_app_shape_is_not_subject_to_canonical_behavior_checks(self) -> None:
         html = """<!doctype html><html><body><textarea id="idea-input" data-template-marker="main-input"></textarea><button id="score-idea" data-template-marker="primary-action">Score Idea</button><div id="idea-score" data-template-marker="result-output"></div></body></html>"""
         checks = static_app_shape_verification_checks("custom_static_app", index_html=html, app_js="")
 
         self.assertEqual(checks, [])
+
+    def test_generic_output_markers_count_as_input_action_output(self) -> None:
+        html = """<!doctype html><html><body><textarea id="habitInput"></textarea><button id="addButton">Add Habits</button><p id="summary">No habits yet.</p><div id="progressPill">0%</div><ul id="habitList"></ul></body></html>"""
+
+        self.assertTrue(sprintos.prototype_has_input_and_result(html))
+
+    def test_universal_app_checks_use_test_plan_text_for_generic_builds(self) -> None:
+        project = self.create_project(raw_idea="Create a local habit tracker for daily routines.", desired_output="a local static app")
+        checks = []
+        sprintos.append_static_app_shape_checks(
+            checks,
+            project,
+            prototype_type="ai_text_tool",
+            metadata={"app_name": "Habit Tracker", "app_type": "static_app", "short_description": "Track habits locally."},
+            files={
+                "src/index.html": (
+                    '<!doctype html><html><head><title>Habit Tracker</title></head><body><main><h1>Habit Tracker</h1>'
+                    '<p>Purpose: helps a person track daily habits locally.</p>'
+                    '<p>This local demo runs in the browser only and does not call external services.</p>'
+                    '<section><h2>Add habits</h2><textarea id="habitInput"></textarea><button id="addButton">Add Habits</button></section>'
+                    '<section><h2>Progress</h2><p id="summary">Empty state: add a habit.</p><ul id="habitList"></ul></section>'
+                    '</main></body></html>'
+                ),
+                "src/app.js": (
+                    "const input=document.getElementById('habitInput');const summary=document.getElementById('summary');"
+                    "document.getElementById('addButton').addEventListener('click',function(){const value=input.value.trim();"
+                    "summary.textContent=value?'Tracking '+value:'Empty state: add a habit.';});"
+                ),
+                "README.md": (
+                    "# Habit Tracker\n\n## Purpose\nTrack habits locally.\n\n## How to run\nOpen `index.html` or run `python3 -m http.server 8080`.\n\n"
+                    "## Manual test steps\nAdd a habit and confirm the summary updates.\n\n## Limitations\nLocal demo only, no backend or network.\n\n"
+                    "## Codex next steps\nImprove one local tracking rule."
+                ),
+                "TEST_PLAN.md": (
+                    "# Habit Tracker Test Plan\n\n## Happy path\n- Add a habit and confirm the summary updates.\n\n"
+                    "## Edge cases\n- Submit a blank habit and confirm the empty state remains useful.\n\n"
+                    "## Safety/local-first checks\n- Confirm the app works offline with no external services."
+                ),
+            },
+        )
+
+        self.assertFalse([item for item in checks if item["status"] == "fail"], checks)
+        self.assertTrue(any(item["name"] == "universal app: TEST_PLAN is practical and app-specific" for item in checks))
+
+    def test_secondary_app_shape_checks_cover_quiz_and_waitlist_apps(self) -> None:
+        quiz_checks = static_app_shape_verification_checks(
+            "quiz_recommender",
+            index_html="""<!doctype html><html><body><select id="quiz-answer"><option>Fastest path</option></select><button id="quiz-run">Show Recommendation</button><section id="quiz-recommendation">Recommendation appears here.</section></body></html>""",
+            app_js="document.getElementById('quiz-run').addEventListener('click', function(){document.getElementById('quiz-recommendation').textContent='Local recommendation';});",
+            readme_text="Uses a deterministic local score with no AI.",
+        )
+        waitlist_checks = static_app_shape_verification_checks(
+            "waitlist_page",
+            index_html="""<!doctype html><html><body><h1>Join Waitlist</h1><input id="waitlist-email" type="email" /><button id="waitlist-submit">Join Waitlist</button><p id="waitlist-result">Local-only confirmation appears here.</p></body></html>""",
+            app_js="document.getElementById('waitlist-submit').addEventListener('click', function(){document.getElementById('waitlist-result').textContent='Thanks. This is a mock signup.';});",
+        )
+
+        self.assertFalse([item for item in quiz_checks if item["status"] == "fail"])
+        self.assertFalse([item for item in waitlist_checks if item["status"] == "fail"])
 
     def test_deploy_pack_verification_passes_for_generated_package(self) -> None:
         project = self.create_project()

@@ -1,0 +1,216 @@
+# Codex Tasks Backlog
+
+## Current Guidance Layer
+- Today Dashboard v1 is now the main global guidance layer across all projects.
+- `Create App` is now the default first-open creation path, and the classic sprint planner should stay behind advanced `Plan Only`.
+- The main user-facing lane is app-first: create app, open preview or source, prepare for Codex, test app, and package for testers.
+- AI App Generator v1 is now part of that lane: when AI is usable, SprintOS should generate real local app files first and keep technical artifact details secondary.
+- `app_file_generation` needs a larger budget than planning tasks. Keep the recommended Create App values at 90 seconds and 6000 output tokens, and keep `/api/ai_status`, Setup Doctor, and Create App preflight aligned.
+- Keep `SPRINTOS_APP_GENERATION_FALLBACK_MODE=template` as the default. Use `report_only` only when testing true AI-only app generation; in that mode failures should create sanitized local failure reports instead of offline apps.
+- In `report_only`, failure UI/report payloads should say no app was created, no fallback was used, and no preview is available.
+- Keep the `app_file_generation` contract shallow and strict-compatible: top-level app metadata plus the five allowed local files. OpenAI should use Responses API structured output; DeepSeek should use JSON object mode and the same validator.
+- Schema failure reports should include safe validation details and must never include raw prompts or raw provider responses.
+- Offline fallback apps should stay app-specific for canonical shapes. Preserve concise names and behavior for `Idea Scorecard`, `Budget Snapshot`, and `Study Card Builder` instead of reverting to a generic score shell.
+- Canonical app-shape contracts v1 should stay documented in the AI app prompt and fixtures. Business idea scorer requires `idea-input`, `score-idea`, `idea-score`, `idea-risks`, `idea-smallest-test`, and `idea-next-action` with required markers and input-dependent local JS updates. Budget calculator requires numeric `budget-income`, numeric expense inputs, `budget-run`, `budget-savings`, `budget-breakdown`, and `budget-recommendation` with required markers and input-dependent local JS updates.
+- Treat `app_shape_validation_failed` as "AI returned app files, but required app-specific surfaces were missing." In `report_only`, keep stopping with a sanitized report and no offline app files.
+- Project Command Center v1 is now the main project guidance layer.
+- Focus Session v1 is now the execution layer on top of the Project Command Center.
+- Activity Timeline v1 is now the local memory layer that explains what happened and why recency/recommendations changed.
+- Keep future work additive: improve summary quality, action clarity, and artifact linking without replacing the advanced panels.
+- UI Clarity v1 now groups the selected project surface into Execute, Advanced Build Controls, App Workspace, Feedback, Technical Details, and AI while keeping all existing panels accessible.
+- Keep internal artifact concepts secondary. Build Pack, Deploy Pack, pipeline, workspace sync, diagnostics, reports, ZIPs, and IDs belong behind advanced or technical disclosures.
+- Browser-only UI state such as collapsed/open section memory must stay in `localStorage` only and never move into SQLite.
+- Keep recommendations local-only.
+- Keep Activity Timeline compact. Do not turn it into a task manager, analytics system, or noisy event firehose.
+- Keep Artifact History compact and read-only. Do not turn it into a file browser, deployment console, or analytics dashboard.
+- Keep Local Backup compact and explicit. Do not turn it into sync, hosting, or a generic file manager.
+- Keep Setup Doctor compact and local-only. Do not turn it into a giant diagnostics dashboard, wizard, background monitor, or remote support surface.
+- Keep Guided Demo compact and local-only. Do not turn it into a special demo runtime, onboarding wizard, or hosted sample app flow.
+- Do not add automatic Codex invocation, automatic deployment, GitHub calls, git actions, or cloud sync to the Today Dashboard.
+- Do not add automatic Codex invocation, automatic deployment, GitHub calls, or cloud sync to the Command Center.
+- Do not add more artifact concepts to the main lane unless users first need them to open, use, or test the generated app.
+- Do not let Activity Timeline store secrets, raw provider prompts/responses, Authorization headers, or full workspace file contents.
+- Do not allow generated browser apps to call OpenAI or DeepSeek directly, require external CDNs, store secrets, or export `.env`, `.env*`, `.git`, raw prompts, or raw provider responses.
+- Do not turn Focus Session into a complex timer, notification system, or background scheduler.
+- Keep the goal narrow: one clear next action that reduces decision fatigue.
+- Do not add new user-facing feature surface until the simplified main lane has been tested.
+
+## Post-Modularization Follow-Ups
+- Domain module split v2
+  - move larger feature slices such as prototype/deploy/build/pipeline/verification orchestration into focused modules only after the current helper extraction has stayed stable
+  - keep `python3 sprintos.py` as the entrypoint even if more internals move
+- UI long-output preview polish
+  - tighten preview/copy/disclosure rendering for long saved text blocks without changing underlying behavior or adding a frontend dependency
+- Project history picker
+  - let users move between recent project context/history states more directly without turning SprintOS into a dashboard or task manager
+- Optional static asset extraction
+  - consider moving embedded CSS or other stable UI assets into small helper modules only if the extraction stays trivial and does not add static serving complexity
+- UI polish pass
+  - continue tightening spacing, hierarchy, and copy clarity inside the grouped UI without changing the local-first workflow or adding product surface area
+- Artifact History Browser v1
+  - now provides a compact read-only project history layer for older generated artifacts
+  - keep default latest-artifact panels unchanged
+  - keep links limited to existing safe report/ZIP/file routes
+  - do not expose secrets or broad arbitrary file serving
+- OpenAI provider integration behind explicit opt-in
+  - keep offline mode first
+  - avoid making AI a required runtime dependency
+  - keep SprintOS AI runtime separate from generated `ai_tool_stub` app runtime
+- Multi-provider AI follow-up
+  - live provider eval behind explicit opt-in
+  - cost budget alerts
+  - provider latency tracking
+  - per-task quality history
+  - export/import route presets
+- Local git export/init helper
+  - keep it local-only and manual
+  - do not auto-create GitHub repos or push automatically
+- Workspace Export v1 follow-up
+  - Workspace Sync v1 now covers local change summaries, safe smoke checks, follow-up prompt generation, and manual import notes
+  - Workspace Snapshot & Restore v1 now covers local safety snapshots, metadata/hash compare, restore reports, and pre-restore safety copies
+  - Local Backup & Restore v1 now covers timestamped repo-state backup ZIPs, manifest verification, dry-run restore, and explicit confirmed restore
+  - Workspace Release Pack v1 now covers local release-candidate bundling, app/ copying, tester docs, deploy/share docs, and release-ready next prompts
+  - add lightweight release-pack history per workspace without turning the UI into a release dashboard
+  - tighten release-type-specific readiness checks only if they stay deterministic and local-only
+  - consider a tiny manual "open release app folder" helper only if it stays platform-light
+  - add lightweight workspace sync history per project without turning the UI into an IDE
+  - add lightweight workspace snapshot history per project without turning the UI into a file manager
+  - consider diffing a snapshot against the latest Workspace Sync changed-file list only if it stays deterministic and summary-only
+  - add workspace verification v2 with tighter source-file heuristics only if it stays deterministic
+  - consider an optional richer git status viewer for exported workspaces only if it stays local and read-only by default
+  - add an optional manual GitHub push guide without calling GitHub APIs or creating remotes automatically
+- Deploy guide improvements
+  - refine static hosting instructions and troubleshooting without adding deployment automation
+
+## Priority 1
+- Today Dashboard v1 follow-up
+  - Setup Doctor & First Run Onboarding v1 now covers compact runtime readiness checks, backup guidance, AI safety warnings, and a Create-App-plus-Guided-Demo empty-state card
+  - keep doctor checks deterministic, in-process, and local-only
+  - keep doctor actions limited to existing backup helpers plus manual guidance for everything else
+  - keep Guided Demo local-only, offline-first, and limited to safe existing artifact flows plus report generation
+  - add only small Guided Demo follow-ups such as stronger report copy or tighter artifact linking, not a separate demo subsystem
+  - refine Activity Timeline-based recency explanations without adding background tracking or analytics
+  - let users inspect lightweight recent-dashboard history only if it stays deterministic and local-only
+  - refine stale-project activity heuristics without adding background tracking or analytics
+  - add one tiny "copy next tiny action" affordance only if it stays compact
+  - keep it additive and never let it replace Create App or the Project Command Center
+- Activity Timeline v1 follow-up
+  - tighten event wording so summaries stay short and explainable
+  - add lightweight filtering only if it stays compact and deterministic
+  - improve artifact/report linking without turning the UI into a history dashboard
+  - keep recording best-effort and never let timeline errors break primary actions
+- Run & Verify v1 follow-up
+  - let users inspect verification-run history per project without turning the UI into a QA dashboard
+  - add one tiny "rerun same scope" action beside the latest verification summary
+  - surface linked artifact IDs/paths more directly in the verification panel
+  - tighten all-latest summaries so repeated warnings collapse more cleanly
+  - allow optionally verifying the latest Build Pack only from the Quick Launch summary
+- Quick Launch v1 follow-up
+  - let users rerun Quick Launch from the latest project without creating a duplicate report folder by default
+  - add a tiny "copy share message" helper beside the Quick Launch sidebar panel itself
+  - show lightweight Quick Launch history per project without turning the app into an activity dashboard
+  - let users optionally reuse the latest prototype/build selection when rerunning a Quick Launch
+- One-Click Pipeline v1 follow-up
+  - let users inspect pipeline run history per project without turning the UI into an activity feed
+  - add a tiny "copy next tiny action" helper beside the latest pipeline run summary
+  - refine auto-selection keyword coverage with more deterministic fixtures, not AI logic
+  - surface the exact readiness blocker source file more directly in the pipeline panel
+  - allow reusing the latest prototype instead of always generating a fresh one, but only if the flow stays obvious
+- Codex Build Pack v1 follow-up
+  - let users inspect Build Pack history per prototype without bloating the main project view
+  - add a lightweight "copy run/test commands" helper beside the Build Pack panel
+  - improve codex_repo_brief reference summaries with tighter file-level implementation hints
+  - add one safe local open-folder helper for Build Packs if it can stay platform-light
+- Deploy Pack v1 follow-up
+  - let users see Deploy Pack history per prototype instead of only the latest one
+  - add a tiny "copy share message" helper beside deploy instructions
+  - allow regenerating a Deploy Pack after feedback-driven prototype changes without changing the original prototype package
+  - add one lightweight local open-folder helper if it can be done safely without platform-specific complexity
+- Feedback Loop v1 follow-up
+  - let users choose whether to scope feedback to the latest prototype or all project feedback explicitly
+  - add a tiny "reuse latest feedback draft" helper when entering manual feedback in SprintOS
+  - improve repeated-text grouping so similar confusion notes collapse more intelligently while staying deterministic
+  - show prototype-specific feedback history without turning the UI into a dashboard
+- Release Feedback Intake v1
+  - local-only feedback capture for Workspace Release Packs now completes the release-test-iterate loop
+  - keep the release-feedback summary deterministic and directional instead of turning it into analytics
+  - keep release-iteration prompts pointed at the exported workspace/release app, not SprintOS internals
+  - keep imported release-feedback JSON sanitized/redacted and never store secrets or raw provider content
+- Prototype Builder v1 follow-up
+  - add inline editing/regeneration for generated prototype copy without changing the original sprint
+  - show prototype history per project instead of only the latest package
+  - let users pick between a few calculator and quiz input presets based on workflow
+  - add a one-click "open package folder" affordance if the local environment supports it safely
+- Resume Mode polishing
+  - refine recap quality
+  - let users edit blocker and next tiny action directly
+  - surface the latest resume plan timestamp
+- Focus Session v1 follow-up
+  - add lightweight per-project focus-session history without turning the UI into a productivity dashboard
+  - add one tiny "restart latest stopped session" helper only if it stays deterministic and local-only
+  - tighten source-action-specific done definitions only where the extra detail clearly reduces rabbit holes
+  - keep reports local-only and avoid adding timers, reminders, notifications, or background jobs
+- Project dashboard search/filtering
+  - add text search across title and raw idea
+  - keep the existing status filter lightweight
+- Codex handoff improvements
+  - sharpen workflow-specific file hints
+  - improve restart-goal phrasing without bloating prompts
+- AI quality layer follow-up
+  - task-specific prompt improvement
+  - opt-in raw prompt debugging with redaction
+  - user-selectable AI mode for every generation action
+  - AI quality scoring dashboard
+  - provider comparison report
+  - per-task quality scoring
+  - provider cost estimates
+  - route import/export
+  - generated `ai_tool_stub` runtime ergonomics as a separate feature, without making AI required
+  - generated app DeepSeek runtime provider
+
+## Generated AI Tool Runtime Notes
+- `ai_tool_stub` Build Packs now ship with a stdlib-only local runtime.
+- The generated app defaults to mocked/offline mode and can opt into OpenAI only through its own local `.env`.
+- DeepSeek support for the generated app runtime is a separate follow-up task, not part of SprintOS provider configuration.
+- SprintOS AI provider settings and generated app AI runtime settings must stay separate.
+- Generated static app previews must never call OpenAI or DeepSeek from the browser, must never embed keys, and must stay previewable by opening `index.html`.
+- No generated app test or smoke check should require a real API key or a real network call.
+
+## Priority 2
+- Run & Verify v2
+  - add side-by-side comparison between the latest two verification runs for one project
+  - let verification reuse the exact artifact IDs from the previous run when that helps avoid ambiguity
+  - add a small verification summary block inside prototype/deploy/build/pipeline/Quick Launch folders themselves only if it stays deterministic
+- One-Click Pipeline v2
+  - add pipeline-run diff summaries so the user can compare two runs without opening both folders manually
+  - let users choose whether the pipeline should prefer the latest prototype or always regenerate it
+  - add optional project-level summaries for pipeline blockers and warnings without introducing dashboards or background jobs
+- Codex Build Pack v2
+  - allow regenerating a Build Pack directly from the latest iteration brief without manually reselecting the target
+  - add optional diffing between the latest prototype and latest static Build Pack copy
+  - add a tiny "promote static Build Pack to python stdlib app" shortcut if repeated use proves it helpful
+- Feedback Loop v2
+  - allow multiple imported feedback entries in one exported bundle from the prototype itself
+  - add a "regenerate latest prototype from latest iteration brief" shortcut
+  - keep the iteration prompt editable before copy/export without introducing a rich editor
+- Prototype Builder v2
+  - allow prototype regeneration from the latest Resume Mode context after progress notes change
+  - generate a slightly richer Codex build brief with editable acceptance criteria
+  - add lightweight diffing between two prototype packages for the same project
+- Workflow editor
+  - local JSON workflow creation/editing from the UI
+  - validation for workflow IDs and required fields
+- Better artifact editor
+  - inline artifact editing with local save
+  - keep Markdown export behavior unchanged
+- Sprint timer
+  - local countdown per sprint
+  - no notifications or background scheduling
+
+## Priority 3
+- Optional future prototype integrations
+  - consider richer local deploy/share helpers only after repeated manual use proves the need
+  - keep generated packages static-first unless a real backend path becomes unavoidable
+- Optional future modularization
+  - split persistence, export, and HTTP logic only if the single-file structure starts slowing changes
+  - avoid framework migration unless repeated feature work proves it necessary

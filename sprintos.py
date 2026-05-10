@@ -70,6 +70,7 @@ from sprintos_core.ai_schemas import (
     build_json_only_instructions,
     validate_ai_payload,
 )
+from sprintos_core.app_intent import app_intent_report_summary, review_app_intent
 from sprintos_core.constants import (
     BUILD_PACK_ROOT_FILES,
     BUILD_PACK_TARGET_FILES,
@@ -119,6 +120,7 @@ from sprintos_core.constants import (
     WORKSPACE_SYNC_STATUSES,
     WORKSPACE_STATUSES,
 )
+from sprintos_core.demo_readiness import example_prompt_groups_json, render_example_prompt_gallery
 from sprintos_core.env_utils import load_local_env
 from sprintos_core.json_utils import read_json_file, safe_json_loads, write_json_file
 from sprintos_core.path_utils import (
@@ -140,10 +142,12 @@ from sprintos_core.text_utils import first_sentence, sanitize_filename, slugify,
 from sprintos_core.ui_helpers import UI_HELPERS_JS
 from sprintos_core.verification_utils import (
     external_network_markers,
+    has_budget_calculator_signal,
     infer_static_app_shape,
     is_vague_next_action as helper_is_vague_next_action,
     metadata_has_unsafe_path as helper_metadata_has_unsafe_path,
     static_app_shape_verification_checks,
+    universal_app_contract_verification_checks,
 )
 from sprintos_core.zip_utils import build_zip_from_pairs, build_zip_from_reader
 
@@ -10110,8 +10114,29 @@ def project_core_text(project: Dict[str, Any]) -> str:
 
 def offline_app_template_shape(project: Dict[str, Any], prototype_type: str) -> str:
     text = project_core_text(project)
-    if any(marker in text for marker in ("budget", "expense", "expenses", "income", "savings", "save money", "spending")):
+    if any(
+        marker in text
+        for marker in (
+            "pricing calculator",
+            "roi calculator",
+            "return on investment",
+            "unit economics",
+            "margin calculator",
+            "revenue calculator",
+            "break-even",
+            "break even",
+            "payback",
+            "price my product",
+            "estimate mrr",
+            "calculate profitability",
+            "profitability calculator",
+        )
+    ):
+        return "pricing_roi_calculator"
+    if has_budget_calculator_signal(text):
         return "budget_calculator"
+    if any(marker in text for marker in ("decision matrix", "compare options", "choose between", "tradeoff", "tradeoffs", "criteria")):
+        return "decision_matrix"
     if any(marker in text for marker in ("flashcard", "flash card", "study notes", "study", "student", "students", "exam", "memorize", "revision")):
         return "flashcard_helper"
     if any(marker in text for marker in ("business idea", "idea scorer", "idea scoring", "score my idea", "startup idea", "validate idea")):
@@ -10136,7 +10161,9 @@ def offline_app_template_name(shape: str) -> str:
     return {
         "business_idea_scorer": "Idea Scorecard",
         "budget_calculator": "Budget Snapshot",
+        "decision_matrix": "Decision Matrix",
         "flashcard_helper": "Study Card Builder",
+        "pricing_roi_calculator": "Pricing ROI Calculator",
         "quiz_recommender": "Quiz Recommender",
         "waitlist_page": "Waitlist Launch Page",
         "codex_app_brief": "Codex App Brief",
@@ -10751,13 +10778,13 @@ def prototype_context(
 
 def prototype_app_file_type(project: Dict[str, Any], prototype_type: str) -> str:
     shape = offline_app_template_shape(project, prototype_type)
-    if shape == "budget_calculator":
+    if shape in {"budget_calculator", "pricing_roi_calculator"}:
         return "calculator"
     if shape == "quiz_recommender":
         return "quiz"
     if shape == "waitlist_page":
         return "landing_page"
-    if shape in {"business_idea_scorer", "flashcard_helper"}:
+    if shape in {"business_idea_scorer", "decision_matrix", "flashcard_helper"}:
         return "static_app"
     normalized = normalize_prototype_type(prototype_type)
     if normalized == "calculator":
@@ -10784,10 +10811,20 @@ def prototype_default_user_flow(ctx: Dict[str, Any]) -> List[str]:
             "Click Calculate Budget.",
             "Review savings, breakdown, and the local recommendation.",
         ],
+        "decision_matrix": [
+            "Enter options and decision criteria.",
+            "Click Compare Options.",
+            "Review the ranked list, recommendation, and tradeoff notes.",
+        ],
         "flashcard_helper": [
             "Paste study notes.",
             "Click Build Flashcards.",
             "Review the generated question and answer cards.",
+        ],
+        "pricing_roi_calculator": [
+            "Enter price, cost, customers, and optional investment assumptions.",
+            "Click Calculate ROI.",
+            "Review revenue, cost, margin, payback, and the local recommendation.",
         ],
         "quiz_recommender": [
             "Answer the short local quiz.",
@@ -10840,7 +10877,7 @@ def prototype_primary_files_for_app_payload(ctx: Dict[str, Any]) -> Dict[str, st
 
 def prototype_app_title(ctx: Dict[str, Any]) -> str:
     shape = str(ctx.get("offline_template_shape") or "")
-    if shape in {"business_idea_scorer", "budget_calculator", "flashcard_helper"}:
+    if shape in {"business_idea_scorer", "budget_calculator", "decision_matrix", "flashcard_helper", "pricing_roi_calculator"}:
         return offline_app_template_name(shape)
     return str(ctx.get("title") or "Local Prototype")
 
@@ -10861,6 +10898,10 @@ def prototype_offline_app_file_generation_payload(
         mocked_parts.append("The AI-like output is a deterministic local mock.")
     if str(ctx.get("offline_template_shape") or "") == "flashcard_helper":
         mocked_parts.append("Flashcards are created with local text-splitting rules, not live AI.")
+    if str(ctx.get("offline_template_shape") or "") == "decision_matrix":
+        mocked_parts.append("Decision rankings are simple deterministic local rules, not live AI.")
+    if str(ctx.get("offline_template_shape") or "") == "pricing_roi_calculator":
+        mocked_parts.append("Pricing and ROI estimates are simple deterministic local rules, not financial advice.")
     return {
         "app_name": offline_app_template_name(str(ctx.get("offline_template_shape") or "")),
         "app_type": prototype_app_file_type(project, prototype_type),
@@ -10892,6 +10933,9 @@ def app_shape_prompt_contract(shape: str) -> str:
             - index.html must expose a visible next action output with exact id `idea-next-action` and `data-template-marker="next-action"`.
             - app.js must wire a click handler to `score-idea`, read `idea-input`, calculate an app-specific deterministic score, and update `idea-score`, `idea-risks`, `idea-smallest-test`, and `idea-next-action`.
             - The score, risk breakdown, smallest testable version, and next action must change based on the idea text.
+            - Score the idea from multiple visible factors such as target user clarity, painful moment, urgency/frequency, money or budget signal, and reachable first channel. Do not score only by text length or simple keyword count.
+            - Show a short score explanation in the UI, list at least 2-3 specific risks, include assumptions or caveats, and make the smallest test and next action concrete enough to do this week.
+            - Avoid generic filler such as "do more research" unless it names a specific person, artifact, question, or test.
             """
         ).strip(),
         "budget_calculator": textwrap.dedent(
@@ -10908,14 +10952,62 @@ def app_shape_prompt_contract(shape: str) -> str:
             - app.js must calculate savings/surplus/deficit from the income and expense values locally in the browser.
             - app.js must update `budget-savings`, `budget-breakdown`, and `budget-recommendation` using `textContent`, `innerHTML`, or an accepted DOM update pattern.
             - Monthly savings, spending breakdown, and recommendation must change based on income and expense values.
+            - Show whether the user has a surplus or deficit, include a savings-rate or simple income-to-expense ratio when income is available, and identify a useful category breakdown or largest expense.
+            - Treat blank, invalid, and negative values gracefully by using 0 for math and showing a short validation note instead of failing.
+            - Include a simple reset or clear action when it can be done without extra complexity.
             - Include a clear local/demo limitation note and do not call external URLs, fetch, XMLHttpRequest, sendBeacon, providers, or browser-side APIs.
+            """
+        ).strip(),
+        "pricing_roi_calculator": textwrap.dedent(
+            """\
+            Pricing ROI calculator contract:
+            - index.html must expose a numeric price input with exact id `roi-price`, `type="number"`, and `data-template-marker="main-input"`.
+            - index.html must expose a numeric cost input with exact id `roi-cost` and `type="number"`.
+            - index.html must expose a numeric customer or unit count input with exact id `roi-customers` and `type="number"`.
+            - index.html must expose a Calculate ROI button with exact id `roi-run` and `data-template-marker="primary-action"`.
+            - index.html must expose a visible result area marked with `data-template-marker="result-output"` and a visible summary output with exact id `roi-summary`.
+            - index.html must expose a visible breakdown with exact id `roi-breakdown` and `data-template-marker="roi-breakdown"`.
+            - index.html must expose a visible recommendation with exact id `roi-recommendation` and `data-template-marker="recommendation"`.
+            - app.js must wire a click handler to `roi-run`, read `document.getElementById("roi-price").value`, read `document.getElementById("roi-cost").value`, read `document.getElementById("roi-customers").value`, and handle blank/invalid/negative numbers gracefully.
+            - app.js must calculate at least two useful business metrics locally, such as monthly revenue, total cost, gross profit, margin, break-even units, payback period, or simple ROI.
+            - app.js must update `roi-summary`, `roi-breakdown`, and `roi-recommendation` using values derived from the user's inputs.
+            - Include clear numeric labels, helper text explaining assumptions, a useful empty state, formatted results where reasonable, and a short assumption/caveat note.
+            - Include simple reset or clear behavior when it can be done without extra complexity.
+            - Include this visible limitation note near the calculator UI: "This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser."
+            - Do not call external URLs, fetch, XMLHttpRequest, sendBeacon, providers, APIs, OpenAI, DeepSeek, or any browser-side network path.
+            - The files array must contain exactly five files and no extra entries: index.html, style.css, app.js, README.md, TEST_PLAN.md. Do not include sample data files, manifests, package files, or any sixth file.
+            """
+        ).strip(),
+        "decision_matrix": textwrap.dedent(
+            """\
+            Decision matrix contract:
+            - index.html must expose a textarea or text input with exact id `decision-options` and `data-template-marker="main-input"` for options, one option per line.
+            - index.html must expose a textarea or text input with exact id `decision-criteria` for criteria, one criterion per line.
+            - index.html must expose a Compare Options button with exact id `compare-options` and `data-template-marker="primary-action"`.
+            - index.html must expose a visible result area marked with `data-template-marker="result-output"` and a visible ranked list output with exact id `decision-ranking`.
+            - index.html must expose a visible recommendation with exact id `decision-recommendation` and `data-template-marker="recommendation"`.
+            - index.html must expose visible tradeoff notes with exact id `decision-tradeoffs` and `data-template-marker="tradeoffs"`.
+            - app.js must wire a click handler to `compare-options`, read `decision-options`, read `decision-criteria`, create a ranked list of options, and update `decision-ranking`, `decision-recommendation`, and `decision-tradeoffs`.
+            - Ranking must depend on user input and use concrete deterministic logic, such as scoring every option against every criterion with simple local rules. Do not return fixed canned rankings.
+            - Handle empty or weak input gracefully with a useful empty state, for example asking for at least two options and at least one criterion.
+            - Include helper text explaining how to enter options and criteria, a recommendation explanation, tradeoff notes, and a simple reset or clear action when useful.
+            - Include this visible limitation note near the decision UI: "This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser."
+            - Do not call external URLs, fetch, XMLHttpRequest, sendBeacon, providers, APIs, OpenAI, DeepSeek, or any browser-side network path.
+            - The files array must contain exactly five files and no extra entries: index.html, style.css, app.js, README.md, TEST_PLAN.md. Do not include sample data files, manifests, package files, or any sixth file.
             """
         ).strip(),
         "flashcard_helper": textwrap.dedent(
             """\
             Flashcard helper contract:
             - index.html must expose `notes-input` with `data-template-marker="main-input"`, `build-cards` with `data-template-marker="primary-action"`, and `card-output` with `data-template-marker="flashcard-cards"`.
-            - app.js must wire a click handler to `build-cards`, split notes locally into deterministic question/answer cards, render cards into `card-output`, and clearly state this is local/mocked, not live AI.
+            - index.html must include this visible limitation note near the flashcard UI: "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser."
+            - README.md and TEST_PLAN.md must also mention that Study Card Builder is local/demo/mocked and not live AI, but documentation alone is not enough; the limitation must be visible in the browser app UI.
+            - app.js must wire a click handler to `build-cards`, read `notes-input`, split notes locally into deterministic question/answer cards, render cards into `card-output`, and keep all behavior local in the browser.
+            - Build useful question/answer cards from headings, colon-separated facts, definitions, or meaningful sentences. Do not render only one raw line per card.
+            - Include either next/previous card navigation, a flip/reveal interaction, or visible progress such as "Card 1 of 4".
+            - Handle empty notes with a useful empty state that asks for notes instead of pretending live AI created cards.
+            - Do not call external URLs, fetch, XMLHttpRequest, sendBeacon, providers, APIs, OpenAI, DeepSeek, or any browser-side network path.
+            - The files array must contain exactly five files and no extra entries: index.html, style.css, app.js, README.md, TEST_PLAN.md. Do not include `test-plan.md`, sample notes, JSON data files, manifests, package files, or any sixth file.
             """
         ).strip(),
         "quiz_recommender": textwrap.dedent(
@@ -10963,11 +11055,29 @@ def app_file_generation_instructions(shape: str = "") -> str:
         - app_name must be concise: 2-5 words and under 48 characters.
         - short_description must be one short sentence under 140 characters.
         - The app should expose a clear input, one primary action, and one visible output or result state.
+        - For non-interactive informational apps, omit fake inputs/actions and instead make the purpose, target user/use case, sections, and next steps clear.
+        - Include a visible h1 app title whose words match the requested app, plus purpose/use-case copy that explicitly says what the app helps the target user do.
+        - Include a meaningful local-first note in index.html and documentation: local/browser-only, deterministic or mocked where relevant, no backend, no network, no provider/API calls.
+        - Include meaningful helper text, useful empty states, and a primary action when interaction is appropriate.
+        - For arbitrary/custom prompts, design a useful local static prototype for the user's idea; do not force canonical IDs unless the required app shape explicitly names them.
+        - Interactive custom apps must include practical input fields matching the user's requested fields or sections, one primary action button, a visible result/list/summary area, a useful empty state, app.js reading at least one input `.value`, app.js handling the primary action, and app.js updating the visible result/list/summary area.
+        - In app.js, read input values inside the primary action handler or a render path called by that handler. Avoid only reading inputs at load time.
+        - Output text must use the user's input values and the requested domain terms so the result visibly changes after the primary action.
+        - Include reset or clear behavior where it is simple and useful.
+        - Outputs must depend on the user's input, not fixed canned text.
+        - Include a visible local/demo limitation note. Make clear the app is local/browser-only, mocked or deterministic where relevant, and not backed by live providers.
+        - README.md must include purpose, how to run, manual test steps, limitations, and Codex next steps.
+        - TEST_PLAN.md must be practical and app-specific with these sections: setup, happy path, edge cases, expected behavior, local-first/safety checks, limitations, and suggested Codex next improvements.
+        - TEST_PLAN.md must name the app or its main workflow, describe real inputs/actions/results to try, cover blank or invalid input where relevant, and confirm the browser app needs no network, backend, provider, API key, or external service.
         - The app.js file must contain actual browser interaction behavior.
-        - app.js and index.html must expose the app-shape-specific surfaces SprintOS verification checks.
-        - The files list must include exactly: index.html, style.css, app.js, README.md, TEST_PLAN.md.
+        - When a required app shape is named below, app.js and index.html must expose the app-shape-specific surfaces SprintOS verification checks.
+        - The files list must include exactly five entries with exactly these filenames: index.html, style.css, app.js, README.md, TEST_PLAN.md.
+        - Do not include any sixth file, nested folder, lowercase `test-plan.md`, sample data file, package file, manifest, or duplicate documentation file.
         - For a business-idea scoring app, include a textarea input, score calculation, risk breakdown, smallest testable version, next action, and a visible result state.
         - For a budget calculator app, include numeric income and expense inputs, a Calculate Budget action, savings/surplus/deficit math, a spending breakdown, a recommendation, graceful handling for empty or invalid numbers, and a visible local/demo limitation note.
+        - For a pricing or ROI calculator app, include price, cost, and customer inputs, a Calculate ROI action, revenue/cost/margin/payback or ROI math, a breakdown, a recommendation, graceful handling for empty or invalid numbers, and the exact visible local/demo limitation note from the shape contract.
+        - For a decision matrix app, include options and criteria inputs, a Compare Options action, deterministic ranking logic, a ranked list, recommendation explanation, tradeoff notes, graceful empty states, and the exact visible local/demo limitation note from the shape contract.
+        - For a study-card or flashcard app, include the exact visible limitation note: "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser."
         {shape_contract}
         """
     ).strip()
@@ -10976,6 +11086,32 @@ def app_file_generation_instructions(shape: str = "") -> str:
 
 def app_file_generation_user_input(project: Dict[str, Any], ctx: Dict[str, Any], app_type: str) -> str:
     shape = str(ctx.get("offline_template_shape") or "")
+    sprint = project.get("sprint") or {}
+    intent_review = sprint.get("_app_intent_review") if isinstance(sprint, dict) else {}
+    if not isinstance(intent_review, dict):
+        intent_review = {}
+    intent_brief = str(intent_review.get("enriched_generation_brief") or "").strip()
+    intent_status = str(intent_review.get("status") or "").strip()
+    answered_followups = intent_review.get("answered_followups") or []
+    app_blueprint = intent_review.get("app_blueprint") if isinstance(intent_review.get("app_blueprint"), dict) else {}
+    blueprint_brief = str((app_blueprint or {}).get("generation_brief") or "").strip()
+    blueprint_summary = {
+        "app_name": str((app_blueprint or {}).get("app_name") or ""),
+        "app_type_guess": str((app_blueprint or {}).get("app_type_guess") or ""),
+        "target_user": str((app_blueprint or {}).get("target_user") or ""),
+        "app_goal": str((app_blueprint or {}).get("app_goal") or ""),
+        "primary_workflow": str((app_blueprint or {}).get("primary_workflow") or ""),
+        "main_records": list((app_blueprint or {}).get("main_records") or []),
+        "key_fields": list((app_blueprint or {}).get("key_fields") or []),
+        "primary_actions": list((app_blueprint or {}).get("primary_actions") or []),
+        "main_outputs": list((app_blueprint or {}).get("main_outputs") or []),
+        "screens_or_sections": list((app_blueprint or {}).get("screens_or_sections") or []),
+        "local_state_recommendation": str((app_blueprint or {}).get("local_state_recommendation") or ""),
+        "assumptions": list((app_blueprint or {}).get("assumptions") or []),
+        "limitations": list((app_blueprint or {}).get("limitations") or []),
+        "safety_notes": list((app_blueprint or {}).get("safety_notes") or []),
+        "codex_next_steps": list((app_blueprint or {}).get("codex_next_steps") or []),
+    } if app_blueprint else {}
     return textwrap.dedent(
         f"""\
         Project title: {ctx.get('title') or project.get('title') or 'SprintOS App'}
@@ -10991,6 +11127,11 @@ def app_file_generation_user_input(project: Dict[str, Any], ctx: Dict[str, Any],
         Current blocker: {ctx.get('current_blocker') or ''}
         Next tiny action: {ctx.get('next_tiny_action') or ''}
         Publish or test action: {ctx.get('publish_or_test_action') or ''}
+        App intent review status: {intent_status or 'not reviewed'}
+        App intent generation brief: {intent_brief or 'n/a'}
+        App blueprint generation brief: {blueprint_brief or 'n/a'}
+        App blueprint summary: {json.dumps(blueprint_summary, indent=2)}
+        Answered follow-up details: {json.dumps(answered_followups, indent=2)}
         Existing feature bullets: {json.dumps(ctx.get('feature_bullets') or [], indent=2)}
         Feedback questions: {json.dumps(ctx.get('feedback_questions') or [], indent=2)}
         """
@@ -11002,8 +11143,6 @@ def validate_app_file_payload_for_shape(payload: Any, shape: str) -> Dict[str, A
     if not result.get("ok"):
         return result
     shape = str(shape or "").strip()
-    if not shape:
-        return result
     sanitized = dict(result.get("sanitized_payload") or {})
     files = prototype_files_from_app_payload(sanitized)
     checks = static_app_shape_verification_checks(
@@ -11012,6 +11151,13 @@ def validate_app_file_payload_for_shape(payload: Any, shape: str) -> Dict[str, A
         app_js=files.get("app.js") or "",
         readme_text=files.get("README.md") or "",
     )
+    if not checks:
+        checks = universal_app_contract_verification_checks(
+            index_html=files.get("index.html") or "",
+            app_js=files.get("app.js") or "",
+            readme_text=files.get("README.md") or "",
+            test_plan_text=files.get("TEST_PLAN.md") or "",
+        )
     failed_checks = [item for item in checks if str(item.get("status") or "") == "fail"]
     if failed_checks:
         updated = dict(result)
@@ -11745,6 +11891,119 @@ def budget_calculator_html(ctx: Dict[str, Any]) -> str:
     ).strip() + "\n"
 
 
+def pricing_roi_calculator_html(ctx: Dict[str, Any]) -> str:
+    app_title = prototype_app_title(ctx)
+    feedback_section = prototype_feedback_section_html(ctx)
+    limitation = "This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser."
+    return textwrap.dedent(
+        f"""\
+        <!doctype html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>{html.escape(app_title)}</title>
+          <link rel="stylesheet" href="style.css" />
+        </head>
+        <body>
+          <div class="shell" data-app-shape="pricing_roi_calculator">
+            <div class="label">SprintOS prototype - Offline app template - deterministic pricing math</div>
+            <section class="hero">
+              <h1>{html.escape(app_title)}</h1>
+              <p>Estimate price, revenue, margin, break-even, and payback using simple local assumptions.</p>
+              <p class="notice" id="roi-local-note">{limitation}</p>
+            </section>
+            <div class="grid two">
+              <section class="panel template-section" data-template-section="roi-inputs">
+                <h2>Pricing assumptions</h2>
+                <p class="muted">Use monthly customers or units. Blank, invalid, and negative values are treated as 0 for this local estimate.</p>
+                <div class="grid">
+                  <label>Price per customer or unit<input id="roi-price" class="app-main-input" data-template-marker="main-input" type="number" min="0" value="49" /></label>
+                  <label>Cost per customer or unit<input id="roi-cost" type="number" min="0" value="18" /></label>
+                  <label>Customers or units per month<input id="roi-customers" type="number" min="0" value="40" /></label>
+                  <label>Time saved per customer (hours)<input id="roi-time-saved" type="number" min="0" value="1" /></label>
+                  <label>One-time investment<input id="roi-investment" type="number" min="0" value="1200" /></label>
+                </div>
+                <div class="button-row" style="margin-top:12px">
+                  <button id="roi-run" data-template-marker="primary-action">Calculate ROI</button>
+                  <button id="roi-reset" type="button">Clear</button>
+                </div>
+              </section>
+              <section id="result" class="panel template-section" data-template-section="roi-output">
+                <h2>Output</h2>
+                <div class="kpi">
+                  <div class="panel" data-template-marker="result-output"><div class="big" id="roi-summary">Run the calculator.</div><div class="muted">Monthly profit</div></div>
+                  <div class="panel"><div class="big" id="roi-margin">0%</div><div class="muted">Gross margin</div></div>
+                  <div class="panel"><div class="big" id="roi-payback">-</div><div class="muted">Payback</div></div>
+                </div>
+                <div id="roi-breakdown" class="result breakdown" data-template-marker="roi-breakdown" style="margin-top:12px">Enter assumptions to see revenue, cost, break-even, and ROI.</div>
+                <div id="roi-recommendation" class="notice" data-template-marker="recommendation" style="margin-top:12px">Recommendation will appear here.</div>
+                <p class="muted">Caveat: this is directional pricing math, not accounting, tax, or provider billing advice.</p>
+              </section>
+            </div>
+            {feedback_section}
+          </div>
+          <script src="app.js"></script>
+        </body>
+        </html>
+        """
+    ).strip() + "\n"
+
+
+def decision_matrix_html(ctx: Dict[str, Any]) -> str:
+    app_title = prototype_app_title(ctx)
+    feedback_section = prototype_feedback_section_html(ctx)
+    return textwrap.dedent(
+        f"""\
+        <!doctype html>
+        <html lang="en">
+        <head>
+          <meta charset="utf-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>{html.escape(app_title)}</title>
+          <link rel="stylesheet" href="style.css" />
+        </head>
+        <body>
+          <div class="shell" data-app-shape="decision_matrix">
+            <div class="label">SprintOS prototype · Offline app template · deterministic local ranking</div>
+            <section class="hero">
+              <h1>{html.escape(app_title)}</h1>
+              <p>Compare options against criteria and get a local first-pass recommendation.</p>
+              <p class="notice" id="decision-local-note">This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser.</p>
+            </section>
+            <div class="grid two">
+              <section class="panel template-section" data-template-section="decision-inputs">
+                <h2>Options and criteria</h2>
+                <p class="muted">Enter one option per line, then enter the criteria that matter most. Add weights with a colon if useful, such as <code>cost: 2</code>.</p>
+                <label>Options
+                  <textarea id="decision-options" class="app-main-input" data-template-marker="main-input" placeholder="Option A&#10;Option B&#10;Option C"></textarea>
+                </label>
+                <label>Criteria
+                  <textarea id="decision-criteria" placeholder="cost: 2&#10;speed&#10;confidence"></textarea>
+                </label>
+                <div class="button-row" style="margin-top:12px">
+                  <button id="compare-options" data-template-marker="primary-action">Compare Options</button>
+                  <button id="clear-decision" type="button">Clear</button>
+                </div>
+              </section>
+              <section class="panel template-section" data-template-section="decision-output">
+                <h2>Decision output</h2>
+                <div id="decision-recommendation" class="notice" data-template-marker="recommendation">Add at least two options and one criterion, then compare.</div>
+                <ol id="decision-ranking" class="result" data-template-marker="result-output">
+                  <li>Ranking will appear here.</li>
+                </ol>
+                <div id="decision-tradeoffs" class="result" data-template-marker="tradeoffs">Tradeoff notes will appear here.</div>
+              </section>
+            </div>
+            {feedback_section}
+          </div>
+          <script src="app.js"></script>
+        </body>
+        </html>
+        """
+    ).strip() + "\n"
+
+
 def flashcard_helper_html(ctx: Dict[str, Any]) -> str:
     app_title = prototype_app_title(ctx)
     feedback_section = prototype_feedback_section_html(ctx)
@@ -11764,7 +12023,7 @@ def flashcard_helper_html(ctx: Dict[str, Any]) -> str:
             <section class="hero">
               <h1>{html.escape(app_title)}</h1>
               <p>Paste study notes and create question/answer cards with deterministic local text rules.</p>
-              <p id="flashcard-local-note" class="notice" data-template-marker="local-mocked-note">Local/mocked limitation: this does not call AI; cards come from simple local sentence splitting.</p>
+              <p id="flashcard-local-note" class="notice" data-template-marker="local-mocked-note">This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.</p>
             </section>
             <div class="grid two">
               <section class="panel template-section" data-template-section="notes-input">
@@ -11853,6 +12112,10 @@ def prototype_index_html(ctx: Dict[str, Any]) -> str:
         return business_idea_scorer_html(ctx)
     if shape == "budget_calculator":
         return budget_calculator_html(ctx)
+    if shape == "pricing_roi_calculator":
+        return pricing_roi_calculator_html(ctx)
+    if shape == "decision_matrix":
+        return decision_matrix_html(ctx)
     if shape == "flashcard_helper":
         return flashcard_helper_html(ctx)
     if shape == "quiz_recommender":
@@ -12067,6 +12330,134 @@ def prototype_app_js(ctx: Dict[str, Any]) -> str:
             """
         ).strip() + "\n"
         return base_js + "\n" + feedback_js
+    if shape == "pricing_roi_calculator":
+        base_js = textwrap.dedent(
+            """\
+            function roiMoney(value) {
+              return '$' + Math.round(value).toLocaleString();
+            }
+            function roiNumber(id, label, invalid) {
+              const raw = document.getElementById(id).value;
+              const value = Number(raw);
+              if (raw.trim() === '') return 0;
+              if (!Number.isFinite(value) || value < 0) {
+                invalid.push(label);
+                return 0;
+              }
+              return value;
+            }
+            function calculateRoi() {
+              const invalid = [];
+              const price = roiNumber('roi-price', 'price', invalid);
+              const cost = roiNumber('roi-cost', 'cost', invalid);
+              const customers = roiNumber('roi-customers', 'customers', invalid);
+              const timeSaved = roiNumber('roi-time-saved', 'time saved', invalid);
+              const investment = roiNumber('roi-investment', 'investment', invalid);
+              const monthlyRevenue = price * customers;
+              const totalCost = cost * customers;
+              const grossProfit = monthlyRevenue - totalCost;
+              const margin = monthlyRevenue > 0 ? Math.round((grossProfit / monthlyRevenue) * 100) : 0;
+              const breakEvenUnits = price > cost ? Math.ceil(investment / (price - cost)) : 0;
+              const paybackMonths = grossProfit > 0 && investment > 0 ? Math.ceil(investment / grossProfit) : 0;
+              const simpleRoi = investment > 0 ? Math.round(((grossProfit * 12 - investment) / investment) * 100) : 0;
+              document.getElementById('roi-summary').textContent = 'Monthly profit: ' + roiMoney(grossProfit);
+              document.getElementById('roi-margin').textContent = margin + '%';
+              document.getElementById('roi-payback').textContent = paybackMonths ? paybackMonths + ' mo' : 'n/a';
+              document.getElementById('roi-breakdown').textContent =
+                'Monthly revenue: ' + roiMoney(monthlyRevenue) + '\\n' +
+                'Monthly cost: ' + roiMoney(totalCost) + '\\n' +
+                'Gross profit: ' + roiMoney(grossProfit) + '\\n' +
+                'Gross margin: ' + margin + '%\\n' +
+                'Break-even units: ' + (breakEvenUnits || 'n/a') + '\\n' +
+                'Simple annual ROI: ' + simpleRoi + '%\\n' +
+                'Time saved estimate: ' + (timeSaved * customers).toLocaleString() + ' hour(s) per month' +
+                (invalid.length ? '\\nValidation: invalid or negative values treated as 0: ' + invalid.join(', ') + '.' : '\\nValidation: inputs look usable; blanks count as 0.');
+              document.getElementById('roi-recommendation').textContent =
+                grossProfit <= 0
+                  ? 'Recommendation: raise price, reduce unit cost, or narrow the offer before investing more.'
+                  : margin < 35
+                    ? 'Recommendation: margin is thin. Test a higher price or lower delivery cost before scaling.'
+                    : paybackMonths && paybackMonths <= 3
+                      ? 'Recommendation: payback looks fast enough for a small test. Validate with real customers next.'
+                      : 'Recommendation: run a small pricing test and watch whether customer volume supports the payback period.';
+            }
+            function resetRoi() {
+              ['roi-price','roi-cost','roi-customers','roi-time-saved','roi-investment'].forEach((id) => {
+                document.getElementById(id).value = '';
+              });
+              calculateRoi();
+              document.getElementById('roi-price').focus();
+            }
+            document.getElementById('roi-run').addEventListener('click', calculateRoi);
+            document.getElementById('roi-reset').addEventListener('click', resetRoi);
+            calculateRoi();
+            """
+        ).strip() + "\n"
+        return base_js + "\n" + feedback_js
+    if shape == "decision_matrix":
+        base_js = textwrap.dedent(
+            """\
+            const decisionOptions = document.getElementById('decision-options');
+            const decisionCriteria = document.getElementById('decision-criteria');
+            const decisionRanking = document.getElementById('decision-ranking');
+            const decisionRecommendation = document.getElementById('decision-recommendation');
+            const decisionTradeoffs = document.getElementById('decision-tradeoffs');
+            function lines(value) {
+              return String(value || '').split(/\\n+/).map((item) => item.trim()).filter(Boolean);
+            }
+            function parseCriteria(value) {
+              const parsed = lines(value).map((item) => {
+                const parts = item.split(':');
+                const label = parts[0].trim();
+                const weight = Math.max(1, Math.min(5, Number(parts[1]) || 1));
+                return { label, weight };
+              }).filter((item) => item.label);
+              return parsed.length ? parsed : [{ label: 'overall fit', weight: 1 }];
+            }
+            function scoreOption(option, criteria, index) {
+              const normalized = option.toLowerCase();
+              return criteria.reduce((total, criterion, criterionIndex) => {
+                const words = criterion.label.toLowerCase().split(/\\s+/).filter(Boolean);
+                const keywordHits = words.filter((word) => normalized.includes(word)).length;
+                const lengthSignal = Math.min(3, Math.ceil(option.length / 18));
+                const tieBreak = ((index + 1) * (criterionIndex + 2)) % 3;
+                return total + criterion.weight * (keywordHits * 3 + lengthSignal + tieBreak);
+              }, 0);
+            }
+            function compareDecisionOptions() {
+              const options = lines(decisionOptions.value);
+              const criteria = parseCriteria(decisionCriteria.value);
+              if (options.length < 2 || !criteria.length) {
+                decisionRanking.innerHTML = '<li>Empty state: enter at least two options and one criterion to compare.</li>';
+                decisionRecommendation.textContent = 'Add options and criteria before choosing a recommendation.';
+                decisionTradeoffs.textContent = 'Tradeoffs will appear after the comparison has enough input.';
+                return;
+              }
+              const ranked = options.map((option, index) => ({
+                option,
+                score: scoreOption(option, criteria, index)
+              })).sort((a, b) => b.score - a.score || a.option.localeCompare(b.option));
+              const best = ranked[0];
+              const second = ranked[1];
+              decisionRanking.innerHTML = ranked.map((item, index) => '<li><strong>#' + (index + 1) + ' ' + item.option + '</strong> - local score ' + item.score + '</li>').join('');
+              decisionRecommendation.textContent = 'Recommendation: choose ' + best.option + ' first. It scored highest against ' + criteria.map((item) => item.label).join(', ') + '.';
+              decisionTradeoffs.textContent = second
+                ? 'Tradeoff: ' + best.option + ' leads by ' + (best.score - second.score) + ' point(s) over ' + second.option + '. If that gap is small, run a quick real-world test before committing.'
+                : 'Tradeoff: add another option to make the comparison meaningful.';
+            }
+            function clearDecision() {
+              decisionOptions.value = '';
+              decisionCriteria.value = '';
+              decisionRanking.innerHTML = '<li>Ranking will appear here.</li>';
+              decisionRecommendation.textContent = 'Add at least two options and one criterion, then compare.';
+              decisionTradeoffs.textContent = 'Tradeoff notes will appear here.';
+              decisionOptions.focus();
+            }
+            document.getElementById('compare-options').addEventListener('click', compareDecisionOptions);
+            document.getElementById('clear-decision').addEventListener('click', clearDecision);
+            """
+        ).strip() + "\n"
+        return base_js + "\n" + feedback_js
     if shape == "flashcard_helper":
         base_js = textwrap.dedent(
             """\
@@ -12273,7 +12664,9 @@ def prototype_readme(ctx: Dict[str, Any]) -> str:
     shape_manual_steps = {
         "business_idea_scorer": "Paste a business idea, click Score Idea, and confirm the score, risks, smallest testable version, and next action update.",
         "budget_calculator": "Enter income and expense numbers, click Calculate Budget, and confirm savings, breakdown, and recommendation update.",
+        "decision_matrix": "Enter options and criteria, click Compare Options, and confirm the ranking, recommendation, and tradeoff notes update.",
         "flashcard_helper": "Paste study notes, click Build Flashcards, and confirm question/answer cards are created from the notes.",
+        "pricing_roi_calculator": "Enter price, cost, customers, and investment assumptions, click Calculate ROI, and confirm summary, breakdown, payback, and recommendation update.",
         "quiz_recommender": "Answer the quiz, click Show Recommendation, and confirm the recommendation changes from local inputs.",
         "waitlist_page": "Open the page, read the message, fill the mock CTA, and sanity-check whether the promise is clear.",
     }
@@ -12282,14 +12675,18 @@ def prototype_readme(ctx: Dict[str, Any]) -> str:
     local_logic_notes = {
         "business_idea_scorer": "The score is deterministic. It checks for target-user clarity, pain language, and money/budget signals.",
         "budget_calculator": "Budget output is deterministic arithmetic over the income and expense fields.",
-        "flashcard_helper": "Flashcards are built with local sentence-splitting rules. This is not live AI generation.",
+        "decision_matrix": "This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser.",
+        "flashcard_helper": "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.",
+        "pricing_roi_calculator": "This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser.",
         "quiz_recommender": "The recommendation is a small deterministic score from the selected quiz answers.",
         "waitlist_page": "The waitlist confirmation is a mock local state change. It does not submit data.",
     }
     what_it_does = {
         "business_idea_scorer": "Idea Scorecard scores a rough business idea, shows the main risks, suggests the smallest testable version, and gives one next action.",
         "budget_calculator": "Budget Snapshot calculates monthly savings from income and expense inputs, shows a spending breakdown, and gives a practical recommendation.",
+        "decision_matrix": "Decision Matrix compares options against criteria, ranks them locally, and explains the recommendation and tradeoffs.",
         "flashcard_helper": "Study Card Builder turns pasted study notes into local question/answer cards for quick review.",
+        "pricing_roi_calculator": "Pricing ROI Calculator estimates revenue, costs, margin, break-even, payback, and a practical recommendation from local assumptions.",
         "quiz_recommender": "Quiz Recommender turns a few local answers into a deterministic recommendation.",
         "waitlist_page": "Waitlist Launch Page tests a simple signup promise with a local-only mock confirmation.",
     }
@@ -12361,7 +12758,9 @@ def prototype_test_plan(ctx: Dict[str, Any]) -> str:
     shape_extra_step = {
         "business_idea_scorer": "In Idea Scorecard, paste a business idea and confirm the output includes a score, risks, smallest testable version, and next action.",
         "budget_calculator": "In Budget Snapshot, enter income and expenses and confirm monthly savings, spending breakdown, and recommendation update.",
-        "flashcard_helper": "In Study Card Builder, paste study notes and confirm question/answer cards appear with the local/mocked limitation note visible.",
+        "decision_matrix": "In Decision Matrix, enter at least two options and one criterion, then confirm the ranked list, recommendation, and tradeoff notes update.",
+        "flashcard_helper": "In Study Card Builder, paste study notes and confirm question/answer cards appear with the visible note: This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.",
+        "pricing_roi_calculator": "In Pricing ROI Calculator, enter price, cost, customers, and investment assumptions, then confirm revenue, cost, margin, payback, breakdown, and recommendation update.",
         "quiz_recommender": "Change quiz answers and confirm the recommendation text changes deterministically.",
         "waitlist_page": "Enter a fake name/email/note and confirm the page shows a local-only confirmation message.",
     }
@@ -12387,14 +12786,16 @@ def prototype_test_plan(ctx: Dict[str, Any]) -> str:
 def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
     app_title = prototype_app_title(ctx)
     shape = str(ctx.get("offline_template_shape") or "")
-    effective_key = shape if shape in {"business_idea_scorer", "budget_calculator", "flashcard_helper"} else str(ctx["prototype_type"])
+    effective_key = shape if shape in {"business_idea_scorer", "budget_calculator", "decision_matrix", "flashcard_helper", "pricing_roi_calculator"} else str(ctx["prototype_type"])
     files = "\n".join(f"- `{name}`" for name in PROTOTYPE_FILES)
     feature_lines = "\n".join(f"- {item}" for item in ctx["feature_bullets"])
     screen_lines = "\n".join(f"- {item}" for item in ctx["screens"])
     data_model_lines = {
         "business_idea_scorer": "- `idea_runs`: idea text, score, risk breakdown, smallest testable version, next action, created_at if local history is later added.",
         "budget_calculator": "- `budget_snapshots`: income, expenses, monthly savings, spending breakdown, recommendation, created_at if local history is later added.",
+        "decision_matrix": "- `decision_runs`: options, criteria, ranked results, recommendation, tradeoff notes, created_at if local browser or file persistence is later added.",
         "flashcard_helper": "- `flashcard_sets`: source notes, generated question/answer cards, created_at if local browser or file persistence is later added.",
+        "pricing_roi_calculator": "- `pricing_roi_runs`: price, cost, customers, investment, revenue, margin, payback, recommendation, created_at if local browser or file persistence is later added.",
         "landing_page": "- `interest_signals`: optional local capture shape with `name`, `email`, `note`, `created_at` if persistence is later added.",
         "ai_text_tool": "- `runs`: input text, deterministic output, created_at if the real app later saves runs locally.",
         "calculator": "- `scenarios`: input values, score, explanation, created_at if saved comparisons become necessary.",
@@ -12404,7 +12805,9 @@ def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
     api_route_lines = {
         "business_idea_scorer": "- No API route is required for v1; keep scoring in `app.js` unless a later local save endpoint is added.",
         "budget_calculator": "- No API route is required for v1; keep budget math in `app.js` unless snapshots need local persistence.",
+        "decision_matrix": "- No API route is required for v1; keep option ranking in `app.js` unless a later local save endpoint is added.",
         "flashcard_helper": "- No API route is required for v1; keep card building in `app.js` unless a later local import/export endpoint is added.",
+        "pricing_roi_calculator": "- No API route is required for v1; keep pricing and ROI math in `app.js` unless local scenario persistence is later added.",
         "landing_page": "- Avoid API routes unless you later add a real local save endpoint for feedback.",
         "ai_text_tool": "- One local generation route only if the real build moves mocked logic to a backend process.",
         "calculator": "- No API route is required unless calculations need persisted scenarios.",
@@ -12414,7 +12817,9 @@ def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
     test_lines = {
         "business_idea_scorer": "- Test `index.html` + `app.js`: paste an idea, click Score Idea, and assert score, risks, smallest testable version, and next action update.",
         "budget_calculator": "- Test `index.html` + `app.js`: change income/expenses, click Calculate Budget, and assert monthly savings, spending breakdown, and recommendation update.",
-        "flashcard_helper": "- Test `index.html` + `app.js`: paste notes, click Build Flashcards, and assert visible question/answer cards appear with the local/mocked note still visible.",
+        "decision_matrix": "- Test `index.html` + `app.js`: enter options and criteria, click Compare Options, and assert ranking, recommendation, and tradeoff notes update from local input.",
+        "flashcard_helper": "- Test `index.html` + `app.js`: paste notes, click Build Flashcards, and assert visible question/answer cards appear while this note remains visible: \"This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.\"",
+        "pricing_roi_calculator": "- Test `index.html` + `app.js`: change price, cost, customers, and investment, click Calculate ROI, and assert summary, breakdown, payback, and recommendation update from local input.",
         "landing_page": "- Test the main CTA state change and confirm no network is required.",
         "ai_text_tool": "- Test deterministic output for the same input and an empty-input fallback.",
         "calculator": "- Test score calculation, band thresholds, and explanation text.",
@@ -12424,7 +12829,9 @@ def prototype_codex_prompt(ctx: Dict[str, Any]) -> str:
     next_improvement_lines = {
         "business_idea_scorer": "Improve Idea Scorecard by making the risk breakdown more specific while preserving the existing `idea-input`, `score-idea`, `idea-score`, `idea-risks`, `idea-smallest-test`, and `idea-next-action` surfaces.",
         "budget_calculator": "Improve Budget Snapshot by adding one clearer budget category insight while preserving the existing `budget-income`, expense inputs, `budget-savings`, `budget-breakdown`, and `budget-recommendation` surfaces.",
-        "flashcard_helper": "Improve Study Card Builder by making generated cards easier to review while preserving `notes-input`, `build-cards`, `card-output`, and the visible local/mocked limitation note.",
+        "decision_matrix": "Improve Decision Matrix by making the tradeoff explanation more useful while preserving `decision-options`, `decision-criteria`, `compare-options`, `decision-ranking`, `decision-recommendation`, and `decision-tradeoffs`.",
+        "flashcard_helper": "Improve Study Card Builder by making generated cards easier to review while preserving `notes-input`, `build-cards`, `card-output`, and the visible limitation note: \"This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.\"",
+        "pricing_roi_calculator": "Improve Pricing ROI Calculator by making one assumption or recommendation clearer while preserving `roi-price`, `roi-cost`, `roi-customers`, `roi-run`, `roi-summary`, `roi-breakdown`, and `roi-recommendation`.",
         "landing_page": "Improve the local CTA confirmation copy without adding backend submission.",
         "ai_text_tool": "Improve the deterministic output formatting without adding provider calls.",
         "calculator": "Improve the explanation text for one score band without changing the local calculation contract.",
@@ -12776,6 +13183,16 @@ def prototype_has_input_and_result(index_html: str) -> bool:
             "card-output",
             "budget-savings",
             "budget-breakdown",
+            "decision-ranking",
+            "decision-recommendation",
+            "decision-tradeoffs",
+            "roi-summary",
+            "roi-breakdown",
+        )
+    ) or bool(
+        re.search(
+            r"\b(?:id|class)\s*=\s*['\"][^'\"]*(?:result|output|summary|progress|message|list|status|preview|report|recommendation|breakdown|ranking|cards|timeline|empty-state)[^'\"]*['\"]",
+            lowered,
         )
     )
     return has_input and has_action and has_result
@@ -13664,27 +14081,55 @@ def build_pack_test_plan_md(ctx: Dict[str, Any]) -> str:
         "Confirm the fake/simulated parts are labeled clearly.",
         "Confirm no external network calls or package-manager setup are required.",
     ]
+    expected_behavior = "The main local flow updates a visible result or state without a backend."
+    edge_case = "Try the blank or minimal-input path and confirm the app shows a useful empty state instead of breaking."
     if ctx["build_target"] == "static_app":
         checks.append("Open `src/index.html` through a local static server and verify `style.css` and `app.js` load relatively.")
+        expected_behavior = "The static app remains browser-openable and its visible output changes from local user input."
     elif ctx["build_target"] == "python_stdlib_app":
         checks.append("Start `python3 app.py`, open `/`, and verify `/healthz` responds locally.")
+        edge_case = "Start the app with no optional local data and confirm the default route still responds."
+        expected_behavior = "The stdlib app serves its main route and health route locally with no external service."
     elif ctx["build_target"] == "ai_tool_stub":
         checks.append("Start `python3 app.py`, open `/`, and verify `/healthz` responds locally.")
         checks.append("Use `/api/generate` without a `.env` file and confirm the result stays in mocked/offline mode.")
         checks.append("Confirm the browser never receives `OPENAI_API_KEY` and only calls the local `/api/generate` endpoint.")
+        edge_case = "Run without `.env` and confirm mocked/offline output still works."
+        expected_behavior = "The app stays usable in mocked/offline mode and keeps any provider use server-side and optional."
     else:
         checks.append("Read `CODEX_BUILD_PROMPT.md` and confirm it is specific enough to start implementation immediately.")
+        edge_case = "Confirm the brief still gives a next step when no prototype runtime is available."
+        expected_behavior = "The package gives Codex enough local context to start a PR-sized implementation pass."
     bullet_lines = "\n".join(f"- [ ] {item}" for item in checks)
     return textwrap.dedent(
         f"""\
-        # Test Plan
+        # Test Plan — {ctx["prototype_app_name"]}
 
-        ## Commands
+        ## Setup
         - Run: `{ctx["run_command"]}`
         - Test: `{ctx["test_command"]}`
 
-        ## Checks
+        ## Happy path
+        - [ ] Run the documented smoke test command.
+        - [ ] Inspect the main local flow once manually.
+
+        ## Edge cases
+        - [ ] {edge_case}
+
+        ## Expected behavior
+        - [ ] {expected_behavior}
+        - [ ] Confirm the fake/simulated parts are labeled clearly.
+
+        ## Local-first/safety checks
         {bullet_lines}
+
+        ## Limitations
+        - This Build Pack is a local handoff package, not a deployed production app.
+        - No external network calls, package-manager setup, API keys, backend, auth, billing, or cloud sync are required for the default checks.
+
+        ## Suggested Codex next improvements
+        - Start with the suggested first task: {ctx["suggested_first_codex_task"]}
+        - Keep the next change PR-sized and preserve the local-first behavior verified above.
         """
     ).strip() + "\n"
 
@@ -19751,6 +20196,7 @@ def quick_launch_manual_test_checklist_markdown() -> str:
 def quick_launch_report_markdown(payload: Dict[str, Any]) -> str:
     warnings = payload.get("warnings") or []
     blockers = payload.get("blockers") or []
+    intent_summary = app_intent_report_summary(payload.get("app_intent_review") or {})
     lines = [
         f"# Quick Launch Report — {payload['project_title']}",
         "",
@@ -19794,6 +20240,19 @@ def quick_launch_report_markdown(payload: Dict[str, Any]) -> str:
         f"- Task name: {payload.get('ai_task_name') or 'n/a'}",
         f"- Fallback reason: {payload.get('ai_fallback_reason') or 'none'}",
         f"- Fallback/error summary: {payload.get('ai_error_summary') or payload.get('_note') or 'none'}",
+        "",
+        "## App Intent Review",
+        f"- Status: {intent_summary.get('status') or 'not reviewed'}",
+        f"- App name guess: {intent_summary.get('app_name_guess') or 'n/a'}",
+        f"- App type guess: {intent_summary.get('app_type_guess') or 'n/a'}",
+        f"- Can generate with assumptions: {bool(intent_summary.get('can_generate_with_assumptions'))}",
+        "",
+        "## App Blueprint Summary",
+        f"- Target user: {((intent_summary.get('app_blueprint') or {}).get('target_user')) or 'n/a'}",
+        f"- Main records: {', '.join((intent_summary.get('app_blueprint') or {}).get('main_records') or []) or 'n/a'}",
+        f"- Primary actions: {', '.join((intent_summary.get('app_blueprint') or {}).get('primary_actions') or []) or 'n/a'}",
+        f"- Main outputs: {', '.join((intent_summary.get('app_blueprint') or {}).get('main_outputs') or []) or 'n/a'}",
+        f"- Explicit assumptions: {((intent_summary.get('app_blueprint') or {}).get('assumption_count')) or 0}",
         "",
         "## Status",
         payload["status"],
@@ -19879,6 +20338,7 @@ def quick_launch_artifact_index_markdown(payload: Dict[str, Any]) -> str:
 
 def write_quick_launch_report_folder(payload: Dict[str, Any], report_dir: Optional[Path] = None) -> Path:
     report_dir = report_dir or create_quick_launch_report_dir(payload["project_title"], payload["launch_goal"], payload["created_at"])
+    intent_summary = app_intent_report_summary(payload.get("app_intent_review") or {})
     file_contents = {
         "quick-launch-report.md": quick_launch_report_markdown(payload),
         "artifact-index.md": quick_launch_artifact_index_markdown(payload),
@@ -19916,6 +20376,7 @@ def write_quick_launch_report_folder(payload: Dict[str, Any], report_dir: Option
                 "generation_mode_requested": payload.get("generation_mode_requested") or "auto",
                 "ai_fallback_reason": payload.get("ai_fallback_reason") or "",
                 "ai_error_summary": payload.get("ai_error_summary") or "",
+                "app_intent_review": intent_summary,
                 "_mode": payload.get("_mode") or "offline",
                 "_note": payload.get("_note") or "",
             },
@@ -19934,6 +20395,7 @@ def build_quick_launch_payload(
     report_dir: Path,
     created_at: str,
     generation_mode: str = "auto",
+    app_intent_review: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     latest_prototype = project.get("latest_prototype") or latest_project_prototype(project["id"], include_prompt=True)
     latest_deploy_pack = project.get("latest_deploy_pack") or latest_project_deploy_pack(
@@ -19996,6 +20458,7 @@ def build_quick_launch_payload(
             "quick_launch_report": str(report_dir),
         },
         "end_output": str(project.get("desired_output") or ""),
+        "app_intent_review": dict(app_intent_review or {}),
     }
     payload["share_message"] = quick_launch_share_message(project, pipeline_run)
     ai_route = ai_generation_route_kwargs("quick_launch_summary", generation_mode)
@@ -20109,6 +20572,7 @@ def quick_launch_response(row: sqlite3.Row | Dict[str, Any]) -> Dict[str, Any]:
         "done_definition": str(metadata.get("done_definition") or ""),
         "generation_mode_requested": str(metadata.get("generation_mode_requested") or "auto"),
         "app_generation_fallback_mode": str(metadata.get("app_generation_fallback_mode") or "template"),
+        "app_intent_review": dict(metadata.get("app_intent_review") or {}),
         "used_ai": bool(metadata.get("used_ai")),
         "ai_provider": str(metadata.get("ai_provider") or "offline"),
         "ai_model": str(metadata.get("ai_model") or ""),
@@ -20673,6 +21137,8 @@ def run_quick_launch(
     build_target: str = "auto",
     generation_mode: str = "auto",
     fallback_mode: str = "",
+    intent_review_action: str = "",
+    follow_up_answers: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     idea = str(raw_idea or "").strip()
     if not idea:
@@ -20686,9 +21152,18 @@ def run_quick_launch(
     prototype_choice = normalize_pipeline_prototype_choice(prototype_type or "auto")
     selected_hosting_target = normalize_hosting_target(hosting_target or "static")
     build_choice = normalize_pipeline_build_target(build_target or "auto")
+    intent_action = str(intent_review_action or "").strip()
+    use_assumptions = intent_action == "generate_with_assumptions"
+    answered_followups = follow_up_answers if isinstance(follow_up_answers, list) else []
+    app_intent_review = review_app_intent(
+        idea,
+        answered_followups=answered_followups,
+        generate_with_assumptions=use_assumptions,
+    )
 
     sprint = generate_sprint(idea, "auto", timebox, energy, desired_output, generation_mode=requested_mode)
     sprint["title"] = title_from_idea(idea)
+    sprint["_app_intent_review"] = app_intent_review
     workflow_id = str(sprint.get("_workflow_id") or infer_workflow(idea, "auto", load_workflows()))
     project_id = save_project(
         idea,
@@ -20723,6 +21198,7 @@ def run_quick_launch(
         report_dir,
         created_at,
         generation_mode=requested_mode,
+        app_intent_review=app_intent_review,
     )
     payload["app_generation_fallback_mode"] = resolved_fallback_mode
     if payload.get("app_generation_failure"):
@@ -20817,16 +21293,35 @@ def append_static_app_shape_checks(
         files=files,
     )
     if not shape:
-        return ""
-    checks.extend(
-        static_app_shape_verification_checks(
-            shape,
-            index_html=files.get("index.html") or files.get("src/index.html") or "",
-            app_js=files.get("app.js") or files.get("src/app.js") or "",
-            readme_text=files.get("README.md") or "",
-            path=str(path or ""),
+        checks.extend(
+            universal_app_contract_verification_checks(
+                index_html=files.get("index.html") or files.get("src/index.html") or "",
+                app_js=files.get("app.js") or files.get("src/app.js") or "",
+                readme_text=files.get("README.md") or "",
+                test_plan_text=files.get("TEST_PLAN.md") or files.get("test-plan.md") or "",
+                path=str(path or ""),
+            )
         )
+        return ""
+    shape_checks = static_app_shape_verification_checks(
+        shape,
+        index_html=files.get("index.html") or files.get("src/index.html") or "",
+        app_js=files.get("app.js") or files.get("src/app.js") or "",
+        readme_text=files.get("README.md") or "",
+        path=str(path or ""),
     )
+    if shape_checks:
+        checks.extend(shape_checks)
+    else:
+        checks.extend(
+            universal_app_contract_verification_checks(
+                index_html=files.get("index.html") or files.get("src/index.html") or "",
+                app_js=files.get("app.js") or files.get("src/app.js") or "",
+                readme_text=files.get("README.md") or "",
+                test_plan_text=files.get("TEST_PLAN.md") or files.get("test-plan.md") or "",
+                path=str(path or ""),
+            )
+        )
     return shape
 
 
@@ -20834,7 +21329,9 @@ def apply_static_app_shape_summary(result: Dict[str, Any], shape: str) -> None:
     label = {
         "business_idea_scorer": "business idea scorer",
         "budget_calculator": "budget calculator",
+        "decision_matrix": "decision matrix",
         "flashcard_helper": "flashcard helper",
+        "pricing_roi_calculator": "pricing ROI calculator",
         "quiz_recommender": "quiz recommender",
         "waitlist_page": "landing page",
     }.get(shape)
@@ -21400,6 +21897,7 @@ def verify_build_pack_artifact(project: Dict[str, Any], build_pack: Optional[Dic
                 "src/index.html": index_text,
                 "src/app.js": app_text,
                 "README.md": prompt_text + "\n" + ((base / "README.md").read_text(encoding="utf-8") if (base / "README.md").exists() else ""),
+                "TEST_PLAN.md": (base / "TEST_PLAN.md").read_text(encoding="utf-8") if (base / "TEST_PLAN.md").exists() else "",
             },
             path=base / "src" / "index.html",
         )
@@ -24193,6 +24691,11 @@ INDEX_HTML = r"""
     .lane-step { border: 1px solid var(--line); border-radius: 14px; background: rgba(7, 11, 18, 0.92); padding: 14px; }
     .lane-step-head { display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 8px; }
     .lane-step-number { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .example-prompt-gallery { margin-top: 14px; }
+    .example-prompt-group { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+    .example-prompt-group-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .example-prompt-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .example-prompt-button { text-align: left; }
     .visually-hidden { position: absolute; left: -9999px; }
     ul { margin-top: 8px; }
     li { margin: 5px 0; }
@@ -24229,10 +24732,13 @@ INDEX_HTML = r"""
 
     <section class="card">
       <div class="topline" style="margin-bottom:10px"><h3 style="margin:0">Create App</h3><span class="pill"><strong>default</strong></span></div>
+      <p class="muted">Describe a local prototype app. SprintOS can ask follow-up questions when the prompt is vague, or you can generate with assumptions.</p>
+      <p class="muted">After creation, preview it, download it, test it, inspect the files, or prepare it for Codex.</p>
       <div class="field">
         <label for="quickLaunchIdea">Raw idea</label>
-        <textarea id="quickLaunchIdea" placeholder="I have an idea. Turn it into a usable first app draft now."></textarea>
+        <textarea id="quickLaunchIdea" placeholder="Example: Create a local habit tracker with habit entry, completion, daily progress, and reset."></textarea>
       </div>
+      __EXAMPLE_PROMPT_GALLERY_QUICKLAUNCH__
       <div class="row">
         <div class="field">
           <label for="quickLaunchGoal">Project goal</label>
@@ -24308,6 +24814,7 @@ INDEX_HTML = r"""
         <button id="quickLaunchRun">Create App</button>
       </div>
       <div id="quickLaunchPreflight" class="muted" style="margin-top:10px"></div>
+      <div id="quickLaunchIntentReview" style="margin-top:10px"></div>
       <details class="resume-plan" style="margin-top:14px">
         <summary><strong>Advanced / Plan Only</strong></summary>
         <p class="muted" style="margin-top:12px">Use the classic planner when you want only the sprint plan without starting the main build lane.</p>
@@ -24382,11 +24889,13 @@ INDEX_HTML = r"""
       <section class="card home-hero">
         <div class="command-kicker">Create New App</div>
         <h2>Create your first app</h2>
-        <p class="muted">Paste an idea and SprintOS will create a local testable app draft.</p>
+        <p class="muted">Paste a prompt and SprintOS will generate a local-first prototype app. If the idea is vague, answer follow-up questions or generate with assumptions.</p>
+        <p class="muted">Then open the preview, download the app, test it, inspect the files, or prepare it for Codex.</p>
         <div class="field">
           <label for="homeQuickLaunchIdea">Raw idea</label>
-          <textarea id="homeQuickLaunchIdea" class="large-idea" placeholder="I have an idea. Turn it into a usable first app draft now."></textarea>
+          <textarea id="homeQuickLaunchIdea" class="large-idea" placeholder="Example: Create a local habit tracker with habit entry, completion, daily progress, and reset."></textarea>
         </div>
+        __EXAMPLE_PROMPT_GALLERY_HOME__
         <details class="resume-plan">
           <summary><strong>Advanced</strong></summary>
           <div class="field" style="margin-top:14px">
@@ -24436,6 +24945,7 @@ INDEX_HTML = r"""
         <div id="homeQuickLaunchPreflight" class="muted" style="margin-top:10px">
           <p><strong>Create App preflight</strong><br />Checking AI readiness. Create App can fall back to the local template if AI is unavailable.</p>
         </div>
+        <div id="homeQuickLaunchIntentReview" style="margin-top:10px"></div>
       </section>
     </div>
   </main>
@@ -24468,6 +24978,7 @@ let currentAiProviderEvalPayload = null;
 let currentAiRecommendations = null;
 let currentTodayDashboard = null;
 let currentLocalRestoreResult = null;
+let currentQuickLaunchIntentReview = null;
 let workflows = {};
 const pipelineGoals = {
   validate_fast: 'Validate fast',
@@ -24501,6 +25012,7 @@ const verificationScopes = {
   pipeline: 'Create app run',
   quick_launch: 'Create app'
 };
+const demoPromptGroups = __EXAMPLE_PROMPT_GROUPS_JSON__;
 
 const $ = (id) => document.getElementById(id);
 
@@ -24533,6 +25045,41 @@ function safeUiStorage() {
   } catch (_) {
     return null;
   }
+}
+
+function renderExamplePromptGallery(prefix = 'quickLaunch') {
+  return `
+    <details class="resume-plan example-prompt-gallery">
+      <summary><strong>Example Prompt Gallery</strong></summary>
+      <p class="muted">Pick one to fill the Create App prompt. Examples do not call AI or create anything until you click Create App.</p>
+      <div data-example-gallery-prefix="${esc(prefix)}">
+        ${demoPromptGroups.map((group) => `
+          <div class="example-prompt-group">
+            <div class="example-prompt-group-head">
+              <strong>${esc(group.title)}</strong>
+              <span class="tiny-badge">${esc(group.kind)}</span>
+            </div>
+            <p class="muted">${esc(group.note)}</p>
+            <div class="example-prompt-buttons">
+              ${(group.examples || []).map((example) => `
+                <button type="button" class="secondary mini example-prompt-button" data-demo-prompt="${esc(example.prompt)}" data-demo-kind="${esc(group.kind)}" onclick="fillExamplePrompt(this, '${esc(prefix)}')">${esc(example.label)}</button>
+              `).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </details>
+  `;
+}
+
+function fillExamplePrompt(button, prefix = 'quickLaunch') {
+  const prompt = button && button.getAttribute('data-demo-prompt');
+  if (!prompt) return;
+  const target = $(`${prefix}Idea`) || $('quickLaunchIdea') || $('homeQuickLaunchIdea');
+  if (!target) return;
+  target.value = prompt;
+  target.dataset.userTouched = 'true';
+  target.focus();
 }
 
 function readUiState() {
@@ -24808,11 +25355,13 @@ function renderHomeCreateAppForm(prefix = 'homeQuickLaunch', title = 'Create you
     <section class="card home-hero" id="home-create-app">
       <div class="command-kicker">Create New App</div>
       <h2>${esc(title)}</h2>
-      <p class="muted">Paste an idea and SprintOS will create a local testable app draft.</p>
+      <p class="muted">Paste a prompt and SprintOS will generate a local-first prototype app. If the idea is vague, answer follow-up questions or generate with assumptions.</p>
+      <p class="muted">Then open the preview, download the app, test it, inspect the files, or prepare it for Codex.</p>
       <div class="field">
         <label for="${prefix}Idea">Raw idea</label>
-        <textarea id="${prefix}Idea" class="large-idea" placeholder="I have an idea. Turn it into a usable first app draft now."></textarea>
+        <textarea id="${prefix}Idea" class="large-idea" placeholder="Example: Create a local habit tracker with habit entry, completion, daily progress, and reset."></textarea>
       </div>
+      ${renderExamplePromptGallery(prefix)}
       <details class="resume-plan">
         <summary><strong>Advanced</strong></summary>
         <div class="field" style="margin-top:14px">
@@ -24860,6 +25409,7 @@ function renderHomeCreateAppForm(prefix = 'homeQuickLaunch', title = 'Create you
         <button onclick="runQuickLaunch('home')">Create App</button>
       </div>
       <div id="${prefix}Preflight" class="muted" style="margin-top:10px"></div>
+      <div id="${prefix}IntentReview" style="margin-top:10px"></div>
       ${includeRecentProjects}
     </section>
   `;
@@ -25570,6 +26120,75 @@ function refreshQuickLaunchPreflight() {
       : '';
     node.innerHTML = `<p><strong>Create App preflight</strong><br />${esc(copy.summary)}</p>${detailHtml}`;
   });
+}
+
+function quickLaunchIntentReviewNode(source = 'sidebar') {
+  return $(source === 'home' ? 'homeQuickLaunchIntentReview' : 'quickLaunchIntentReview');
+}
+
+function collectFollowUpAnswers(source = 'sidebar') {
+  const node = quickLaunchIntentReviewNode(source);
+  if (!node) return [];
+  return Array.from(node.querySelectorAll('[data-intent-question]')).map((input) => ({
+    question: input.getAttribute('data-intent-question') || '',
+    answer: input.value.trim()
+  })).filter((item) => item.question && item.answer);
+}
+
+function clearQuickLaunchIntentReview(source = 'sidebar') {
+  const node = quickLaunchIntentReviewNode(source);
+  if (node) node.innerHTML = '';
+}
+
+function renderQuickLaunchIntentReview(source, review) {
+  const node = quickLaunchIntentReviewNode(source);
+  if (!node || !review) return;
+  currentQuickLaunchIntentReview = review;
+  const status = review.status || '';
+  if (status === 'ready_to_generate') {
+    node.innerHTML = '';
+    return;
+  }
+  const questions = (review.follow_up_questions || []).slice(0, 5);
+  const questionFields = questions.map((question, index) => `
+    <div class="field">
+      <label for="${source}-intent-answer-${index}">${esc(question)}</label>
+      <input id="${source}-intent-answer-${index}" data-intent-question="${esc(question)}" placeholder="Short answer" />
+    </div>
+  `).join('');
+  const assumptions = (review.assumptions || []).slice(0, 4);
+  const assumptionHtml = assumptions.length
+    ? `<ul>${assumptions.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`
+    : '';
+  const headline = status === 'needs_clarification'
+    ? 'SprintOS recommends a few answers first.'
+    : 'SprintOS can generate now with assumptions.';
+  node.innerHTML = `
+    <div class="resume-plan">
+      <p><strong>${esc(headline)}</strong></p>
+      <p class="muted">App guess: ${esc(review.app_name_guess || 'Local App')} · ${esc(review.app_type_guess || 'local app')}</p>
+      ${questionFields}
+      ${assumptionHtml ? `<details><summary><strong>Assumptions SprintOS can use now</strong></summary>${assumptionHtml}</details>` : ''}
+      <div class="button-row" style="margin-top:12px">
+        <button onclick="runQuickLaunch('${source}', { intent_review_action: 'answer_followups' })">Answer and Generate</button>
+        <button class="secondary" onclick="runQuickLaunch('${source}', { intent_review_action: 'generate_with_assumptions' })">Generate With Assumptions</button>
+      </div>
+    </div>
+  `;
+}
+
+async function reviewQuickLaunchIntent(source = 'sidebar', action = '') {
+  const payloadBody = quickLaunchPayload(source);
+  if (!payloadBody.raw_idea) return null;
+  const response = await api('/api/app_intent_review', {
+    method: 'POST',
+    body: JSON.stringify({
+      raw_idea: payloadBody.raw_idea,
+      intent_review_action: action,
+      follow_up_answers: collectFollowUpAnswers(source)
+    })
+  });
+  return response.app_intent_review || null;
 }
 
 function renderAiDiagnosticsPanel() {
@@ -27030,7 +27649,7 @@ function quickLaunchPayload(source = 'sidebar') {
   };
 }
 
-async function runQuickLaunch(source = 'sidebar') {
+async function runQuickLaunch(source = 'sidebar', options = {}) {
   const payloadBody = quickLaunchPayload(source);
   const raw = payloadBody.raw_idea;
   if (!raw) { alert('Dump a raw idea first.'); return; }
@@ -27039,10 +27658,21 @@ async function runQuickLaunch(source = 'sidebar') {
   $('quickLaunchLoader').classList.add('show');
   if ($('quickLaunchRun')) $('quickLaunchRun').disabled = true;
   try {
+    const intentAction = options.intent_review_action || '';
+    const intentReview = await reviewQuickLaunchIntent(source, intentAction);
+    if (intentReview && intentReview.status !== 'ready_to_generate' && !intentAction) {
+      $('quickLaunchLoader').classList.remove('show');
+      if ($('quickLaunchRun')) $('quickLaunchRun').disabled = false;
+      renderQuickLaunchIntentReview(source, intentReview);
+      return;
+    }
+    payloadBody.intent_review_action = intentAction;
+    payloadBody.follow_up_answers = collectFollowUpAnswers(source);
     const payload = await api('/api/quick_launch', {
       method: 'POST',
       body: JSON.stringify(payloadBody)
     });
+    clearQuickLaunchIntentReview(source);
     const projectPayload = await api('/api/project?id=' + encodeURIComponent(payload.project_id));
     renderSprint(projectPayload.project, payload);
     await loadProjects();
@@ -28086,7 +28716,12 @@ Promise.all([loadWorkflows(), refreshAiStatus()]).then(loadProjects).catch(err =
 </html>
 """
 
-INDEX_HTML = INDEX_HTML.replace("__SPRINTOS_UI_HELPERS__", UI_HELPERS_JS)
+INDEX_HTML = (
+    INDEX_HTML.replace("__SPRINTOS_UI_HELPERS__", UI_HELPERS_JS)
+    .replace("__EXAMPLE_PROMPT_GROUPS_JSON__", example_prompt_groups_json())
+    .replace("__EXAMPLE_PROMPT_GALLERY_QUICKLAUNCH__", render_example_prompt_gallery("quickLaunch"))
+    .replace("__EXAMPLE_PROMPT_GALLERY_HOME__", render_example_prompt_gallery("homeQuickLaunch"))
+)
 
 
 class SprintOSHandler(BaseHTTPRequestHandler):
@@ -29044,6 +29679,23 @@ class SprintOSHandler(BaseHTTPRequestHandler):
                 except ValueError as exc:
                     self.send_json({"error": str(exc)}, status=400)
                 return
+            if path == "/api/app_intent_review":
+                raw_idea = str(body.get("raw_idea") or "").strip()
+                if not raw_idea:
+                    self.send_json({"error": "raw_idea is required"}, status=400)
+                    return
+                follow_up_answers = body.get("follow_up_answers")
+                action = str(body.get("intent_review_action") or "")
+                self.send_json(
+                    {
+                        "app_intent_review": review_app_intent(
+                            raw_idea,
+                            answered_followups=follow_up_answers if isinstance(follow_up_answers, list) else [],
+                            generate_with_assumptions=action == "generate_with_assumptions",
+                        )
+                    }
+                )
+                return
             if path == "/api/apply_ai_route_recommendations":
                 try:
                     if not body.get("apply"):
@@ -29091,6 +29743,8 @@ class SprintOSHandler(BaseHTTPRequestHandler):
                         build_target=str(body.get("build_target") or "auto"),
                         generation_mode=normalize_generation_mode(body.get("generation_mode") or "auto"),
                         fallback_mode=normalize_app_generation_fallback_mode(body.get("fallback_mode")),
+                        intent_review_action=str(body.get("intent_review_action") or ""),
+                        follow_up_answers=body.get("follow_up_answers") if isinstance(body.get("follow_up_answers"), list) else [],
                     )
                 except ValueError as exc:
                     message = str(exc)
@@ -29130,6 +29784,7 @@ class SprintOSHandler(BaseHTTPRequestHandler):
                         "run_command": quick_launch["run_command"],
                         "test_command": quick_launch["test_command"],
                         "generation_mode_requested": quick_launch["generation_mode_requested"],
+                        "app_intent_review": quick_launch.get("app_intent_review") or {},
                         "command_center": command_center,
                         "current_stage": command_center.get("stage_label", ""),
                         "recommended_action": command_center.get("recommended_action"),

@@ -1,0 +1,19 @@
+{
+  "title": "Prototype Choice Quiz",
+  "summary": "Create a small local quiz that recommends the right first prototype format for one founder idea.",
+  "workflow": "Business Validation",
+  "done_definition": "Done when the quiz returns one recommendation and the user can copy the next step locally.",
+  "next_tiny_action": "Open validation-plan.md and list the quiz questions and result bands.",
+  "plan_steps": [
+    "Reduce the quiz to a few high-signal questions and three recommendation bands.",
+    "Build the local question flow and result state.",
+    "Test the quiz with one software idea and one offer-page idea."
+  ],
+  "artifacts": [
+    {
+      "title": "Quiz Questions",
+      "filename": "quiz-questions.md",
+      "content": "# Quiz Questions\n\nUrgency, complexity, and testing goal."
+    }
+  ]
+}

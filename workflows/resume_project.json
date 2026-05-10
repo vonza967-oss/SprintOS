@@ -1,0 +1,24 @@
+{
+  "id": "resume_project",
+  "name": "Resume / Restart Project",
+  "description": "Recover an abandoned project by reconstructing context and choosing the next tiny action.",
+  "best_for": [
+    "abandoned ideas",
+    "half-finished projects",
+    "lost context"
+  ],
+  "outputs": [
+    "restart summary",
+    "current state",
+    "next tiny action",
+    "blocker list",
+    "re-entry sprint",
+    "done definition"
+  ],
+  "rules": [
+    "Reduce guilt. Treat the project as inventory, not failure.",
+    "Do not restart from zero.",
+    "The next action must be under 10 minutes.",
+    "Resume from the smallest visible artifact."
+  ]
+}

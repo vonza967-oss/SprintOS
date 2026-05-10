@@ -1,0 +1,1 @@
+Build a local desktop tool that turns messy interview notes into a one-page product brief and next-step checklist.

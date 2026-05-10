@@ -15,6 +15,7 @@ from sprintos_core.ai_provider import (
     DEFAULT_DEEPSEEK_BASE_URL,
     DEFAULT_DEEPSEEK_MODEL,
     DEFAULT_OPENAI_MODEL,
+    _app_file_generation_retry_instructions,
     ai_enabled,
     call_deepseek_chat_completions,
     call_openai_responses,
@@ -46,6 +47,18 @@ class AIProviderTests(SprintOSTestCase):
             if isinstance(item, dict)
         }
 
+    def assert_no_external_network_or_provider_calls(self, files: dict[str, str]) -> None:
+        combined = "\n".join(files.values()).lower()
+        for filename, content in files.items():
+            self.assertEqual(external_network_markers(filename, content), [])
+        self.assertNotIn("fetch(", combined)
+        self.assertNotIn("xmlhttprequest", combined)
+        self.assertNotIn("sendbeacon", combined)
+        self.assertNotIn("openai", combined)
+        self.assertNotIn("deepseek", combined)
+        self.assertNotIn("api_key", combined)
+        self.assertNotIn("authorization", combined)
+
     def app_file_generation_payload(self) -> dict:
         return {
             "app_name": "Idea Scoreboard",
@@ -67,6 +80,134 @@ class AIProviderTests(SprintOSTestCase):
             "codex_next_prompt": "Improve one small local feature.",
             "limitations": ["Prototype only."],
             "mocked_parts": ["Scoring is deterministic."],
+        }
+
+    def custom_app_file_generation_payload(self) -> dict:
+        return {
+            "app_name": "Habit Sprint",
+            "app_type": "static_app",
+            "short_description": "Plan one tiny habit sprint locally.",
+            "user_flow": ["Enter a habit.", "Click Build Sprint.", "Review the local sprint plan."],
+            "files": [
+                {
+                    "filename": "index.html",
+                    "content": (
+                        '<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>Habit Sprint</title>'
+                        '<link rel="stylesheet" href="style.css" /></head><body><main><h1>Habit Sprint</h1>'
+                        '<p>Purpose: helps busy builders turn one habit idea into a seven-day local practice plan.</p>'
+                        '<p>This local demo runs in the browser only, uses deterministic rules, and does not call external services.</p>'
+                        '<section><h2>Habit input</h2><label for="habit-input">Habit to practice</label>'
+                        '<input id="habit-input" placeholder="Write for 10 minutes" /><button id="build-sprint">Build Sprint</button>'
+                        '<button id="reset-sprint" type="button">Clear</button></section>'
+                        '<section><h2>Sprint output</h2><div id="sprint-output" class="result">Empty state: enter a habit to create a tiny practice plan.</div></section>'
+                        '</main><script src="app.js"></script></body></html>'
+                    ),
+                },
+                {"filename": "style.css", "content": "body{font-family:sans-serif;padding:24px;}section{margin-top:16px}.result{border:1px solid #ccc;padding:12px}"},
+                {
+                    "filename": "app.js",
+                    "content": (
+                        "const habitInput=document.getElementById('habit-input');"
+                        "const sprintOutput=document.getElementById('sprint-output');"
+                        "function buildSprint(){const habit=habitInput.value.trim();"
+                        "if(!habit){sprintOutput.textContent='Empty state: enter one habit before building a sprint.';return;}"
+                        "sprintOutput.textContent='Seven-day sprint for '+habit+': do it for 10 minutes, track one signal, and review on day 7.';}"
+                        "function resetSprint(){habitInput.value='';sprintOutput.textContent='Empty state: enter a habit to create a tiny practice plan.';habitInput.focus();}"
+                        "document.getElementById('build-sprint').addEventListener('click',buildSprint);"
+                        "document.getElementById('reset-sprint').addEventListener('click',resetSprint);"
+                    ),
+                },
+                {
+                    "filename": "README.md",
+                    "content": (
+                        "# Habit Sprint\n\n## Purpose\nHabit Sprint helps a busy builder create a local seven-day habit practice plan.\n\n"
+                        "## How to run\nOpen `index.html` directly or run `python3 -m http.server 8080` in this folder.\n\n"
+                        "## Manual test steps\nEnter a habit, click **Build Sprint**, confirm the sprint output changes, then click **Clear**.\n\n"
+                        "## Limitations\nThis is a local deterministic demo. It has no backend, network calls, cloud sync, or live AI.\n\n"
+                        "## Codex next steps\nImprove the scoring rules or add one export action while keeping the app local-first."
+                    ),
+                },
+                {
+                    "filename": "TEST_PLAN.md",
+                    "content": (
+                        "# Habit Sprint Test Plan\n\n## Happy path\n- Enter `Write for 10 minutes` and click **Build Sprint**.\n"
+                        "- Confirm the Habit Sprint output includes the habit and a seven-day plan.\n\n"
+                        "## Edge cases\n- Leave the habit blank and confirm the empty state asks for a habit.\n- Click **Clear** and confirm the output resets.\n\n"
+                        "## Safety/local-first checks\n- Disable network access and confirm the app still works.\n- Confirm there are no external URLs, provider calls, API keys, or backend requests."
+                    ),
+                },
+            ],
+            "run_instructions": "Open index.html locally.",
+            "test_instructions": "Run the happy path and blank-input edge case.",
+            "codex_next_prompt": "Improve one small local habit-planning rule.",
+            "limitations": ["Local deterministic demo only."],
+            "mocked_parts": ["No backend or live AI is implemented."],
+        }
+
+    def generic_tracker_payload(self, *, app_name: str, subject: str, field_id: str, action_id: str, output_id: str) -> dict:
+        return {
+            "app_name": app_name,
+            "app_type": "static_app",
+            "short_description": f"Track {subject} locally in one browser session.",
+            "user_flow": [f"Enter {subject}.", "Click the primary action.", "Review the local list and summary."],
+            "files": [
+                {
+                    "filename": "index.html",
+                    "content": (
+                        f'<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>{app_name}</title>'
+                        '<link rel="stylesheet" href="style.css" /></head><body><main>'
+                        f'<h1>{app_name}</h1><p>Purpose: helps one person plan and track {subject} locally before sharing anything.</p>'
+                        '<p>This local demo runs only in the browser, uses deterministic rules, and does not call external services.</p>'
+                        f'<section><h2>Add {subject}</h2><label for="{field_id}">Item</label><input id="{field_id}" />'
+                        f'<button id="{action_id}" type="button">Add Item</button><button id="clear-items" type="button">Clear</button></section>'
+                        f'<section><h2>Results</h2><div id="{output_id}" class="result">Empty state: add an item to build the local list.</div>'
+                        '<ul id="item-list"></ul></section></main><script src="app.js"></script></body></html>'
+                    ),
+                },
+                {"filename": "style.css", "content": "body{font-family:sans-serif;padding:24px}.result{border:1px solid #ccc;padding:12px}"},
+                {
+                    "filename": "app.js",
+                    "content": (
+                        f"const input=document.getElementById('{field_id}');const output=document.getElementById('{output_id}');"
+                        "const list=document.getElementById('item-list');let items=[];"
+                        "function render(){if(!items.length){output.textContent='Empty state: add an item to build the local list.';list.innerHTML='';return;}"
+                        f"output.textContent='{app_name} is tracking '+items.length+' local item(s).';"
+                        "list.innerHTML=items.map((item,index)=>'<li>'+String(index+1)+'. '+item+'</li>').join('');}"
+                        "function addItem(){const value=input.value.trim();if(!value){output.textContent='Empty state: enter a useful item first.';return;}"
+                        "items.unshift(value);input.value='';render();}"
+                        "function clearItems(){items=[];render();input.focus();}"
+                        f"document.getElementById('{action_id}').addEventListener('click',addItem);"
+                        "document.getElementById('clear-items').addEventListener('click',clearItems);render();"
+                    ),
+                },
+                {
+                    "filename": "README.md",
+                    "content": (
+                        f"# {app_name}\n\n## Purpose\n{app_name} helps one person track {subject} locally in a browser session.\n\n"
+                        "## How to run\nOpen `index.html` directly or run `python3 -m http.server 8080`.\n\n"
+                        "## Manual test steps\nEnter an item, click the primary action, confirm the result and list update, then clear the list.\n\n"
+                        "## Limitations\nThis is a local deterministic demo. It has no backend, network calls, cloud sync, API keys, or live AI.\n\n"
+                        "## Codex next steps\nImprove one sorting, filtering, or export behavior while preserving the local-first flow."
+                    ),
+                },
+                {
+                    "filename": "TEST_PLAN.md",
+                    "content": (
+                        f"# {app_name} Test Plan\n\n## Setup\n- Open `index.html` or serve the folder locally.\n\n"
+                        "## Happy path\n- Enter one realistic item and click the primary action.\n- Confirm the result summary and list update.\n\n"
+                        "## Edge cases\n- Submit a blank item and confirm the empty state remains useful.\n- Clear the list and confirm the start state returns.\n\n"
+                        "## Expected behavior\n- Output changes based on local user input and never uses canned fixed results.\n\n"
+                        "## Local-first/safety checks\n- Confirm the app works offline with no external URLs, network calls, backend, provider calls, or API keys.\n\n"
+                        "## Limitations\n- Data is demo-only and stays in the current browser session.\n\n"
+                        "## Suggested Codex next improvements\n- Add one local export or persistence option without adding external services."
+                    ),
+                },
+            ],
+            "run_instructions": "Open index.html locally.",
+            "test_instructions": "Run the happy path and blank-input edge case.",
+            "codex_next_prompt": "Improve one local planning rule while preserving the generic contract.",
+            "limitations": ["Local deterministic demo only."],
+            "mocked_parts": ["No backend or live AI is implemented."],
         }
 
     def test_app_file_generation_openai_schema_is_shallow_strict_compatible(self) -> None:
@@ -130,13 +271,52 @@ class AIProviderTests(SprintOSTestCase):
         cases = {
             "business_idea_scorer.json": "business_idea_scorer",
             "budget_calculator.json": "budget_calculator",
+            "decision_matrix.json": "decision_matrix",
             "flashcard_helper.json": "flashcard_helper",
+            "pricing_roi_calculator.json": "pricing_roi_calculator",
         }
         for filename, shape in cases.items():
             with self.subTest(filename=filename):
                 payload = self.app_file_fixture(filename)
                 result = sprintos.validate_app_file_payload_for_shape(payload, shape)
                 self.assertTrue(result["ok"], result)
+
+    def test_mocked_canonical_ai_fixtures_pass_strict_app_shape_verification(self) -> None:
+        cases = {
+            "business_idea_scorer.json": "business_idea_scorer",
+            "budget_calculator.json": "budget_calculator",
+            "decision_matrix.json": "decision_matrix",
+            "flashcard_helper.json": "flashcard_helper",
+            "pricing_roi_calculator.json": "pricing_roi_calculator",
+        }
+        for filename, shape in cases.items():
+            with self.subTest(filename=filename):
+                payload = self.app_file_fixture(filename)
+                files = self.app_file_contents(payload)
+                self.assertEqual(sorted(files), ["README.md", "TEST_PLAN.md", "app.js", "index.html", "style.css"])
+                checks = static_app_shape_verification_checks(
+                    shape,
+                    index_html=files["index.html"],
+                    app_js=files["app.js"],
+                    readme_text=files["README.md"],
+                )
+                self.assertFalse([item for item in checks if item["status"] != "pass"], checks)
+
+    def test_business_idea_scorer_fixture_has_richer_quality_logic(self) -> None:
+        payload = self.app_file_fixture("business_idea_scorer.json")
+        files = self.app_file_contents(payload)
+        app_js = files["app.js"]
+        combined = "\n".join(files.values()).lower()
+
+        self.assertIn("factorScore", app_js)
+        for signal in ("target", "pain", "urgency", "money", "channel"):
+            self.assertIn(signal, app_js)
+        self.assertIn("Score explanation", app_js)
+        self.assertGreaterEqual(app_js.count("risk:"), 4)
+        self.assertIn("Smallest useful test", files["index.html"])
+        self.assertIn("Assumptions", files["index.html"])
+        self.assertIn("Rewrite the offer as:", app_js)
+        self.assertNotIn("do more research", combined)
 
     def test_budget_calculator_fixture_reads_income_and_expense_values(self) -> None:
         payload = self.app_file_fixture("budget_calculator.json")
@@ -150,8 +330,355 @@ class AIProviderTests(SprintOSTestCase):
         )
 
         self.assertFalse([item for item in checks if item["status"] == "fail"])
-        self.assertIn("document.getElementById('budget-income').value", files["app.js"])
-        self.assertRegex(files["app.js"], r"document\.getElementById\('budget-(rent|food|housing|transport|other)'\)\.value")
+        self.assertIn("amount('budget-income'", files["app.js"])
+        self.assertRegex(files["app.js"], r"amount\('budget-(rent|food|transport|other)'")
+
+    def test_budget_calculator_fixture_has_surplus_breakdown_recommendation_and_invalid_handling(self) -> None:
+        payload = self.app_file_fixture("budget_calculator.json")
+        files = self.app_file_contents(payload)
+        app_js = files["app.js"]
+
+        self.assertIn("surplus", app_js)
+        self.assertIn("deficit", app_js)
+        self.assertIn("savingsRate", app_js)
+        self.assertIn("Largest expense", app_js)
+        self.assertIn("invalid", app_js.lower())
+        self.assertIn("value<0", app_js)
+        self.assertIn("resetBudget", app_js)
+        self.assertIn("budget-reset", files["index.html"])
+        self.assertIn("This is not financial advice", files["README.md"])
+
+    def test_decision_matrix_fixture_has_ranking_recommendation_and_tradeoffs(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        files = self.app_file_contents(payload)
+        app_js = files["app.js"]
+        limitation = "This prototype ranks options locally using simple deterministic rules. It does not call live AI or external services inside the browser."
+
+        checks = static_app_shape_verification_checks(
+            "decision_matrix",
+            index_html=files["index.html"],
+            app_js=app_js,
+            readme_text=files["README.md"],
+        )
+
+        self.assertIn(limitation, files["index.html"])
+        self.assertIn(limitation, files["README.md"])
+        self.assertFalse([item for item in checks if item["status"] != "pass"], checks)
+        self.assertIn("scoreOption", app_js)
+        self.assertIn("sort(", app_js)
+        self.assertIn("renderEmpty", app_js)
+        self.assertIn("clearDecision", app_js)
+        self.assertIn("Tradeoff notes", app_js)
+
+    def test_flashcard_helper_fixture_has_visible_local_ai_limitation_note(self) -> None:
+        payload = self.app_file_fixture("flashcard_helper.json")
+        files = self.app_file_contents(payload)
+        limitation = "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser."
+
+        checks = static_app_shape_verification_checks(
+            "flashcard_helper",
+            index_html=files["index.html"],
+            app_js=files["app.js"],
+            readme_text=files["README.md"],
+        )
+
+        self.assertIn(limitation, files["index.html"])
+        self.assertIn(limitation, files["README.md"])
+        self.assertFalse([item for item in checks if item["status"] != "pass"], checks)
+
+    def test_flashcard_helper_fixture_has_navigation_progress_and_qa_rendering(self) -> None:
+        payload = self.app_file_fixture("flashcard_helper.json")
+        files = self.app_file_contents(payload)
+        app_js = files["app.js"]
+
+        self.assertIn("currentIndex", app_js)
+        self.assertIn("showingAnswer", app_js)
+        self.assertIn("renderCard", app_js)
+        self.assertIn("next-card", files["index.html"])
+        self.assertIn("prev-card", files["index.html"])
+        self.assertIn("flip-card", files["index.html"])
+        self.assertIn("card-progress", files["index.html"])
+        self.assertIn("Question", app_js)
+        self.assertIn("Answer", app_js)
+        self.assertIn("Empty state", app_js)
+
+    def test_pricing_roi_calculator_fixture_has_metrics_invalid_handling_and_reset(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        files = self.app_file_contents(payload)
+        app_js = files["app.js"]
+        limitation = "This prototype estimates pricing and ROI locally using simple deterministic calculations. It does not call live AI or external services inside the browser."
+
+        checks = static_app_shape_verification_checks(
+            "pricing_roi_calculator",
+            index_html=files["index.html"],
+            app_js=app_js,
+            readme_text=files["README.md"],
+        )
+
+        self.assertIn(limitation, files["index.html"])
+        self.assertIn(limitation, files["README.md"])
+        self.assertFalse([item for item in checks if item["status"] != "pass"], checks)
+        self.assertIn("monthlyRevenue", app_js)
+        self.assertIn("totalCost", app_js)
+        self.assertIn("grossProfit", app_js)
+        self.assertIn("margin", app_js)
+        self.assertIn("breakEvenUnits", app_js)
+        self.assertIn("paybackMonths", app_js)
+        self.assertIn("simpleRoi", app_js)
+        self.assertIn("value<0", app_js)
+        self.assertIn("invalid or negative values treated as 0", app_js)
+        self.assertIn("resetRoi", app_js)
+        self.assertIn("roi-reset", files["index.html"])
+
+    def test_improved_canonical_fixtures_do_not_use_network_or_provider_calls(self) -> None:
+        for filename in ("business_idea_scorer.json", "budget_calculator.json", "decision_matrix.json", "flashcard_helper.json", "pricing_roi_calculator.json"):
+            with self.subTest(filename=filename):
+                self.assert_no_external_network_or_provider_calls(self.app_file_contents(self.app_file_fixture(filename)))
+
+    def test_custom_app_shape_is_not_subject_to_canonical_fixture_requirements(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+
+        result = sprintos.validate_app_file_payload_for_shape(payload, "custom_static_app")
+
+        self.assertTrue(result["ok"], result)
+
+    def test_custom_interactive_app_passes_universal_contract(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+        _, provider = generate_json_with_ai(
+            task_name="app_file_generation",
+            instructions=sprintos.app_file_generation_instructions("custom_static_app"),
+            user_input="Generate a local habit sprint helper.",
+            expected_schema_description="app file generation schema",
+            fallback_factory=self.app_file_generation_payload(),
+            config=load_ai_provider_config(
+                {"SPRINTOS_AI_PROVIDER": "openai", "SPRINTOS_AI_ENABLED": "true", "OPENAI_API_KEY": "sk-openai-custom-contract"}
+            ),
+            provider_callable=lambda **_: fake_provider_result(text=json.dumps(payload), parsed_json=payload, ok=True, provider="openai"),
+            validator=lambda candidate: sprintos.validate_app_file_payload_for_shape(candidate, "custom_static_app"),
+        )
+
+        self.assertTrue(provider.used_ai)
+
+    def test_habit_tracker_style_mocked_output_passes_universal_contract_without_canonical_shape(self) -> None:
+        payload = self.generic_tracker_payload(
+            app_name="Habit Tracker",
+            subject="daily habits",
+            field_id="habit-name",
+            action_id="add-habit",
+            output_id="habit-summary",
+        )
+
+        result = sprintos.validate_app_file_payload_for_shape(payload, "")
+
+        self.assertTrue(result["ok"], result)
+        files = self.app_file_contents(payload)
+        self.assertEqual(sprintos.infer_static_app_shape("Create a local habit tracker.", files=files), "")
+
+    def test_content_calendar_style_mocked_output_passes_universal_contract_without_canonical_shape(self) -> None:
+        payload = self.generic_tracker_payload(
+            app_name="Content Calendar",
+            subject="weekly post ideas",
+            field_id="post-idea",
+            action_id="add-post",
+            output_id="calendar-summary",
+        )
+
+        result = sprintos.validate_app_file_payload_for_shape(payload, "")
+
+        self.assertTrue(result["ok"], result)
+        files = self.app_file_contents(payload)
+        self.assertEqual(sprintos.infer_static_app_shape("Create a local content calendar planner.", files=files), "")
+
+    def test_budget_notes_do_not_infer_budget_calculator_shape(self) -> None:
+        cases = [
+            "Create a local event planner with event name, date, tasks, vendors, budget notes, and readiness summary.",
+            "Create a local agency project tracker with client, deadline, owner, status, budget notes, and workload summary.",
+            "Create a local event planner with a budget field for reference.",
+            "Create a local tracker with a budget column and status section.",
+        ]
+
+        for prompt in cases:
+            with self.subTest(prompt=prompt):
+                self.assertEqual(sprintos.infer_static_app_shape(prompt), "")
+
+    def test_real_budget_calculator_prompts_still_infer_budget_calculator(self) -> None:
+        cases = [
+            "Create a personal budget calculator where users enter income and expenses and see savings.",
+            "Build a monthly budget app with expense breakdown and surplus or deficit calculation.",
+            "Create a Budget Snapshot for income, expenses, savings, spending breakdown, and recommendation.",
+        ]
+
+        for prompt in cases:
+            with self.subTest(prompt=prompt):
+                self.assertEqual(sprintos.infer_static_app_shape(prompt), "budget_calculator")
+
+    def test_broad_style_custom_apps_pass_universal_contract_without_canonical_shape(self) -> None:
+        cases = [
+            (
+                "Barber Booking Tracker",
+                "barber bookings with client names, service type, appointment time, status, and daily schedule",
+                "booking-client",
+                "add-booking",
+                "booking-summary",
+                "Create a local booking tracker for a barber to manage client names, service type, appointment time, status, and daily schedule.",
+            ),
+            (
+                "Client Onboarding Checklist",
+                "client onboarding tasks with owner, due date, status, and progress summary",
+                "onboarding-task",
+                "add-task",
+                "onboarding-progress",
+                "Create a local client onboarding checklist for an agency with client name, onboarding tasks, owner, due date, status, and progress summary.",
+            ),
+            (
+                "Event Planner",
+                "events with date, tasks, vendors, budget notes, and readiness summary",
+                "event-task",
+                "add-event-task",
+                "event-readiness",
+                "Create a local event planner with event name, date, tasks, vendors, budget notes, and readiness summary.",
+            ),
+            (
+                "Lesson Planner",
+                "teacher lesson topics, objectives, activities, materials, homework, and class notes",
+                "lesson-topic",
+                "add-lesson",
+                "lesson-summary",
+                "Create a local lesson planner for teachers with lesson topic, objectives, activities, materials, homework, and class notes.",
+            ),
+            (
+                "Agency Project Tracker",
+                "agency projects with client, deadline, status, owner, next action, and workload summary",
+                "project-name",
+                "add-project",
+                "project-summary",
+                "Create a local project tracker for a small agency with project name, client, deadline, status, owner, next action, and workload summary.",
+            ),
+        ]
+
+        for app_name, subject, field_id, action_id, output_id, prompt in cases:
+            with self.subTest(app_name=app_name):
+                payload = self.generic_tracker_payload(
+                    app_name=app_name,
+                    subject=subject,
+                    field_id=field_id,
+                    action_id=action_id,
+                    output_id=output_id,
+                )
+                result = sprintos.validate_app_file_payload_for_shape(payload, "")
+                files = self.app_file_contents(payload)
+
+                self.assertTrue(result["ok"], result)
+                self.assertEqual(sprintos.infer_static_app_shape(prompt, files=files), "")
+
+    def test_custom_app_with_placeholder_test_plan_fails_universal_contract(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+        payload["files"][4]["content"] = "# Test Plan\n\n- Open the app.\n"
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="custom_static_app")
+
+        self.assertTrue(any("TEST_PLAN_is_practical_and_app-specific" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_generic_repair_guidance_names_input_output_test_plan_and_limitation_requirements(self) -> None:
+        repaired = _app_file_generation_retry_instructions(
+            "Base instructions",
+            "app_shape",
+            {
+                "validation_detail": {
+                    "app_shape_failures": [
+                        "universal_app_input_value_is_read_when_inputs_exist",
+                        "universal_app_TEST_PLAN_is_practical_and_app-specific",
+                        "universal_app_local_demo_limitation_note_exists",
+                    ]
+                }
+            },
+        )
+
+        self.assertIn("meaningful visible input fields", repaired)
+        self.assertIn("app.js updating the visible output", repaired)
+        self.assertIn("setup, happy path, edge cases, expected behavior, local-first/safety checks, limitations", repaired)
+        self.assertIn("local/demo limitation must be visible in index.html", repaired)
+
+    def test_custom_app_with_placeholder_only_output_fails_universal_contract(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+        payload["files"][2]["content"] = (
+            "document.getElementById('build-sprint').addEventListener('click',function(){"
+            "const habit=document.getElementById('habit-input').value.trim();"
+            "document.getElementById('sprint-output').textContent='Results coming soon for '+habit;"
+            "});"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="custom_static_app")
+
+        self.assertTrue(any("placeholder-only_behavior_is_avoided" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_custom_app_with_inputs_but_no_input_reads_fails_universal_contract(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+        payload["files"][2]["content"] = (
+            "document.getElementById('build-sprint').addEventListener('click',function(){"
+            "document.getElementById('sprint-output').textContent='Seven-day sprint: do the habit for 10 minutes.';"
+            "});"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="custom_static_app")
+
+        self.assertTrue(any("input_value_is_read_when_inputs_exist" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_custom_app_with_action_button_but_no_event_handler_fails_universal_contract(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+        payload["files"][2]["content"] = (
+            "const habit=document.getElementById('habit-input').value.trim();"
+            "document.getElementById('sprint-output').textContent='Seven-day sprint for '+habit;"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="custom_static_app")
+
+        self.assertTrue(any("primary_action_is_wired_when_actions_exist" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_custom_non_interactive_informational_app_passes_universal_contract(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+        payload.update(
+            {
+                "app_name": "Launch Checklist",
+                "app_type": "static_app",
+                "short_description": "Explain a local launch checklist.",
+                "user_flow": ["Open the checklist.", "Review the sections.", "Pick the next local action."],
+            }
+        )
+        payload["files"][0]["content"] = (
+            '<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>Launch Checklist</title>'
+            '<link rel="stylesheet" href="style.css" /></head><body><main><h1>Launch Checklist</h1>'
+            '<p>Purpose: helps a solo builder review the next local launch steps before sharing a prototype.</p>'
+            '<p>This browser-only demo is informational, local, static, and does not call external services.</p>'
+            '<section><h2>Before sharing</h2><ul><li>Open the prototype.</li><li>Run the manual test plan.</li></ul></section>'
+            '<section><h2>Next action</h2><p>Package the static files and send them to one tester.</p></section>'
+            '</main><script src="app.js"></script></body></html>'
+        )
+        payload["files"][2]["content"] = "document.documentElement.dataset.ready='true';"
+        payload["files"][3]["content"] = (
+            "# Launch Checklist\n\n## Purpose\nLaunch Checklist explains the local steps before sharing a prototype.\n\n"
+            "## How to run\nOpen `index.html` directly or run `python3 -m http.server 8080`.\n\n"
+            "## Manual test steps\nRead each checklist section and confirm the next action is clear.\n\n"
+            "## Limitations\nThis is an informational local static demo with no network, backend, or live AI.\n\n"
+            "## Codex next steps\nAdd one small interactive checklist toggle if it remains useful."
+        )
+        payload["files"][4]["content"] = (
+            "# Launch Checklist Test Plan\n\n## Happy path\n- Open the page and read both checklist sections.\n\n"
+            "## Edge cases\n- Confirm the page remains useful with network disabled and no inputs available.\n\n"
+            "## Safety/local-first checks\n- Confirm there are no external URLs, network calls, API keys, provider calls, or backend requests."
+        )
+
+        result = sprintos.validate_app_file_payload_for_shape(payload, "custom_static_app")
+
+        self.assertTrue(result["ok"], result)
+
+    def test_custom_app_safety_still_blocks_browser_network_calls(self) -> None:
+        payload = self.custom_app_file_generation_payload()
+        payload["files"][2]["content"] += "\nfetch('https://api.openai.com/v1/responses');"
+
+        provider = self.assert_app_generation_failure_code(payload, "app_safety_validation_failed", shape="custom_static_app")
+
+        self.assertIn("files:browser_network_calls", provider.validation_details["app_safety_failures"])
 
     def test_budget_calculator_with_right_ids_but_no_value_reads_fails_shape_validation(self) -> None:
         payload = self.app_file_fixture("budget_calculator.json")
@@ -190,6 +717,174 @@ class AIProviderTests(SprintOSTestCase):
             any("recommendation_output_updates" in item for item in provider.validation_details["app_shape_failures"])
         )
 
+    def test_decision_matrix_with_ids_but_no_options_read_fails(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        payload["files"][2]["content"] = (
+            "function compareOptions(){const options=['A','B'];const criteria=document.getElementById('decision-criteria').value.trim();"
+            "document.getElementById('decision-ranking').innerHTML='<li>A</li><li>B</li>';"
+            "document.getElementById('decision-recommendation').textContent='Recommendation: A from '+criteria;"
+            "document.getElementById('decision-tradeoffs').textContent='Tradeoffs depend on local criteria.';}"
+            "document.getElementById('compare-options').addEventListener('click',compareOptions);"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="decision_matrix")
+
+        self.assertTrue(any("options_input_is_read" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_decision_matrix_reads_options_but_not_criteria_fails(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        payload["files"][2]["content"] = (
+            "function compareOptions(){const options=document.getElementById('decision-options').value.trim().split('\\n');"
+            "const ranked=options.map((option,index)=>({option,score:index})).sort((a,b)=>b.score-a.score);"
+            "document.getElementById('decision-ranking').innerHTML=ranked.map(item=>'<li>'+item.option+'</li>').join('');"
+            "document.getElementById('decision-recommendation').textContent='Recommendation: '+ranked[0].option;"
+            "document.getElementById('decision-tradeoffs').textContent='Tradeoffs are local.';}"
+            "document.getElementById('compare-options').addEventListener('click',compareOptions);"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="decision_matrix")
+
+        self.assertTrue(any("criteria_input_is_read" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_decision_matrix_without_compare_action_handler_fails(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace(
+            "document.getElementById('compare-options').addEventListener('click',compareOptions);",
+            "",
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="decision_matrix")
+
+        self.assertTrue(any("compare_action_is_wired" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_decision_matrix_without_ranking_update_fails(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace("rankingNode.innerHTML=", "const skippedRanking=")
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="decision_matrix")
+
+        self.assertTrue(any("ranking_output_updates" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_decision_matrix_without_recommendation_update_fails(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace("recommendationNode.textContent=", "const skippedRecommendation=")
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="decision_matrix")
+
+        self.assertTrue(any("recommendation_output_updates" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_decision_matrix_without_tradeoffs_update_fails(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace("tradeoffsNode.textContent=", "const skippedTradeoffs=")
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="decision_matrix")
+
+        self.assertTrue(any("tradeoffs_output_updates" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_placeholder_only_decision_matrix_fails(self) -> None:
+        payload = self.app_file_fixture("decision_matrix.json")
+        payload["files"][2]["content"] = (
+            "document.getElementById('compare-options').addEventListener('click',function(){"
+            "document.getElementById('decision-ranking').textContent='Ranking coming soon';"
+            "document.getElementById('decision-recommendation').textContent='Recommendation coming soon';"
+            "document.getElementById('decision-tradeoffs').textContent='Tradeoffs coming soon';"
+            "});"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="decision_matrix")
+        failures = provider.validation_details["app_shape_failures"]
+
+        self.assertTrue(any("options_input_is_read" in item for item in failures))
+        self.assertTrue(any("criteria_input_is_read" in item for item in failures))
+        self.assertTrue(any("ranking_logic_exists" in item for item in failures))
+
+    def test_pricing_roi_calculator_with_ids_but_no_price_read_fails(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        payload["files"][2]["content"] = (
+            "function calculateRoi(){"
+            "const price=49;const cost=Number(document.getElementById('roi-cost').value)||0;const customers=Number(document.getElementById('roi-customers').value)||0;"
+            "const monthlyRevenue=price*customers;const totalCost=cost*customers;const margin=monthlyRevenue>0?50:0;"
+            "document.getElementById('roi-summary').textContent='Monthly revenue: '+monthlyRevenue;"
+            "document.getElementById('roi-breakdown').textContent='Total cost: '+totalCost+' Margin: '+margin;"
+            "document.getElementById('roi-recommendation').textContent='Test pricing locally.';}"
+            "document.getElementById('roi-run').addEventListener('click',calculateRoi);"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="pricing_roi_calculator")
+
+        self.assertTrue(any("price_input_is_read" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_pricing_roi_calculator_reads_price_but_not_cost_or_customers_fails(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        payload["files"][2]["content"] = (
+            "function calculateRoi(){"
+            "const price=Number(document.getElementById('roi-price').value)||0;const cost=10;const customers=20;"
+            "const monthlyRevenue=price*customers;const totalCost=cost*customers;const margin=monthlyRevenue>0?50:0;"
+            "document.getElementById('roi-summary').textContent='Monthly revenue: '+monthlyRevenue;"
+            "document.getElementById('roi-breakdown').textContent='Total cost: '+totalCost+' Margin: '+margin;"
+            "document.getElementById('roi-recommendation').textContent='Test pricing locally.';}"
+            "document.getElementById('roi-run').addEventListener('click',calculateRoi);"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="pricing_roi_calculator")
+        failures = provider.validation_details["app_shape_failures"]
+
+        self.assertTrue(any("cost_input_is_read" in item for item in failures))
+        self.assertTrue(any("customers_input_is_read" in item for item in failures))
+
+    def test_pricing_roi_calculator_without_run_handler_fails(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace(
+            "document.getElementById('roi-run').addEventListener('click',calculateRoi);",
+            "",
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="pricing_roi_calculator")
+
+        self.assertTrue(any("calculate_action_is_wired" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_pricing_roi_calculator_without_summary_update_fails(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace("document.getElementById('roi-summary').textContent=", "const skippedSummary=")
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="pricing_roi_calculator")
+
+        self.assertTrue(any("summary_output_updates" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_pricing_roi_calculator_without_breakdown_update_fails(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace("document.getElementById('roi-breakdown').textContent=", "const skippedBreakdown=")
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="pricing_roi_calculator")
+
+        self.assertTrue(any("breakdown_output_updates" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_pricing_roi_calculator_without_recommendation_update_fails(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        payload["files"][2]["content"] = payload["files"][2]["content"].replace("document.getElementById('roi-recommendation').textContent=", "const skippedRecommendation=")
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="pricing_roi_calculator")
+
+        self.assertTrue(any("recommendation_output_updates" in item for item in provider.validation_details["app_shape_failures"]))
+
+    def test_placeholder_only_pricing_roi_calculator_fails(self) -> None:
+        payload = self.app_file_fixture("pricing_roi_calculator.json")
+        payload["files"][2]["content"] = (
+            "document.getElementById('roi-run').addEventListener('click',function(){"
+            "document.getElementById('roi-summary').textContent='ROI coming soon';"
+            "document.getElementById('roi-breakdown').textContent='Breakdown coming soon';"
+            "document.getElementById('roi-recommendation').textContent='Recommendation coming soon';"
+            "});"
+        )
+
+        provider = self.assert_app_generation_failure_code(payload, "app_shape_validation_failed", shape="pricing_roi_calculator")
+        failures = provider.validation_details["app_shape_failures"]
+
+        self.assertTrue(any("price_input_is_read" in item for item in failures))
+        self.assertTrue(any("cost_input_is_read" in item for item in failures))
+        self.assertTrue(any("customers_input_is_read" in item for item in failures))
+        self.assertTrue(any("business_metric_logic_exists" in item for item in failures))
+
     def test_mocked_ai_budget_output_uses_improved_generation_contract(self) -> None:
         payload = self.app_file_fixture("budget_calculator.json")
         calls: list[dict[str, Any]] = []
@@ -223,8 +918,10 @@ class AIProviderTests(SprintOSTestCase):
         self.assertEqual(len(calls), 1)
         self.assertIn('document.getElementById("budget-income").value', calls[0]["instructions"])
         self.assertIn("handle blank/invalid numbers as 0", calls[0]["instructions"])
-        self.assertIn("document.getElementById('budget-income').value", files["app.js"])
-        self.assertIn("document.getElementById('budget-food').value", files["app.js"])
+        self.assertIn("amount('budget-income'", files["app.js"])
+        self.assertIn("amount('budget-food'", files["app.js"])
+        self.assertIn("savingsRate", files["app.js"])
+        self.assertIn("Largest expense", files["app.js"])
         self.assertNotIn("fetch(", files["app.js"])
         self.assertNotIn("XMLHttpRequest", files["app.js"])
         self.assertNotIn("sendBeacon", files["app.js"])
@@ -245,7 +942,7 @@ class AIProviderTests(SprintOSTestCase):
         )
 
         self.assertTrue(provider.used_ai)
-        self.assertEqual(data["app_name"], "Idea Scoreboard")
+        self.assertEqual(data["app_name"], "Idea Scorecard")
 
     def test_valid_deepseek_json_output_passes_app_validation(self) -> None:
         payload = self.app_file_fixture("flashcard_helper.json")
@@ -999,11 +1696,56 @@ class AIProviderTests(SprintOSTestCase):
         )
 
         self.assertEqual(len(calls), 2)
-        self.assertEqual(data["app_name"], "Idea Scoreboard")
+        self.assertEqual(data["app_name"], "Idea Scorecard")
         self.assertTrue(provider_result.used_ai)
         self.assertIn("app_file_generation_retry:app_shape", provider_result.warnings)
         self.assertIn("Fix these missing required surfaces", calls[1]["instructions"])
         self.assertIn("risk_output_exists", calls[1]["instructions"])
+
+    def test_flashcard_helper_repair_guidance_requires_visible_limitation_note(self) -> None:
+        api_key = "sk-openai-app-retry-flashcard-shape-test"
+        bad_payload = self.app_file_fixture("flashcard_helper.json")
+        bad_payload["files"][0]["content"] = bad_payload["files"][0]["content"].replace(
+            'data-template-marker="flashcard-cards"',
+            'data-template-marker="plain-output"',
+        )
+        fixed_payload = self.app_file_fixture("flashcard_helper.json")
+        calls: list[dict[str, Any]] = []
+
+        def provider(**kwargs):
+            calls.append(kwargs)
+            payload = bad_payload if len(calls) == 1 else fixed_payload
+            return fake_provider_result(
+                text=json.dumps(payload),
+                parsed_json=payload,
+                ok=True,
+                provider="openai",
+                model=DEFAULT_OPENAI_MODEL,
+                task_name="app_file_generation",
+            )
+
+        data, provider_result = generate_json_with_ai(
+            task_name="app_file_generation",
+            instructions=sprintos.app_file_generation_instructions("flashcard_helper"),
+            user_input="Generate a local study card builder.",
+            expected_schema_description="app file generation schema",
+            fallback_factory=self.app_file_generation_payload(),
+            config=load_ai_provider_config(
+                {"SPRINTOS_AI_PROVIDER": "openai", "SPRINTOS_AI_ENABLED": "true", "OPENAI_API_KEY": api_key}
+            ),
+            provider_callable=provider,
+            validator=lambda candidate: sprintos.validate_app_file_payload_for_shape(candidate, "flashcard_helper"),
+        )
+
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(data["app_name"], "Study Card Builder")
+        self.assertTrue(provider_result.used_ai)
+        self.assertIn("app_file_generation_retry:app_shape", provider_result.warnings)
+        self.assertIn("For flashcard_helper repairs", calls[1]["instructions"])
+        self.assertIn(
+            "This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.",
+            calls[1]["instructions"],
+        )
 
     def test_app_file_generation_does_not_retry_safety_validation_failure(self) -> None:
         api_key = "sk-openai-app-no-retry-safety-test"

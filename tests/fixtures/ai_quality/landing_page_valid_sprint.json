@@ -1,0 +1,19 @@
+{
+  "title": "Planning Tool Landing Page",
+  "summary": "Ship one simple local landing page that explains the idea and asks testers for feedback.",
+  "workflow": "Business Validation",
+  "done_definition": "Done when the page can be opened locally, read in one minute, and used to collect feedback.",
+  "next_tiny_action": "Open landing-page-copy.md and draft the headline, subheadline, and CTA.",
+  "plan_steps": [
+    "Write one clear headline, one proof point, and one CTA.",
+    "Package the copy into a static local page.",
+    "Open the page locally and send the tester message to three people."
+  ],
+  "artifacts": [
+    {
+      "title": "Landing Page Copy",
+      "filename": "landing-page-copy.md",
+      "content": "# Landing Page Copy\n\nHeadline, proof, CTA."
+    }
+  ]
+}

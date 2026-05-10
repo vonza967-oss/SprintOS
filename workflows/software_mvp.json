@@ -1,0 +1,27 @@
+{
+  "id": "software_mvp",
+  "name": "Software MVP Scope",
+  "description": "Turn a software idea into the smallest useful prototype plan and starter assets.",
+  "best_for": [
+    "apps",
+    "SaaS",
+    "automation tools",
+    "scripts",
+    "web apps"
+  ],
+  "outputs": [
+    "MVP scope",
+    "feature cutter",
+    "data model",
+    "API or file structure",
+    "build checklist",
+    "README draft",
+    "done definition"
+  ],
+  "rules": [
+    "Prefer single-user local MVP before multi-user SaaS.",
+    "Avoid auth, payments, teams, mobile apps, and integrations until necessary.",
+    "Build one working path, not a platform.",
+    "Generate files that can be copied into a project immediately."
+  ]
+}

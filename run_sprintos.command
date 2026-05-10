@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Double-clickable macOS entrypoint for the local SprintOS launcher.
+
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$ROOT_DIR"
+python3 scripts/launch.py

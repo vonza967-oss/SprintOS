@@ -1,0 +1,42 @@
+{
+  "app_name": "Idea Scorecard",
+  "app_type": "static_app",
+  "short_description": "Score a rough business idea and choose the smallest useful test.",
+  "user_flow": [
+    "Paste a rough business idea.",
+    "Click Score Idea.",
+    "Review the score explanation, risks, smallest test, assumptions, and next action."
+  ],
+  "files": [
+    {
+      "filename": "index.html",
+      "content": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" /><title>Idea Scorecard</title><link rel=\"stylesheet\" href=\"style.css\" /></head><body><main data-app-shape=\"business_idea_scorer\"><h1>Idea Scorecard</h1><p>Paste a messy idea. This local demo scores clarity, pain, urgency, money signal, and first-channel reach.</p><label for=\"idea-input\">Business idea</label><textarea id=\"idea-input\" data-template-marker=\"main-input\" placeholder=\"Example: A weekly grocery waste tracker for busy parents who want to save money and plan meals faster.\"></textarea><div class=\"actions\"><button id=\"score-idea\" data-template-marker=\"primary-action\">Score Idea</button><button id=\"clear-idea\" type=\"button\">Clear</button></div><section data-template-marker=\"result-output\" aria-live=\"polite\"><h2>Score</h2><div id=\"idea-score\">No score yet.</div><p id=\"idea-explanation\">Add an idea to see why it scored that way.</p><h2>Risks</h2><ul id=\"idea-risks\" data-template-marker=\"risk_breakdown\"><li>No risks yet. Score an idea first.</li></ul><h2>Smallest useful test</h2><div id=\"idea-smallest-test\" data-template-marker=\"smallest-testable-version\">The first test will appear here.</div><h2>Next action</h2><div id=\"idea-next-action\" data-template-marker=\"next-action\">Your next action will appear here.</div><h2>Assumptions</h2><p id=\"idea-assumptions\">This is a directional local score, not market proof.</p></section></main><script src=\"app.js\"></script></body></html>"
+    },
+    {
+      "filename": "style.css",
+      "content": "body{font-family:Arial,sans-serif;margin:0;padding:24px;background:#f7f7f4;color:#1d2320;}main{max-width:820px;margin:auto;}textarea{width:100%;min-height:150px;padding:12px;box-sizing:border-box;}button{padding:10px 14px;margin-right:8px;}section{margin-top:18px;border:1px solid #c9cec8;background:white;padding:16px;}#idea-score{font-size:34px;font-weight:700}.actions{margin-top:12px}li{margin:6px 0}"
+    },
+    {
+      "filename": "app.js",
+      "content": "const ideaInput=document.getElementById('idea-input');const scoreNode=document.getElementById('idea-score');const explanationNode=document.getElementById('idea-explanation');const risksNode=document.getElementById('idea-risks');const smallestNode=document.getElementById('idea-smallest-test');const nextNode=document.getElementById('idea-next-action');const assumptionsNode=document.getElementById('idea-assumptions');function hasAny(text,terms){return terms.some(term=>text.includes(term));}function factorScore(text,words){const target=hasAny(text,[' for ',' parents',' students',' freelancers',' teams',' owners',' nurses',' teachers',' creators'])?2:0;const pain=hasAny(text,['waste','stress','slow','manual','expensive','confusing','miss','save','pain','problem'])?2:0;const urgency=hasAny(text,['daily','weekly','every month','urgent','deadline','repeat','often'])?2:0;const money=hasAny(text,['pay','paid','price','budget','revenue','subscription','cost','save money'])?2:0;const channel=hasAny(text,['email','community','school','clinic','shop','linkedin','newsletter','local'])?2:0;const detail=Math.min(2,Math.floor(words.length/18));return {target,pain,urgency,money,channel,detail};}function scoreIdea(){const idea=document.getElementById('idea-input').value.trim();const text=idea.toLowerCase();const words=text.split(/\\s+/).filter(Boolean);if(!idea){scoreNode.textContent='No score yet.';explanationNode.textContent='Paste one rough idea so the local score can react to your details.';risksNode.innerHTML='<li>Empty state: no idea has been scored.</li>';smallestNode.textContent='Paste an idea, then run the score.';nextNode.textContent='Write one sentence that names the user, pain, and desired outcome.';assumptionsNode.textContent='This local demo needs your input before it can make assumptions.';return;}const factors=factorScore(text,words);const raw=factors.target+factors.pain+factors.urgency+factors.money+factors.channel+factors.detail;const score=Math.max(18,Math.min(100,Math.round((raw/12)*100)));const strongest=Object.entries(factors).filter(([,value])=>value>0).map(([name])=>name).join(', ')||'none yet';scoreNode.textContent=score+'/100';explanationNode.textContent='Score explanation: target user '+factors.target+'/2, pain '+factors.pain+'/2, urgency '+factors.urgency+'/2, money signal '+factors.money+'/2, first channel '+factors.channel+'/2, detail '+factors.detail+'/2. Strongest signals: '+strongest+'.';const risks=[];risks.push(factors.target?'Demand risk: medium. The user is visible, but willingness to try still needs proof.':'Demand risk: high. The target user is too broad or missing.');risks.push(factors.pain&&factors.urgency?'Problem risk: medium. Pain is named, but frequency needs evidence.':'Problem risk: high. The painful moment or frequency is not concrete enough.');risks.push(factors.money?'Revenue risk: medium. There is a money signal, but price is untested.':'Revenue risk: high. No budget, buyer, or willingness-to-pay signal is visible.');risks.push(factors.channel?'Reach risk: medium. A possible first channel exists, but conversion is unknown.':'Reach risk: high. The first place to find testers is unclear.');risksNode.innerHTML=risks.map(risk=>'<li>'+risk+'</li>').join('');smallestNode.textContent=score>=70?'Create a one-screen promise demo and ask three named target users whether they would try it this week.':'Send a one-sentence offer to one likely user and ask which part feels painful enough to solve now.';nextNode.textContent=score>=70?'Book three 15-minute validation calls and track yes/no intent plus the objection.':'Rewrite the offer as: For [specific user], solve [painful moment] by [small local outcome], then test it with one person.';assumptionsNode.textContent='Assumptions: this score uses local text signals only; it cannot prove demand, pricing, or channel fit.';}function clearIdea(){ideaInput.value='';scoreIdea();ideaInput.focus();}document.getElementById('score-idea').addEventListener('click',scoreIdea);document.getElementById('clear-idea').addEventListener('click',clearIdea);"
+    },
+    {
+      "filename": "README.md",
+      "content": "# Idea Scorecard\n\nIdea Scorecard is a small local prototype for turning a rough business idea into a first-pass validation plan.\n\n## How to run\nRun `python3 -m http.server 8080` in this folder, then open `index.html` from the local server.\n\n## How to use it\nPaste a business idea and click **Score Idea**. The app scores visible signals such as the target user, painful moment, urgency, money signal, and first channel. It then shows risks, assumptions, the smallest useful test, and one concrete next action.\n\n## Limits\nThe score is deterministic and local. It is not market proof, does not call AI, and does not send your idea anywhere."
+    },
+    {
+      "filename": "TEST_PLAN.md",
+      "content": "# Test Plan\n\n- Open `index.html` in a browser.\n- Paste an idea that names a user, pain, money signal, and channel.\n- Click **Score Idea** and confirm the score explanation lists multiple factors.\n- Confirm at least three risks appear.\n- Confirm the smallest test and next action are concrete and specific.\n- Click **Clear** and confirm the empty state returns.\n- Turn off network access and confirm scoring still works locally."
+    }
+  ],
+  "run_instructions": "Run `python3 -m http.server 8080` and open `index.html`.",
+  "test_instructions": "Score two different ideas and confirm the score, explanation, risks, smallest test, and next action change.",
+  "codex_next_prompt": "Improve one local scoring factor without adding dependencies or network calls.",
+  "limitations": [
+    "Local prototype only.",
+    "The score is a deterministic heuristic, not market proof."
+  ],
+  "mocked_parts": [
+    "Scoring and recommendations are local deterministic rules."
+  ]
+}

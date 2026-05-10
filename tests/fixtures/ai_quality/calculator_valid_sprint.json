@@ -1,0 +1,19 @@
+{
+  "title": "Project Score Calculator",
+  "summary": "Turn a few side-project inputs into one clear local score and recommendation.",
+  "workflow": "Software MVP",
+  "done_definition": "Done when the user can enter values locally and get a saved recommendation with no backend.",
+  "next_tiny_action": "Open build-checklist.md and define the scoring inputs and result explanation.",
+  "plan_steps": [
+    "Choose three scoring inputs and one result band.",
+    "Build the local calculator flow and result text.",
+    "Run two sample projects through the calculator and compare the recommendations."
+  ],
+  "artifacts": [
+    {
+      "title": "Scoring Notes",
+      "filename": "scoring-notes.md",
+      "content": "# Scoring Notes\n\nPain, speed, confidence."
+    }
+  ]
+}

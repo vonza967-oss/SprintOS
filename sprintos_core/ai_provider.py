@@ -678,7 +678,7 @@ def _app_file_generation_retry_instructions(instructions: str, retry_reason: str
         "provider_transient": "the provider did not return a usable response",
         "invalid_json": "the response was not parseable JSON",
         "json_shape": "the JSON shape did not match the app_file_generation contract",
-        "app_shape": "the app files missed required canonical app surfaces",
+        "app_shape": "the app files missed required app contract surfaces",
     }.get(retry_reason, "the first app_file_generation attempt could not be accepted")
     missing_surfaces = []
     if validation_result:
@@ -692,7 +692,30 @@ def _app_file_generation_retry_instructions(instructions: str, retry_reason: str
             missing_surface_note += (
                 "\n        - For budget_calculator repairs, app.js must explicitly read the income and expense DOM values before calculating, "
                 "for example document.getElementById('budget-income').value and document.getElementById('budget-food').value, "
-                "then update budget-savings, budget-breakdown, and budget-recommendation."
+                "then update budget-savings, budget-breakdown, and budget-recommendation with surplus/deficit, savings rate, breakdown, and a number-based recommendation."
+            )
+        if any("decision_matrix" in item or "decision_matrix" in item.replace(" ", "_") for item in missing_surfaces):
+            missing_surface_note += (
+                "\n        - For decision_matrix repairs, index.html must include decision-options, decision-criteria, compare-options, "
+                "decision-ranking, decision-recommendation, and decision-tradeoffs. app.js must explicitly read "
+                "document.getElementById('decision-options').value and document.getElementById('decision-criteria').value, "
+                "wire compare-options, rank options locally from the user's options/criteria, and update all three output surfaces. "
+                "Include the exact visible limitation note about simple deterministic local ranking."
+            )
+        if any("pricing_roi_calculator" in item or "pricing_roi_calculator" in item.replace(" ", "_") for item in missing_surfaces):
+            missing_surface_note += (
+                "\n        - For pricing_roi_calculator repairs, index.html must include roi-price, roi-cost, roi-customers, roi-run, "
+                "roi-summary, roi-breakdown, and roi-recommendation. app.js must explicitly read "
+                "document.getElementById('roi-price').value, document.getElementById('roi-cost').value, and "
+                "document.getElementById('roi-customers').value, wire roi-run, calculate at least two useful metrics such as "
+                "monthly revenue, total cost, margin, break-even units, payback period, or simple ROI, and update all three output surfaces. "
+                "Include the exact visible limitation note about simple deterministic local pricing and ROI estimates."
+            )
+        if any("flashcard_helper" in item or "flashcard_helper" in item.replace(" ", "_") for item in missing_surfaces):
+            missing_surface_note += (
+                "\n        - For flashcard_helper repairs, index.html must visibly include this exact limitation note near the flashcard UI: "
+                "\"This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.\" "
+                "Do not rely on README.md or TEST_PLAN.md alone. Include question/answer card rendering plus simple navigation, flip, or progress."
             )
     repair_note = f"""
 
@@ -703,6 +726,12 @@ def _app_file_generation_retry_instructions(instructions: str, retry_reason: str
         - Include exactly these files: index.html, style.css, app.js, README.md, TEST_PLAN.md.
         - Ensure index.html links style.css and app.js.
         - Ensure app.js contains real local browser interaction behavior.
+        - For custom apps, include a visible h1 title whose words match the requested app, purpose/use-case copy that says what the app helps the target user do, app-specific sections, a visible local/demo limitation note, practical README, and practical TEST_PLAN.
+        - For interactive custom apps, include meaningful visible input fields matching the requested fields/sections, one primary action button, a visible result/list/summary area, a useful empty state, app.js reading at least one input `.value`, app.js handling the primary action, and app.js updating the visible output.
+        - Read input `.value` inside the primary action handler or inside a render function called by that handler, then update the result/list/summary with text derived from those values.
+        - TEST_PLAN.md must use practical app-specific sections for setup, happy path, edge cases, expected behavior, local-first/safety checks, limitations, and suggested Codex next improvements.
+        - The local/demo limitation must be visible in index.html and must also be reflected in README.md and TEST_PLAN.md.
+        - Preserve useful helper text, empty states, input-dependent outputs, and simple reset/clear behavior where appropriate.
         {missing_surface_note}
         - Do not include external URLs, network calls, provider calls, API keys, markdown fences, or placeholder-only files.
         """

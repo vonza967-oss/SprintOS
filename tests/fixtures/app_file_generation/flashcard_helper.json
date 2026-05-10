@@ -1,0 +1,42 @@
+{
+  "app_name": "Study Card Builder",
+  "app_type": "ai_text_tool",
+  "short_description": "Turn pasted notes into local question and answer study cards.",
+  "user_flow": [
+    "Paste study notes.",
+    "Click Build Flashcards.",
+    "Use previous, next, and flip controls to review the generated cards."
+  ],
+  "files": [
+    {
+      "filename": "index.html",
+      "content": "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\" /><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" /><title>Study Card Builder</title><link rel=\"stylesheet\" href=\"style.css\" /></head><body><main data-app-shape=\"flashcard_helper\"><h1>Study Card Builder</h1><p>Paste class notes, definitions, headings, or short facts. This local demo turns them into review cards you can flip.</p><p id=\"local-note\">This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser. Local mocked card generation, not live AI.</p><label for=\"notes-input\">Study notes</label><textarea id=\"notes-input\" data-template-marker=\"main-input\" placeholder=\"Example: Photosynthesis: plants convert light into chemical energy. Mitochondria release energy from food.\"></textarea><div class=\"actions\"><button id=\"build-cards\" data-template-marker=\"primary-action\">Build Flashcards</button><button id=\"clear-notes\" type=\"button\">Clear</button></div><section aria-live=\"polite\"><div id=\"card-progress\">No cards built yet.</div><div id=\"card-output\" data-template-marker=\"flashcard-cards\"><article class=\"flashcard-card\"><strong>Question</strong><p>Paste notes and build cards to start studying.</p></article></div><div class=\"actions\"><button id=\"prev-card\" type=\"button\">Previous</button><button id=\"flip-card\" type=\"button\">Flip</button><button id=\"next-card\" type=\"button\">Next</button></div></section></main><script src=\"app.js\"></script></body></html>"
+    },
+    {
+      "filename": "style.css",
+      "content": "body{font-family:Arial,sans-serif;margin:0;padding:24px;background:#f7f6f2;color:#202420;}main{max-width:780px;margin:auto;}textarea{width:100%;min-height:170px;padding:12px;box-sizing:border-box;}button{padding:10px 14px;margin-right:8px}section{background:white;border:1px solid #cfcfc8;margin-top:16px;padding:16px}.actions{margin-top:12px}.flashcard-card{border:1px solid #bfc8c1;padding:16px;margin-top:10px;min-height:120px}#local-note{background:#eef5ef;padding:10px;border-left:4px solid #4f7f58}#card-progress{font-weight:700}"
+    },
+    {
+      "filename": "app.js",
+      "content": "let cards=[];let currentIndex=0;let showingAnswer=false;const cardOutput=document.getElementById('card-output');const progressNode=document.getElementById('card-progress');function escapeHtml(value){return String(value).replace(/[&<>\"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',\"'\":'&#39;'}[char]));}function cleanChunks(notes){return notes.split(/\\n+/).flatMap(line=>line.split(/(?<=[.!?])\\s+/)).map(item=>item.trim()).filter(item=>item.length>10).slice(0,10);}function makeQuestion(chunk,index){if(chunk.includes(':')){const parts=chunk.split(':');const term=parts[0].trim();return {question:'What should you remember about '+term+'?',answer:parts.slice(1).join(':').trim()||chunk};}const words=chunk.split(/\\s+/).filter(Boolean);const key=words.slice(0,Math.min(5,words.length)).join(' ');return {question:'Card '+(index+1)+': What is the main idea of \"'+key+'\"?',answer:chunk};}function buildCardList(notes){const chunks=cleanChunks(notes);if(!chunks.length){return [];}return chunks.map((chunk,index)=>makeQuestion(chunk,index));}function renderCard(){if(!cards.length){progressNode.textContent='No cards built yet.';cardOutput.innerHTML='<article class=\"flashcard-card\"><strong>Empty state</strong><p>Paste notes with definitions or short facts, then build flashcards.</p></article>';return;}const card=cards[currentIndex];progressNode.textContent='Card '+(currentIndex+1)+' of '+cards.length;cardOutput.innerHTML='<article class=\"flashcard-card\" data-template-marker=\"qa-card\"><strong>Question</strong><p>'+escapeHtml(card.question)+'</p><strong>Answer</strong><p>'+(showingAnswer?escapeHtml(card.answer):'Click Flip to reveal the answer.')+'</p></article>';}function buildCards(){const notes=document.getElementById('notes-input').value.trim();cards=buildCardList(notes);currentIndex=0;showingAnswer=false;renderCard();}function nextCard(){if(!cards.length){return;}currentIndex=(currentIndex+1)%cards.length;showingAnswer=false;renderCard();}function prevCard(){if(!cards.length){return;}currentIndex=(currentIndex-1+cards.length)%cards.length;showingAnswer=false;renderCard();}function flipCard(){if(!cards.length){return;}showingAnswer=!showingAnswer;renderCard();}function clearNotes(){document.getElementById('notes-input').value='';cards=[];currentIndex=0;showingAnswer=false;renderCard();document.getElementById('notes-input').focus();}document.getElementById('build-cards').addEventListener('click',buildCards);document.getElementById('next-card').addEventListener('click',nextCard);document.getElementById('prev-card').addEventListener('click',prevCard);document.getElementById('flip-card').addEventListener('click',flipCard);document.getElementById('clear-notes').addEventListener('click',clearNotes);renderCard();"
+    },
+    {
+      "filename": "README.md",
+      "content": "# Study Card Builder\n\nStudy Card Builder is a local prototype for turning pasted notes into simple question and answer cards.\n\n## How to run\nRun `python3 -m http.server 8080` in this folder, then open `index.html` from the local server.\n\n## How to use it\nPaste notes with definitions, headings, or short facts. Click **Build Flashcards**, then use **Previous**, **Next**, and **Flip** to review cards.\n\n## Limits\nThis prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser. The parser is deterministic and works best with concise notes."
+    },
+    {
+      "filename": "TEST_PLAN.md",
+      "content": "# Test Plan\n\n- Open `index.html` in a browser.\n- Confirm the visible note says: This prototype builds study cards locally from your notes. It does not call live AI or external services inside the browser.\n- Paste notes with a colon definition and at least two sentences.\n- Click **Build Flashcards** and confirm question/answer-like content appears.\n- Click **Flip** and confirm the answer becomes visible.\n- Click **Next** and **Previous** and confirm progress changes, such as Card 1 of 3.\n- Click **Clear** and confirm the empty state returns.\n- Disable network access and confirm card building still works."
+    }
+  ],
+  "run_instructions": "Run `python3 -m http.server 8080` and open `index.html`.",
+  "test_instructions": "Paste notes, build cards, flip a card, navigate, clear, and confirm the exact local/demo limitation note remains visible.",
+  "codex_next_prompt": "Improve the local study-card parser without adding dependencies or network calls.",
+  "limitations": [
+    "Local prototype only.",
+    "Card generation is deterministic and not live AI."
+  ],
+  "mocked_parts": [
+    "Card generation is local and deterministic, not live AI."
+  ]
+}

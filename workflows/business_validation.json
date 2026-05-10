@@ -1,0 +1,26 @@
+{
+  "id": "business_validation",
+  "name": "Business Idea Validation",
+  "description": "Cut an idea into a testable offer, landing page, and outreach plan.",
+  "best_for": [
+    "startup ideas",
+    "side hustles",
+    "new products",
+    "monetization tests"
+  ],
+  "outputs": [
+    "idea summary",
+    "target user",
+    "risky assumptions",
+    "smallest validation test",
+    "landing page copy",
+    "outreach messages",
+    "done definition"
+  ],
+  "rules": [
+    "Do not recommend building full software before validation.",
+    "End with a user-facing test.",
+    "Prefer manual-first tests over infrastructure.",
+    "Cut the idea to something that can be tested today."
+  ]
+}
