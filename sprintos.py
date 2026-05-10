@@ -120,6 +120,7 @@ from sprintos_core.constants import (
     WORKSPACE_SYNC_STATUSES,
     WORKSPACE_STATUSES,
 )
+from sprintos_core.demo_readiness import example_prompt_groups_json, render_example_prompt_gallery
 from sprintos_core.env_utils import load_local_env
 from sprintos_core.json_utils import read_json_file, safe_json_loads, write_json_file
 from sprintos_core.path_utils import (
@@ -24690,6 +24691,11 @@ INDEX_HTML = r"""
     .lane-step { border: 1px solid var(--line); border-radius: 14px; background: rgba(7, 11, 18, 0.92); padding: 14px; }
     .lane-step-head { display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 8px; }
     .lane-step-number { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
+    .example-prompt-gallery { margin-top: 14px; }
+    .example-prompt-group { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
+    .example-prompt-group-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .example-prompt-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .example-prompt-button { text-align: left; }
     .visually-hidden { position: absolute; left: -9999px; }
     ul { margin-top: 8px; }
     li { margin: 5px 0; }
@@ -24726,10 +24732,13 @@ INDEX_HTML = r"""
 
     <section class="card">
       <div class="topline" style="margin-bottom:10px"><h3 style="margin:0">Create App</h3><span class="pill"><strong>default</strong></span></div>
+      <p class="muted">Describe a local prototype app. SprintOS can ask follow-up questions when the prompt is vague, or you can generate with assumptions.</p>
+      <p class="muted">After creation, preview it, download it, test it, inspect the files, or prepare it for Codex.</p>
       <div class="field">
         <label for="quickLaunchIdea">Raw idea</label>
-        <textarea id="quickLaunchIdea" placeholder="I have an idea. Turn it into a usable first app draft now."></textarea>
+        <textarea id="quickLaunchIdea" placeholder="Example: Create a local habit tracker with habit entry, completion, daily progress, and reset."></textarea>
       </div>
+      __EXAMPLE_PROMPT_GALLERY_QUICKLAUNCH__
       <div class="row">
         <div class="field">
           <label for="quickLaunchGoal">Project goal</label>
@@ -24880,11 +24889,13 @@ INDEX_HTML = r"""
       <section class="card home-hero">
         <div class="command-kicker">Create New App</div>
         <h2>Create your first app</h2>
-        <p class="muted">Paste an idea and SprintOS will create a local testable app draft.</p>
+        <p class="muted">Paste a prompt and SprintOS will generate a local-first prototype app. If the idea is vague, answer follow-up questions or generate with assumptions.</p>
+        <p class="muted">Then open the preview, download the app, test it, inspect the files, or prepare it for Codex.</p>
         <div class="field">
           <label for="homeQuickLaunchIdea">Raw idea</label>
-          <textarea id="homeQuickLaunchIdea" class="large-idea" placeholder="I have an idea. Turn it into a usable first app draft now."></textarea>
+          <textarea id="homeQuickLaunchIdea" class="large-idea" placeholder="Example: Create a local habit tracker with habit entry, completion, daily progress, and reset."></textarea>
         </div>
+        __EXAMPLE_PROMPT_GALLERY_HOME__
         <details class="resume-plan">
           <summary><strong>Advanced</strong></summary>
           <div class="field" style="margin-top:14px">
@@ -25001,6 +25012,7 @@ const verificationScopes = {
   pipeline: 'Create app run',
   quick_launch: 'Create app'
 };
+const demoPromptGroups = __EXAMPLE_PROMPT_GROUPS_JSON__;
 
 const $ = (id) => document.getElementById(id);
 
@@ -25033,6 +25045,41 @@ function safeUiStorage() {
   } catch (_) {
     return null;
   }
+}
+
+function renderExamplePromptGallery(prefix = 'quickLaunch') {
+  return `
+    <details class="resume-plan example-prompt-gallery">
+      <summary><strong>Example Prompt Gallery</strong></summary>
+      <p class="muted">Pick one to fill the Create App prompt. Examples do not call AI or create anything until you click Create App.</p>
+      <div data-example-gallery-prefix="${esc(prefix)}">
+        ${demoPromptGroups.map((group) => `
+          <div class="example-prompt-group">
+            <div class="example-prompt-group-head">
+              <strong>${esc(group.title)}</strong>
+              <span class="tiny-badge">${esc(group.kind)}</span>
+            </div>
+            <p class="muted">${esc(group.note)}</p>
+            <div class="example-prompt-buttons">
+              ${(group.examples || []).map((example) => `
+                <button type="button" class="secondary mini example-prompt-button" data-demo-prompt="${esc(example.prompt)}" data-demo-kind="${esc(group.kind)}" onclick="fillExamplePrompt(this, '${esc(prefix)}')">${esc(example.label)}</button>
+              `).join('')}
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    </details>
+  `;
+}
+
+function fillExamplePrompt(button, prefix = 'quickLaunch') {
+  const prompt = button && button.getAttribute('data-demo-prompt');
+  if (!prompt) return;
+  const target = $(`${prefix}Idea`) || $('quickLaunchIdea') || $('homeQuickLaunchIdea');
+  if (!target) return;
+  target.value = prompt;
+  target.dataset.userTouched = 'true';
+  target.focus();
 }
 
 function readUiState() {
@@ -25308,11 +25355,13 @@ function renderHomeCreateAppForm(prefix = 'homeQuickLaunch', title = 'Create you
     <section class="card home-hero" id="home-create-app">
       <div class="command-kicker">Create New App</div>
       <h2>${esc(title)}</h2>
-      <p class="muted">Paste an idea and SprintOS will create a local testable app draft.</p>
+      <p class="muted">Paste a prompt and SprintOS will generate a local-first prototype app. If the idea is vague, answer follow-up questions or generate with assumptions.</p>
+      <p class="muted">Then open the preview, download the app, test it, inspect the files, or prepare it for Codex.</p>
       <div class="field">
         <label for="${prefix}Idea">Raw idea</label>
-        <textarea id="${prefix}Idea" class="large-idea" placeholder="I have an idea. Turn it into a usable first app draft now."></textarea>
+        <textarea id="${prefix}Idea" class="large-idea" placeholder="Example: Create a local habit tracker with habit entry, completion, daily progress, and reset."></textarea>
       </div>
+      ${renderExamplePromptGallery(prefix)}
       <details class="resume-plan">
         <summary><strong>Advanced</strong></summary>
         <div class="field" style="margin-top:14px">
@@ -28667,7 +28716,12 @@ Promise.all([loadWorkflows(), refreshAiStatus()]).then(loadProjects).catch(err =
 </html>
 """
 
-INDEX_HTML = INDEX_HTML.replace("__SPRINTOS_UI_HELPERS__", UI_HELPERS_JS)
+INDEX_HTML = (
+    INDEX_HTML.replace("__SPRINTOS_UI_HELPERS__", UI_HELPERS_JS)
+    .replace("__EXAMPLE_PROMPT_GROUPS_JSON__", example_prompt_groups_json())
+    .replace("__EXAMPLE_PROMPT_GALLERY_QUICKLAUNCH__", render_example_prompt_gallery("quickLaunch"))
+    .replace("__EXAMPLE_PROMPT_GALLERY_HOME__", render_example_prompt_gallery("homeQuickLaunch"))
+)
 
 
 class SprintOSHandler(BaseHTTPRequestHandler):

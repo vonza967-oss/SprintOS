@@ -86,3 +86,10 @@ SprintOS should not call app generation "working" until this checklist passes in
 - [ ] A user can test the app.
 - [ ] A user can inspect the source.
 - [ ] A user can send the app to Codex for improvement.
+
+## Demo Readiness Summary
+
+- Canonical acceptance currently covers Idea Scorecard, Budget Snapshot, Study Card Builder, Decision Matrix, and Pricing ROI Calculator.
+- Generic acceptance currently covers Habit Tracker, Mini CRM, Inventory Tracker, and Content Calendar.
+- Broad arbitrary acceptance currently covers Tattoo Studio CRM, Barber Booking Tracker, Landscaping Quote Estimator, Client Onboarding Checklist, Meal Planner, Workout Planner, Event Planner, Support Ticket Board, Lesson Planner, and Agency Project Tracker.
+- Live acceptance reports stay local, redacted, and uncommitted. Keep generated report contents out of docs and source control.

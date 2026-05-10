@@ -54,6 +54,30 @@ class TestingToolTests(SprintOSTestCase):
         root = Path(__file__).resolve().parent.parent
         self.assertTrue((root / "docs" / "V0_1_READINESS_AUDIT.md").exists())
         self.assertTrue((root / "docs" / "NEXT_REAL_USE.md").exists())
+        self.assertTrue((root / "docs" / "DEMO_READINESS.md").exists())
+
+    def test_demo_readiness_docs_summarize_acceptance_without_raw_payloads(self) -> None:
+        root = Path(__file__).resolve().parent.parent
+        demo_doc = (root / "docs" / "DEMO_READINESS.md").read_text(encoding="utf-8")
+        checklist = (root / "docs" / "APP_GENERATION_ACCEPTANCE_CHECKLIST.md").read_text(encoding="utf-8")
+        combined = demo_doc + "\n" + checklist
+
+        for case_name in ("Idea Scorecard", "Budget Snapshot", "Habit Tracker", "Tattoo Studio CRM", "Agency Project Tracker"):
+            with self.subTest(case_name=case_name):
+                self.assertIn(case_name, combined)
+        for unsafe in (
+            "sk-",
+            "Authorization:",
+            "OPENAI_API_KEY=",
+            "DEEPSEEK_API_KEY=",
+            "raw_provider_response",
+            "raw provider payload",
+            "live-app-generation-acceptance.json",
+            "live-app-generation-acceptance.md",
+        ):
+            with self.subTest(unsafe=unsafe):
+                self.assertNotIn(unsafe, combined)
+        self.assertIn("Live acceptance reports are local, redacted, and not committed.", demo_doc)
 
     def test_readiness_script_avoids_direct_external_api_calls(self) -> None:
         root = Path(__file__).resolve().parent.parent

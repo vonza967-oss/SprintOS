@@ -1,4 +1,5 @@
 import sprintos
+from sprintos_core.demo_readiness import EXAMPLE_PROMPT_GROUPS, render_example_prompt_gallery
 from sprintos_core import ui_helpers
 from tests.test_support import SprintOSTestCase
 
@@ -84,6 +85,47 @@ class UIHelperTests(SprintOSTestCase):
         self.assertIn("Editable source/Codex package for inspecting or continuing the app locally.", sprintos.INDEX_HTML)
         self.assertIn("Primary files", sprintos.INDEX_HTML)
         self.assertIn("offline template selected", sprintos.INDEX_HTML)
+
+    def test_example_prompt_gallery_renders_in_create_app(self) -> None:
+        html = render_example_prompt_gallery("quickLaunch")
+        self.assertIn("Example Prompt Gallery", html)
+        self.assertIn("Idea Scorecard", html)
+        self.assertIn("Mini CRM", html)
+        self.assertIn("Tattoo Studio CRM", html)
+        self.assertIn("data-demo-kind=\"generic/custom\"", html)
+        self.assertIn("fillExamplePrompt", html)
+        self.assertIn("Example Prompt Gallery", sprintos.INDEX_HTML)
+        self.assertIn("demoPromptGroups", sprintos.INDEX_HTML)
+
+    def test_example_prompt_gallery_does_not_call_provider_or_api(self) -> None:
+        html = render_example_prompt_gallery("quickLaunch")
+        self.assertNotIn("fetch(", html)
+        self.assertNotIn("api(", html)
+        self.assertNotIn("reviewQuickLaunchIntent", html)
+        self.assertNotIn("openai", html.lower())
+        self.assertNotIn("deepseek", html.lower())
+
+    def test_broad_example_prompts_stay_generic_custom(self) -> None:
+        broad_group = next(group for group in EXAMPLE_PROMPT_GROUPS if group["id"] == "broad")
+        self.assertEqual(broad_group["kind"], "generic/custom")
+        for example in broad_group["examples"]:
+            with self.subTest(example=example["label"]):
+                self.assertEqual(sprintos.infer_static_app_shape(example["prompt"]), "")
+
+    def test_create_app_copy_explains_generation_and_handoff(self) -> None:
+        required_copy = (
+            "Paste a prompt and SprintOS will generate a local-first prototype app.",
+            "follow-up questions",
+            "generate with assumptions",
+            "open the preview",
+            "download the app",
+            "test it",
+            "inspect the files",
+            "prepare it for Codex",
+        )
+        for text in required_copy:
+            with self.subTest(text=text):
+                self.assertIn(text, sprintos.INDEX_HTML)
 
     def test_project_view_bundle_keeps_command_center_before_focus_and_timeline(self) -> None:
         self.assertIn("${commandCenterPanel}${focusSessionPanel}${activityTimelinePanel}", sprintos.INDEX_HTML)

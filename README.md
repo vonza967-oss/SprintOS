@@ -253,6 +253,8 @@ Try real idea:
 
 - Use Create App.
 
+Demo-ready app generation coverage and a concise demo script are in [`docs/DEMO_READINESS.md`](docs/DEMO_READINESS.md).
+
 ## AI App Generator v1
 
 SprintOS can now use its existing optional provider layer to generate actual local prototype app files from an idea during `Create App`.

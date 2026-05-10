@@ -1031,9 +1031,11 @@ class DashboardFlowTests(SprintOSTestCase):
         self.assertEqual(summary["stats"]["total_projects"], 0)
         html = sprintos.INDEX_HTML
         self.assertIn("Create your first app", html)
-        self.assertIn("Paste an idea and SprintOS will create a local testable app draft.", html)
+        self.assertIn("Paste a prompt and SprintOS will generate a local-first prototype app.", html)
+        self.assertIn("If the idea is vague, answer follow-up questions or generate with assumptions.", html)
         self.assertIn('id="homeQuickLaunchIdea"', html)
         self.assertIn('class="large-idea"', html)
+        self.assertIn("Example Prompt Gallery", html)
         self.assertIn("Create App preflight", html)
         self.assertIn("Generation mode", html)
         self.assertIn("App type", html)
