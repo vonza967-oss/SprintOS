@@ -883,11 +883,11 @@ class _MovedDashboardFlowTests:
 
     def test_ui_clarity_sections_nav_and_order_render_in_main_bundle(self) -> None:
         html = sprintos.INDEX_HTML
-        self.assertLess(html.index("Project Command Center"), html.index("Prepare App for Codex"))
+        self.assertLess(html.index("Latest Generated App"), html.index("Project Command Center"))
+        self.assertLess(html.index("Open Preview"), html.index("Project Command Center"))
         self.assertLess(html.index("Project Command Center"), html.index("Add Feedback"))
-        self.assertLess(html.index("Project Command Center"), html.index("Test App"))
         self.assertLess(html.index("Project Command Center"), html.index("Start Focus Session"))
-        for label in ("Execute", "Advanced Build Controls", "App Workspace", "Feedback", "Technical Details", "AI"):
+        for label in ("Project Guidance", "Advanced App Tools", "Developer Tools", "Feedback", "Technical Details", "AI"):
             self.assertIn(label, html)
         for label in ("AI Provider", "AI Routing", "Create Testing Package", "Add Feedback", "Test App"):
             self.assertIn(label, html)
@@ -5878,6 +5878,9 @@ class AppIntentReviewTests(SprintOSTestCase):
         self.assertIn("app_blueprint", review)
         self.assertIn("app_blueprint", quick_launch["app_intent_review"])
         self.assertEqual(quick_launch["app_intent_review"]["status"], "generate_with_assumptions_available")
+        self.assertEqual(quick_launch["intent_review_action"], "generate_with_assumptions")
+        self.assertTrue(project["app_state_summary"]["assumptions_used"])
+        self.assertGreaterEqual(project["app_state_summary"]["assumption_count"], 3)
 
 
 class _MovedQuickLaunchTests:
@@ -5940,7 +5943,7 @@ class _MovedQuickLaunchTests:
         project = sprintos.get_project(quick_launch["project_id"])
         app_state = project["app_state_summary"]
 
-        self.assertEqual(app_state["primary_action"]["label"], "Open App Preview")
+        self.assertEqual(app_state["primary_action"]["label"], "Open Preview")
         self.assertEqual(app_state["generated_by"], "Offline")
 
     def test_ai_failure_in_template_mode_still_creates_offline_app(self) -> None:
@@ -5968,7 +5971,7 @@ class _MovedQuickLaunchTests:
         project = sprintos.get_project(quick_launch["project_id"])
         self.assertIsNotNone(project["latest_prototype"])
         self.assertTrue(Path(project["latest_prototype"]["path"], "index.html").exists())
-        self.assertEqual(project["app_state_summary"]["primary_action"]["label"], "Open App Preview")
+        self.assertEqual(project["app_state_summary"]["primary_action"]["label"], "Open Preview")
 
     def test_report_only_ai_failure_creates_failure_report_without_app_files(self) -> None:
         os.environ["SPRINTOS_AI_PROVIDER"] = "openai"
@@ -6089,7 +6092,7 @@ class _MovedQuickLaunchTests:
         self.assertFalse(app_state["what_exists"]["preview_available"])
         self.assertFalse(app_state["preview_url"])
         self.assertEqual(app_state["primary_action"]["label"], "Retry Create App")
-        self.assertNotIn("Open App Preview", action_labels)
+        self.assertNotIn("Open Preview", action_labels)
         self.assertIn("Open Failure Report", action_labels)
         self.assertIn("Switch to Local Template Fallback", action_labels)
         self.assertIn("AI app generation stopped", sprintos.INDEX_HTML)
@@ -6108,8 +6111,8 @@ class _MovedQuickLaunchTests:
         self.assertIn("index.html", download_app["primary_files"])
         self.assertEqual(download_app["url"], zip_urls["deploy_pack"])
         self.assertIn("/api/deploy_pack_zip", download_app["url"])
-        self.assertEqual(download_source["label"], "Download Source Pack")
-        self.assertEqual(download_source["summary"], "Editable source/Codex package for inspecting or continuing the app locally.")
+        self.assertEqual(download_source["label"], "Source Pack")
+        self.assertEqual(download_source["summary"], "Editable source / Codex handoff files for inspecting or continuing the app locally.")
         self.assertIn("CODEX_BUILD_PROMPT.md", download_source["primary_files"])
         self.assertEqual(download_source["url"], zip_urls["build_pack"])
         self.assertIn("/api/build_pack_zip", download_source["url"])
@@ -6154,7 +6157,7 @@ class _MovedQuickLaunchTests:
         app_state = project["app_state_summary"]
 
         self.assertEqual(app_state["generated_by"], "OpenAI")
-        self.assertEqual(app_state["primary_action"]["label"], "Open App Preview")
+        self.assertEqual(app_state["primary_action"]["label"], "Open Preview")
         self.assertIn("TEST_PLAN.md", app_state["technical_details"]["generated_files"])
 
     def test_quick_launch_persists_row_and_project_list_includes_created_project(self) -> None:

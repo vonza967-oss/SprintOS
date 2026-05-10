@@ -77,12 +77,14 @@ class UIHelperTests(SprintOSTestCase):
         self.assertIn("Choose or create an app", sprintos.INDEX_HTML)
         self.assertIn("Select a project from the left or create a new app.", sprintos.INDEX_HTML)
         self.assertIn("Continue This App", sprintos.INDEX_HTML)
-        self.assertIn("Open App Preview", sprintos.INDEX_HTML)
+        self.assertIn("Open Preview", sprintos.INDEX_HTML)
         self.assertIn("Your app draft is ready", sprintos.INDEX_HTML)
+        self.assertIn("Latest Generated App", sprintos.INDEX_HTML)
+        self.assertIn("Latest generated app", sprintos.INDEX_HTML)
         self.assertIn("Download App", sprintos.INDEX_HTML)
         self.assertIn("Runnable local app package for previewing and sharing the current draft.", sprintos.INDEX_HTML)
-        self.assertIn("Download Source Pack", sprintos.INDEX_HTML)
-        self.assertIn("Editable source/Codex package for inspecting or continuing the app locally.", sprintos.INDEX_HTML)
+        self.assertIn("Source Pack", sprintos.INDEX_HTML)
+        self.assertIn("Editable source / Codex handoff files for inspecting or continuing the app locally.", sprintos.INDEX_HTML)
         self.assertIn("Primary files", sprintos.INDEX_HTML)
         self.assertIn("offline template selected", sprintos.INDEX_HTML)
 
@@ -131,10 +133,35 @@ class UIHelperTests(SprintOSTestCase):
         self.assertIn("${commandCenterPanel}${focusSessionPanel}${activityTimelinePanel}", sprintos.INDEX_HTML)
 
     def test_project_view_bundle_still_renders_major_section_labels(self) -> None:
-        for label in ("Execute", "Advanced Build Controls", "App Workspace", "Feedback", "Technical Details", "AI"):
+        for label in ("Project Guidance", "Advanced App Tools", "Developer Tools", "Feedback", "Technical Details", "AI"):
             self.assertIn(label, sprintos.INDEX_HTML)
-        for label in ("Do Next Step", "Check App Changes", "Test App", "Older Outputs", "Prepare App for Codex"):
+        for label in ("Do Next Step", "Check App Changes", "Test App", "Older Outputs", "Prepare for Codex"):
             self.assertIn(label, sprintos.INDEX_HTML)
+
+    def test_default_create_app_lane_hides_internal_terms_until_disclosure(self) -> None:
+        html = sprintos.INDEX_HTML
+        lane_start = html.index('<div class="topline" style="margin-bottom:10px"><h3 style="margin:0">Create App</h3>')
+        lane_end = html.index('<details class="resume-plan" style="margin-top:0">', lane_start)
+        default_lane = html[lane_start:lane_end]
+
+        for label in (
+            "Create App",
+            "Follow-up questions / assumptions",
+            "Latest generated app",
+            "Open Preview",
+            "Test App",
+            "Download App",
+            "Prepare for Codex",
+        ):
+            self.assertIn(label, html)
+
+        for internal_term in ("Build Pack", "Deploy Pack", "Workspace", "pipeline", "route", "diagnostics", "Artifact History"):
+            self.assertNotIn(internal_term, default_lane)
+
+    def test_advanced_sections_still_expose_internal_tools(self) -> None:
+        html = sprintos.INDEX_HTML
+        for label in ("Advanced / Technical Details", "Developer Tools", "AI Diagnostics", "Provider Comparison / Eval", "Artifact History"):
+            self.assertIn(label, html)
 
     def test_index_html_uses_extracted_ui_helper_bundle(self) -> None:
         self.assertNotIn("__SPRINTOS_UI_HELPERS__", sprintos.INDEX_HTML)

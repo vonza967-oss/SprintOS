@@ -7124,7 +7124,7 @@ def build_app_state_summary(project: Dict[str, Any], overrides: Optional[Dict[st
             note="Changes the browser Create App fallback selector to local template.",
         )
     if preview_url:
-        actions["open_preview"] = _action("open_preview", "Open App Preview", kind="open_url", url=preview_url)
+        actions["open_preview"] = _action("open_preview", "Open Preview", kind="open_url", url=preview_url)
     if has_draft and not has_workspace:
         actions["prepare_for_codex"] = _action("export_workspace", "Prepare App for Codex", kind="run")
     elif has_workspace and source_open_url:
@@ -7142,8 +7142,8 @@ def build_app_state_summary(project: Dict[str, Any], overrides: Optional[Dict[st
         actions["download_package"]["summary"] = "Runnable local app package for previewing and sharing the current draft."
         actions["download_package"]["primary_files"] = ["index.html", "style.css", "app.js", "README.md", "test-plan.md"]
     if source_pack_url:
-        actions["download_source_pack"] = _action("download_source_pack", "Download Source Pack", kind="download_url", url=source_pack_url)
-        actions["download_source_pack"]["summary"] = "Editable source/Codex package for inspecting or continuing the app locally."
+        actions["download_source_pack"] = _action("download_source_pack", "Source Pack", kind="download_url", url=source_pack_url)
+        actions["download_source_pack"]["summary"] = "Editable source / Codex handoff files for inspecting or continuing the app locally."
         actions["download_source_pack"]["primary_files"] = [
             "README.md",
             "TEST_PLAN.md",
@@ -7158,16 +7158,16 @@ def build_app_state_summary(project: Dict[str, Any], overrides: Optional[Dict[st
     if state == "no_app":
         actions["create_testable_app"] = _action(
             "run_pipeline" if project_has_sprint(project) else "generate_sprint",
-            "Create Testable App",
+            "Create App",
             kind="run",
         )
 
     if state == "ai_generation_failed":
         primary_action = actions.get("retry_create_app") or _action("run_pipeline", "Retry Create App", kind="run")
     elif state == "no_app":
-        primary_action = actions.get("create_testable_app") or _action("run_pipeline", "Create Testable App", kind="run", enabled=False)
+        primary_action = actions.get("create_testable_app") or _action("run_pipeline", "Create App", kind="run", enabled=False)
     elif preview_url:
-        primary_action = actions.get("open_preview") or _action("open_preview", "Open App Preview", kind="open_url", enabled=False)
+        primary_action = actions.get("open_preview") or _action("open_preview", "Open Preview", kind="open_url", enabled=False)
     elif has_workspace and not release_ready:
         primary_action = actions.get("test_app") or _action("run_verification", "Test App", kind="run")
     elif has_draft and not has_workspace:
@@ -7224,6 +7224,10 @@ def build_app_state_summary(project: Dict[str, Any], overrides: Optional[Dict[st
             "fallback_message": "No app was created.",
             "safe_next_actions": ["Open the failure report", "Retry Create App", "Switch to local template fallback"],
         }
+    intent_review = latest_quick_launch.get("app_intent_review") if isinstance(latest_quick_launch, dict) else {}
+    intent_blueprint = intent_review.get("app_blueprint") if isinstance(intent_review, dict) else {}
+    assumptions_used = str((latest_quick_launch or {}).get("intent_review_action") or "") == "generate_with_assumptions"
+    follow_up_answers_used = bool((intent_blueprint or {}).get("follow_up_answers_used"))
 
     return {
         "state": state,
@@ -7233,6 +7237,9 @@ def build_app_state_summary(project: Dict[str, Any], overrides: Optional[Dict[st
         "build_target": build_target,
         "generated_by": generated_by,
         "app_generation_status": app_generation_status,
+        "assumptions_used": bool(assumptions_used),
+        "assumption_count": len(list((intent_blueprint or {}).get("assumptions") or [])),
+        "follow_up_answers_used": follow_up_answers_used,
         "what_it_does": what_it_does,
         "plain_summary": plain_summary,
         "next_step": next_step,
@@ -20572,6 +20579,7 @@ def quick_launch_response(row: sqlite3.Row | Dict[str, Any]) -> Dict[str, Any]:
         "done_definition": str(metadata.get("done_definition") or ""),
         "generation_mode_requested": str(metadata.get("generation_mode_requested") or "auto"),
         "app_generation_fallback_mode": str(metadata.get("app_generation_fallback_mode") or "template"),
+        "intent_review_action": str(metadata.get("intent_review_action") or ""),
         "app_intent_review": dict(metadata.get("app_intent_review") or {}),
         "used_ai": bool(metadata.get("used_ai")),
         "ai_provider": str(metadata.get("ai_provider") or "offline"),
@@ -21201,6 +21209,7 @@ def run_quick_launch(
         app_intent_review=app_intent_review,
     )
     payload["app_generation_fallback_mode"] = resolved_fallback_mode
+    payload["intent_review_action"] = intent_action
     if payload.get("app_generation_failure"):
         payload["status"] = "failed"
         payload["ai_generation_failed"] = True
@@ -24689,6 +24698,8 @@ INDEX_HTML = r"""
     .support-line { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; line-height: 1.5; }
     .lane-steps { display: grid; gap: 12px; }
     .lane-step { border: 1px solid var(--line); border-radius: 14px; background: rgba(7, 11, 18, 0.92); padding: 14px; }
+    .app-first-lane { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 14px 0; }
+    .app-first-lane .lane-step p { margin: 6px 0 0; }
     .lane-step-head { display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 8px; }
     .lane-step-number { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
     .example-prompt-gallery { margin-top: 14px; }
@@ -24734,6 +24745,11 @@ INDEX_HTML = r"""
       <div class="topline" style="margin-bottom:10px"><h3 style="margin:0">Create App</h3><span class="pill"><strong>default</strong></span></div>
       <p class="muted">Describe a local prototype app. SprintOS can ask follow-up questions when the prompt is vague, or you can generate with assumptions.</p>
       <p class="muted">After creation, preview it, download it, test it, inspect the files, or prepare it for Codex.</p>
+      <div class="lane-steps app-first-lane">
+        <div class="lane-step"><div class="lane-step-number">1</div><strong>Create App</strong><p class="muted">Start with one raw idea and create a local app draft.</p></div>
+        <div class="lane-step"><div class="lane-step-number">2</div><strong>Follow-up questions / assumptions</strong><p class="muted">Answer clarifying questions or generate with safe assumptions.</p></div>
+        <div class="lane-step"><div class="lane-step-number">3</div><strong>Latest generated app</strong><p class="muted">Open the newest app, test it, download it, or prepare it for Codex.</p></div>
+      </div>
       <div class="field">
         <label for="quickLaunchIdea">Raw idea</label>
         <textarea id="quickLaunchIdea" placeholder="Example: Create a local habit tracker with habit entry, completion, daily progress, and reset."></textarea>
@@ -24891,6 +24907,11 @@ INDEX_HTML = r"""
         <h2>Create your first app</h2>
         <p class="muted">Paste a prompt and SprintOS will generate a local-first prototype app. If the idea is vague, answer follow-up questions or generate with assumptions.</p>
         <p class="muted">Then open the preview, download the app, test it, inspect the files, or prepare it for Codex.</p>
+        <div class="lane-steps app-first-lane">
+          <div class="lane-step"><div class="lane-step-number">1</div><strong>Create App</strong><p class="muted">Start with one raw idea and create a local app draft.</p></div>
+          <div class="lane-step"><div class="lane-step-number">2</div><strong>Follow-up questions / assumptions</strong><p class="muted">Answer clarifying questions or generate with safe assumptions.</p></div>
+          <div class="lane-step"><div class="lane-step-number">3</div><strong>Latest generated app</strong><p class="muted">Open the newest app, test it, download it, or prepare it for Codex.</p></div>
+        </div>
         <div class="field">
           <label for="homeQuickLaunchIdea">Raw idea</label>
           <textarea id="homeQuickLaunchIdea" class="large-idea" placeholder="Example: Create a local habit tracker with habit entry, completion, daily progress, and reset."></textarea>
@@ -25357,6 +25378,7 @@ function renderHomeCreateAppForm(prefix = 'homeQuickLaunch', title = 'Create you
       <h2>${esc(title)}</h2>
       <p class="muted">Paste a prompt and SprintOS will generate a local-first prototype app. If the idea is vague, answer follow-up questions or generate with assumptions.</p>
       <p class="muted">Then open the preview, download the app, test it, inspect the files, or prepare it for Codex.</p>
+      ${renderAppFirstLane()}
       <div class="field">
         <label for="${prefix}Idea">Raw idea</label>
         <textarea id="${prefix}Idea" class="large-idea" placeholder="Example: Create a local habit tracker with habit entry, completion, daily progress, and reset."></textarea>
@@ -25459,7 +25481,7 @@ function renderHomeContinueHero(summary) {
       <div class="button-row" style="margin-top:14px">
         <button onclick="runTodayAction()">Continue This App</button>
         <button class="secondary" onclick="openRecommendedProject()">Open App</button>
-        ${previewUrl ? `<button class="secondary" onclick="openRecommendedAppPreview()">Open App Preview</button>` : ''}
+        ${previewUrl ? `<button class="secondary" onclick="openRecommendedAppPreview()">Open Preview</button>` : ''}
         ${activeFocus ? `<button class="secondary" onclick="openActiveFocusSession()">Continue Focus Session</button>` : ''}
       </div>
     </section>
@@ -25581,11 +25603,71 @@ function renderDownloadClarity(appState) {
         <p class="muted"><strong>Primary files</strong><br />${esc(appFiles.slice(0, 8).join(', '))}</p>
       ` : ''}
       ${hasSource ? `
-        <p><strong>Download Source Pack</strong><br />Editable source/Codex package for inspecting or continuing the app locally.</p>
+        <p><strong>Source Pack</strong><br />Editable source / Codex handoff files for inspecting or continuing the app locally.</p>
         <p class="muted"><strong>Primary files</strong><br />${esc(sourceFiles.join(', '))}</p>
       ` : ''}
     </div>
   `;
+}
+
+function renderAppFirstLane(appState = null) {
+  const status = appState && appState.label ? appState.label : 'Ready to start';
+  const latest = appState && appState.app_name ? `${appState.app_name} · ${status}` : 'No app created yet.';
+  const followupState = appState && appState.follow_up_answers_used
+    ? 'Follow-up answers were used for this app.'
+    : appState && appState.assumptions_used
+      ? `Generated with safe assumptions${appState.assumption_count ? ` (${appState.assumption_count})` : ''}.`
+      : 'Answer follow-up questions or generate with assumptions when needed.';
+  const previewState = appState && ((appState.actions || {}).open_preview || {}).enabled ? 'Preview is ready.' : 'Available after an app is created.';
+  const testState = appState && ((appState.actions || {}).test_app || {}).enabled ? 'Local app checks are ready.' : 'Available after an app draft exists.';
+  const downloadState = appState && (appState.download_app_url || appState.download_package_url) ? 'Runnable local app package is ready.' : 'Available after packaging.';
+  const codexState = appState && ((appState.actions || {}).prepare_for_codex || {}).enabled ? 'Source handoff is ready.' : 'Available after source files exist.';
+  const steps = [
+    ['1', 'Create App', appState ? 'Use Create App again when you want a new app draft.' : 'Start with one raw idea and create a local app draft.'],
+    ['2', 'Follow-up questions / assumptions', followupState],
+    ['3', 'Latest generated app', latest],
+    ['4', 'Open Preview', previewState],
+    ['5', 'Test App', testState],
+    ['6', 'Download App', downloadState],
+    ['7', 'Prepare for Codex', codexState],
+  ];
+  return `
+    <div class="lane-steps app-first-lane">
+      ${steps.map(([num, title, text]) => `
+        <div class="lane-step">
+          <div class="lane-step-head">
+            <div>
+              <div class="lane-step-number">${esc(num)}</div>
+              <strong>${esc(title)}</strong>
+            </div>
+          </div>
+          <p class="muted">${esc(text)}</p>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderAppFirstActionButtons(appState) {
+  if (!appState) return '';
+  const actions = appState.actions || {};
+  const failed = appState.state === 'ai_generation_failed';
+  const order = failed
+    ? ['retry_create_app', 'open_failure_report', 'switch_template_fallback']
+    : ['open_preview', 'test_app', 'download_package', 'download_source_pack', 'prepare_for_codex'];
+  const fallbackLabels = {
+    open_preview: 'Open Preview',
+    test_app: 'Test App',
+    download_package: 'Download App',
+    download_source_pack: 'Source Pack',
+    prepare_for_codex: 'Prepare for Codex',
+  };
+  return order.map((id, index) => {
+    const action = actions[id];
+    if (action) return renderAppStateActionButton(action, index !== 0);
+    if (failed) return '';
+    return `<button class="secondary" disabled aria-disabled="true" title="This action is not available yet.">${esc(fallbackLabels[id] || 'Action')}</button>`;
+  }).join('');
 }
 
 function renderAppDraftHero(project, appState) {
@@ -25617,46 +25699,48 @@ function renderAppDraftHero(project, appState) {
     <p><strong>App workspace path</strong><br /><code>${esc((appState.technical_details || {}).workspace_path || 'n/a')}</code></p>
     <p><strong>Create App report</strong><br />${esc((appState.technical_details || {}).quick_launch_report_url || 'n/a')}</p>
     <p><strong>Download App URL</strong><br />${esc(appState.download_app_url || appState.download_package_url || 'n/a')}</p>
-    <p><strong>Download Source Pack URL</strong><br />${esc(appState.download_source_pack_url || 'n/a')}</p>
+    <p><strong>Source Pack URL</strong><br />${esc(appState.download_source_pack_url || 'n/a')}</p>
     <p><strong>Run command</strong><br /><code>${esc(appState.run_command || 'n/a')}</code></p>
     <p><strong>Test command</strong><br /><code>${esc(appState.test_command || 'n/a')}</code></p>
     <p><strong>Internal IDs</strong><br />prototype ${esc((appState.technical_details || {}).prototype_id || 'n/a')} · source ${esc((appState.technical_details || {}).build_pack_id || 'n/a')} · workspace ${esc((appState.technical_details || {}).workspace_id || 'n/a')} · testing ${esc((appState.technical_details || {}).testing_package_id || 'n/a')}</p>
   `;
+  const assumptionSummary = appState.follow_up_answers_used
+    ? 'Follow-up answers used'
+    : appState.assumptions_used
+      ? `Generated with assumptions${appState.assumption_count ? ` (${appState.assumption_count})` : ''}`
+      : generationStatus.fallback_happened
+        ? 'Local template fallback used'
+        : 'No explicit assumptions recorded';
   return `
     <section class="card" id="app-draft-card">
       <div class="topline" style="margin-bottom:10px">
         <div>
-          <h3 style="margin:0">${esc(failed ? 'AI app generation stopped' : 'App Draft')}</h3>
+          <h3 style="margin:0">${esc(failed ? 'AI app generation stopped' : 'Latest Generated App')}</h3>
           <div class="muted">${esc(failed ? 'AI app generation stopped' : (appState.plain_summary || ''))}</div>
         </div>
         <span class="pill"><strong>${esc(appState.label || '')}</strong></span>
       </div>
+      ${renderAppFirstLane(appState)}
       <p><strong>${esc(failed ? 'AI app generation stopped' : (appState.app_name || project.title || ''))}</strong></p>
       ${failed ? `<p><strong>Reason</strong><br />${esc((appState.technical_details || {}).failure_reason || 'AI app generation failed.')}</p>` : ''}
       <p><strong>App generation status</strong><br />${esc(generationStatus.summary || (appState.generated_by ? `Using ${appState.generated_by}.` : 'Using local template.'))}</p>
+      <p><strong>Generation path</strong><br />${esc(assumptionSummary)}</p>
       ${fallbackBanner}
       <p><strong>App type</strong><br />${esc(appState.app_type || 'App draft')}</p>
       <p><strong>What it does</strong><br />${esc(appState.what_it_does || ((project.sprint || {}).one_sentence || ''))}</p>
       <div class="feedback-grid">
         <p><strong>Preview available</strong><br />${esc(exists.preview_available ? 'Yes' : 'No')}</p>
         <p><strong>Source Pack available</strong><br />${esc(exists.source_package_available ? 'Yes' : 'No')}</p>
-        <p><strong>Codex workspace available</strong><br />${esc(exists.codex_workspace_available ? 'Yes' : 'No')}</p>
+        <p><strong>Ready for Codex</strong><br />${esc(exists.codex_workspace_available ? 'Yes' : 'No')}</p>
         <p><strong>Testing package available</strong><br />${esc(exists.testing_package_available ? 'Yes' : 'No')}</p>
       </div>
-      ${appState.run_command || appState.test_command ? `
-        <div class="resume-plan">
-          <p><strong>Run command</strong><br /><code>${esc(appState.run_command || 'n/a')}</code></p>
-          <p><strong>Test command</strong><br /><code>${esc(appState.test_command || 'n/a')}</code></p>
-        </div>
-      ` : ''}
       ${notes}
       ${renderDownloadClarity(appState)}
       <p><strong>Next step</strong><br />${esc(appState.next_step || '')}</p>
       <div class="button-row">
-        ${renderAppStateActionButton(appState.primary_action)}
-        ${(appState.secondary_actions || []).slice(0, 4).map((action) => renderAppStateActionButton(action, true)).join('')}
+        ${renderAppFirstActionButtons(appState)}
       </div>
-      ${renderDetailsBlock('Technical Details', details, 'Paths, reports, package links, and internal IDs')}
+      ${renderDetailsBlock('Advanced / Technical Details', details, 'Paths, reports, package links, and internal IDs')}
     </section>
   `;
 }
@@ -25724,10 +25808,9 @@ function renderQuickLaunchOutcome(outcome, appState, project) {
       ${renderDownloadClarity(summary)}
       <p><strong>Next step</strong><br />${esc((summary && summary.next_step) || outcome.next_tiny_action || '')}</p>
       <div class="button-row">
-        ${renderAppStateActionButton(summary.primary_action || null)}
-        ${(summary.secondary_actions || []).slice(0, 4).map((action) => renderAppStateActionButton(action, true)).join('')}
+        ${renderAppFirstActionButtons(summary)}
       </div>
-      ${renderDetailsBlock('Technical Details', details, 'Reports, package links, and internal paths')}
+      ${renderDetailsBlock('Advanced / Technical Details', details, 'Reports, package links, and internal paths')}
     </section>
   `;
 }
@@ -26927,7 +27010,7 @@ function renderSprint(project, quickLaunchOutcome = null) {
         <p><strong>Suggested first Codex task</strong><br />${esc(latestBuildPack.suggested_first_codex_task || '')}</p>
         <div class="button-row">
           ${latestBuildPack.preview_url ? '<button class="secondary" onclick="openBuildPackPreview()">Open Preview</button>' : ''}
-          <button class="secondary" onclick="downloadBuildPackZip()">Download Source Pack</button>
+          <button class="secondary" onclick="downloadBuildPackZip()">Source Pack</button>
           <button class="secondary" onclick="copyBuildPackPrompt(this)">Send App to Codex</button>
         </div>
       </div>
@@ -27417,8 +27500,8 @@ function renderSprint(project, quickLaunchOutcome = null) {
       </div>
       ${note}
       <div class="section-stack">
-        ${renderProjectSection('execute', 'Execute', 'Command Center first, then the current session and the recent local memory for this app.', `${commandCenterPanel}${focusSessionPanel}${activityTimelinePanel}${renderDetailsBlock('Technical Details', artifactHistoryPanel, 'Older outputs and internal artifact history')}`, getSectionOpenState(project.id, 'execute', true), commandCenter && commandCenter.stage_label ? commandCenter.stage_label : 'Open')}
-        ${renderProjectSection('build', 'Advanced Build Controls', 'App draft machinery stays available here without dominating the main lane.', `
+        ${renderProjectSection('execute', 'Project Guidance', 'Command Center, Focus Session, local memory, and older outputs are secondary to the app-first lane above.', `${commandCenterPanel}${focusSessionPanel}${activityTimelinePanel}${renderDetailsBlock('Advanced / Technical Details', artifactHistoryPanel, 'Older outputs and Artifact History')}`, getSectionOpenState(project.id, 'execute', false), commandCenter && commandCenter.stage_label ? commandCenter.stage_label : 'Secondary')}
+        ${renderProjectSection('build', 'Advanced App Tools', 'Generation and package controls stay available here without dominating the main lane.', `
           <div class="subcard">
             <h4>App Draft Builder</h4>
             <div class="feedback-grid" style="max-width:680px">
@@ -27444,15 +27527,15 @@ function renderSprint(project, quickLaunchOutcome = null) {
           <div class="subcard"><h4>App Source Package</h4>${buildPackPanel}</div>
           <div class="subcard"><h4>Create Testable App</h4>${pipelinePanel}</div>
         `, getSectionOpenState(project.id, 'build', false), 'Advanced')}
-        ${renderProjectSection('workspace', 'App Workspace', 'Move through one ordered lane: prepare for Codex, check changes, test the app, package it for testers, add feedback, then send the next prompt to Codex.', `
+        ${renderProjectSection('workspace', 'Developer Tools', 'Prepare source handoff files, check changes, test the app, package it for testers, and keep internal workspace tools secondary.', `
           <div class="subcard">${workspaceLanePanel}</div>
           <div class="subcard"><h4>Prepare App for Codex</h4>${workspacePanel}</div>
           <div class="subcard"><h4>Check App Changes</h4>${workspaceSyncPanel}</div>
           <div class="subcard"><h4>Test App</h4>${verificationPanel}</div>
           <div class="subcard"><h4>Create Testing Package</h4>${workspaceReleasePanel}</div>
           <div class="subcard"><h4>Add Feedback</h4>${releaseFeedbackPanel}</div>
-          <div class="subcard">${renderDetailsBlock('Technical Details', workspaceSnapshotPanel, 'Safety snapshot and restore controls')}</div>
-        `, getSectionOpenState(project.id, 'workspace', !!latestWorkspace), latestWorkspace ? 'Ready' : hasTestableDraftArtifact ? 'Draft testable' : '')}
+          <div class="subcard">${renderDetailsBlock('Advanced / Technical Details', workspaceSnapshotPanel, 'Workspace snapshot and restore controls')}</div>
+        `, getSectionOpenState(project.id, 'workspace', false), latestWorkspace ? 'Ready' : hasTestableDraftArtifact ? 'Draft testable' : '')}
         ${renderProjectSection('feedback', 'Feedback', 'Prototype and release feedback stay grouped with iteration controls instead of competing with execution panels.', `
           <div class="subcard">
             <h4>Prototype Feedback</h4>

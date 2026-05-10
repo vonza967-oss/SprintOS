@@ -5,7 +5,7 @@
 The default main lane is now:
 
 ```text
-Create App → Open App Preview → Prepare App for Codex → Test App → Create Testing Package
+Create App → follow-up questions / assumptions → Latest Generated App → Open Preview → Test App → Download App → Prepare for Codex
 ```
 
 SprintOS should not add new user-facing surface area until this simplified main lane has been tested in real use.
@@ -34,7 +34,7 @@ Idea → create app → open preview → improve safely
 - Markdown export
 - Progress notes
 - App-first success cards and App Draft state summaries
-- Workspace release packs for manual testing or manual deployment review
+- Source Pack handoff files and local testing packages for manual testing or manual deployment review
 - Today Dashboard global guidance layer for what to continue next across all projects
 - Project Command Center guidance layer for one clear current state and one recommended next action
 - Focus Session execution layer for turning the recommended action into one contained work block
@@ -106,12 +106,12 @@ SprintOS now includes a compact **Sample Project** entry point for first-run onb
 
 ## Project Command Center v1
 
-SprintOS now adds a **Project Command Center** near the top of each selected project view.
+SprintOS keeps the **Project Command Center** available in each selected project view behind Project Guidance.
 
 - It is the main project guidance layer.
 - It does not replace the advanced prototype, build, workspace, verification, or release panels.
 - It reduces decision fatigue by answering one question clearly: what is the next safest move right now?
-- UI Clarity v1 makes it the first and most prominent selected-project panel, with `Do Next Step` as the dominant control, Focus Session directly under it, and advanced tools visually secondary.
+- App-First UI Simplification v1 keeps the latest generated app and its `Open Preview`, `Test App`, `Download App`, `Source Pack`, and `Prepare for Codex` actions ahead of the Command Center.
 - It now also surfaces the latest timeline event so the user can see what last happened before acting again.
 - Recommended actions stay local-only and deterministic.
 - The Command Center never invokes Codex automatically, never deploys automatically, never calls GitHub, and never exports `.env` contents.
@@ -133,13 +133,24 @@ SprintOS now adds a compact **Focus Session** panel directly under the Project C
 - Sessions can be started for `15`, `30`, `60`, or `120` minutes.
 - SprintOS captures a progress note, a completion/stop report, a resume note, and a Codex follow-up prompt only when that handoff is actually relevant.
 
-## UI Clarity v1
+## App-First UI Simplification v1
 
-SprintOS now groups the selected project view into six collapsible sections while keeping internal artifact machinery behind advanced or technical disclosures:
+SprintOS now keeps the default UI centered on the app-generation lane:
 
-- Execute
-- Advanced Build Controls
-- App Workspace
+- Create App
+- Follow-up questions / assumptions
+- Latest Generated App
+- Open Preview
+- Test App
+- Download App
+- Source Pack
+- Prepare for Codex
+
+It groups secondary project and technical tools into collapsible sections:
+
+- Project Guidance
+- Advanced App Tools
+- Developer Tools
 - Feedback
 - Technical Details
 - AI
@@ -147,11 +158,10 @@ SprintOS now groups the selected project view into six collapsible sections whil
 - The main user should not need to understand Build Packs, Deploy Packs, pipeline reports, or workspace-sync reports in order to see that SprintOS created an app.
 - App preview, app source, app testing, and testing-package status should stay more prominent than internal report or ZIP links.
 
-- The Execute section is open by default.
-- Build opens by default when no workspace exists yet.
-- Workspace opens by default when a workspace already exists.
+- Project Guidance is collapsed by default so Focus Session, Activity Timeline, and Artifact History do not compete with the app card.
+- Advanced App Tools and Developer Tools stay collapsed by default.
 - Feedback opens by default when prototype or release feedback work already exists.
-- Quality and AI stay collapsed by default unless the current state needs attention.
+- Technical Details and AI stay collapsed by default unless the current state needs attention.
 - The selected-project jump buttons use browser-only state. If the browser supports `localStorage`, open/collapsed section state is remembered there only. Nothing about this UI state is stored in SQLite or changes product behavior.
 - UI Template Decomposition v1 keeps this surface in vanilla HTML/CSS/JS while moving low-risk rendering helpers into `sprintos_core/` so future UI edits do not keep expanding `sprintos.py`.
 

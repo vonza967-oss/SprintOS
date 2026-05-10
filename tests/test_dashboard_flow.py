@@ -586,7 +586,7 @@ class DashboardFlowTests(SprintOSTestCase):
         self.assertIn("Older Outputs", sprintos.INDEX_HTML)
         self.assertIn("Launches", sprintos.INDEX_HTML)
         self.assertIn("Build chain", sprintos.INDEX_HTML)
-        self.assertIn("App Workspace", sprintos.INDEX_HTML)
+        self.assertIn("Developer Tools", sprintos.INDEX_HTML)
         self.assertIn("Verification", sprintos.INDEX_HTML)
         self.assertIn("Release", sprintos.INDEX_HTML)
         self.assertIn("Focus", sprintos.INDEX_HTML)
@@ -636,7 +636,7 @@ class DashboardFlowTests(SprintOSTestCase):
         self.assertEqual(app_state["state"], "app_draft_ready")
         self.assertEqual(app_state["label"], "App Draft Ready")
         self.assertTrue(app_state["preview_url"])
-        self.assertEqual(app_state["primary_action"]["label"], "Open App Preview")
+        self.assertEqual(app_state["primary_action"]["label"], "Open Preview")
         self.assertIn("Prepare App for Codex", [item["label"] for item in app_state["secondary_actions"]])
 
     def test_app_state_summary_shows_local_template_status_for_offline_mode(self) -> None:
@@ -1024,7 +1024,7 @@ class DashboardFlowTests(SprintOSTestCase):
         self.assertIn("Expected output", html)
         self.assertIn("Continue This App</button>", html)
         self.assertIn("openRecommendedProject()", html)
-        self.assertIn("Open App Preview", html)
+        self.assertIn("Open Preview", html)
 
     def test_home_renderer_has_first_app_create_contract(self) -> None:
         summary = sprintos.build_today_dashboard_summary()
@@ -1077,11 +1077,11 @@ class DashboardFlowTests(SprintOSTestCase):
 
     def test_ui_clarity_sections_nav_and_order_render_in_main_bundle(self) -> None:
         html = sprintos.INDEX_HTML
-        self.assertLess(html.index("Project Command Center"), html.index("Prepare App for Codex"))
+        self.assertLess(html.index("Latest Generated App"), html.index("Project Command Center"))
+        self.assertLess(html.index("Open Preview"), html.index("Project Command Center"))
         self.assertLess(html.index("Project Command Center"), html.index("Add Feedback"))
-        self.assertLess(html.index("Project Command Center"), html.index("Test App"))
         self.assertLess(html.index("Project Command Center"), html.index("Start Focus Session"))
-        for label in ("Execute", "Advanced Build Controls", "App Workspace", "Feedback", "Technical Details", "AI"):
+        for label in ("Project Guidance", "Advanced App Tools", "Developer Tools", "Feedback", "Technical Details", "AI"):
             self.assertIn(label, html)
         for label in ("AI Provider", "AI Routing", "Create Testing Package", "Add Feedback", "Test App"):
             self.assertIn(label, html)
