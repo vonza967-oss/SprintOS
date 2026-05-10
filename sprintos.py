@@ -11087,6 +11087,25 @@ def app_file_generation_user_input(project: Dict[str, Any], ctx: Dict[str, Any],
     intent_brief = str(intent_review.get("enriched_generation_brief") or "").strip()
     intent_status = str(intent_review.get("status") or "").strip()
     answered_followups = intent_review.get("answered_followups") or []
+    app_blueprint = intent_review.get("app_blueprint") if isinstance(intent_review.get("app_blueprint"), dict) else {}
+    blueprint_brief = str((app_blueprint or {}).get("generation_brief") or "").strip()
+    blueprint_summary = {
+        "app_name": str((app_blueprint or {}).get("app_name") or ""),
+        "app_type_guess": str((app_blueprint or {}).get("app_type_guess") or ""),
+        "target_user": str((app_blueprint or {}).get("target_user") or ""),
+        "app_goal": str((app_blueprint or {}).get("app_goal") or ""),
+        "primary_workflow": str((app_blueprint or {}).get("primary_workflow") or ""),
+        "main_records": list((app_blueprint or {}).get("main_records") or []),
+        "key_fields": list((app_blueprint or {}).get("key_fields") or []),
+        "primary_actions": list((app_blueprint or {}).get("primary_actions") or []),
+        "main_outputs": list((app_blueprint or {}).get("main_outputs") or []),
+        "screens_or_sections": list((app_blueprint or {}).get("screens_or_sections") or []),
+        "local_state_recommendation": str((app_blueprint or {}).get("local_state_recommendation") or ""),
+        "assumptions": list((app_blueprint or {}).get("assumptions") or []),
+        "limitations": list((app_blueprint or {}).get("limitations") or []),
+        "safety_notes": list((app_blueprint or {}).get("safety_notes") or []),
+        "codex_next_steps": list((app_blueprint or {}).get("codex_next_steps") or []),
+    } if app_blueprint else {}
     return textwrap.dedent(
         f"""\
         Project title: {ctx.get('title') or project.get('title') or 'SprintOS App'}
@@ -11104,6 +11123,8 @@ def app_file_generation_user_input(project: Dict[str, Any], ctx: Dict[str, Any],
         Publish or test action: {ctx.get('publish_or_test_action') or ''}
         App intent review status: {intent_status or 'not reviewed'}
         App intent generation brief: {intent_brief or 'n/a'}
+        App blueprint generation brief: {blueprint_brief or 'n/a'}
+        App blueprint summary: {json.dumps(blueprint_summary, indent=2)}
         Answered follow-up details: {json.dumps(answered_followups, indent=2)}
         Existing feature bullets: {json.dumps(ctx.get('feature_bullets') or [], indent=2)}
         Feedback questions: {json.dumps(ctx.get('feedback_questions') or [], indent=2)}
@@ -20219,6 +20240,13 @@ def quick_launch_report_markdown(payload: Dict[str, Any]) -> str:
         f"- App name guess: {intent_summary.get('app_name_guess') or 'n/a'}",
         f"- App type guess: {intent_summary.get('app_type_guess') or 'n/a'}",
         f"- Can generate with assumptions: {bool(intent_summary.get('can_generate_with_assumptions'))}",
+        "",
+        "## App Blueprint Summary",
+        f"- Target user: {((intent_summary.get('app_blueprint') or {}).get('target_user')) or 'n/a'}",
+        f"- Main records: {', '.join((intent_summary.get('app_blueprint') or {}).get('main_records') or []) or 'n/a'}",
+        f"- Primary actions: {', '.join((intent_summary.get('app_blueprint') or {}).get('primary_actions') or []) or 'n/a'}",
+        f"- Main outputs: {', '.join((intent_summary.get('app_blueprint') or {}).get('main_outputs') or []) or 'n/a'}",
+        f"- Explicit assumptions: {((intent_summary.get('app_blueprint') or {}).get('assumption_count')) or 0}",
         "",
         "## Status",
         payload["status"],

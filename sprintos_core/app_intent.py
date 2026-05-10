@@ -240,6 +240,260 @@ def _answered_followups(answered_followups: Any) -> list[dict[str, str]]:
     return cleaned
 
 
+def _dedupe(items: list[str], limit: int = 6) -> list[str]:
+    seen: set[str] = set()
+    cleaned: list[str] = []
+    for item in items:
+        text = _clean_text(item, 120)
+        key = text.lower()
+        if text and key not in seen:
+            cleaned.append(text)
+            seen.add(key)
+        if len(cleaned) >= limit:
+            break
+    return cleaned
+
+
+def _combined_detail_text(prompt: str, answered_followups: list[dict[str, str]], assumptions: list[str]) -> str:
+    parts = [prompt]
+    parts.extend(item["answer"] for item in answered_followups)
+    parts.extend(assumptions)
+    return " ".join(parts)
+
+
+def _target_user(prompt: str, app_type: str, answered_followups: list[dict[str, str]]) -> str:
+    for item in answered_followups:
+        if "target user" in item["question"].lower() or item["question"].lower().startswith("who "):
+            return _clean_text(item["answer"], 140)
+    match = re.search(r"\bfor\s+(?:a|an|the|my)?\s*([^.,;]+)", prompt, flags=re.I)
+    if match:
+        target = re.split(r"\b(to|that|with|where|who|which)\b", match.group(1), maxsplit=1, flags=re.I)[0]
+        target = _clean_text(target, 120)
+        if target and target.lower() not in {"my business", "business", "app"}:
+            return target
+    subject = app_type.lower()
+    if "crm" in subject:
+        return "Freelancer or small-business owner managing leads"
+    if "client" in subject:
+        return "Solo operator managing clients"
+    if "inventory" in subject:
+        return "Small-shop operator"
+    if "calendar" in subject:
+        return "Content creator or small team"
+    if "habit" in subject:
+        return "One person tracking daily habits"
+    if "budget" in subject:
+        return "Person planning a monthly budget"
+    if "study" in subject:
+        return "Student reviewing study notes"
+    if "business" in prompt.lower():
+        return "Small-business owner"
+    return "One local prototype user"
+
+
+def _domain_defaults(app_type: str, prompt: str) -> dict[str, list[str]]:
+    text = f"{app_type} {prompt}".lower()
+    if "crm" in text or "lead" in text:
+        return {
+            "records": ["Leads or clients"],
+            "fields": ["Name", "Status", "Next follow-up date", "Value", "Notes"],
+            "actions": ["Add lead", "Update status", "Log follow-up", "Review overdue follow-ups"],
+            "outputs": ["Lead list", "Pipeline summary", "Overdue follow-up view"],
+            "sections": ["Lead entry", "Pipeline dashboard", "Follow-up list"],
+        }
+    if "client" in text:
+        return {
+            "records": ["Clients"],
+            "fields": ["Name", "Contact", "Status", "Next follow-up date", "Project value", "Notes"],
+            "actions": ["Add client", "Update status", "Schedule follow-up", "Review active clients"],
+            "outputs": ["Client list", "Status summary", "Overdue follow-up view"],
+            "sections": ["Client entry", "Client dashboard", "Follow-up list"],
+        }
+    if "inventory" in text:
+        return {
+            "records": ["Inventory items"],
+            "fields": ["Item name", "Quantity", "Category or location", "Reorder point", "Notes"],
+            "actions": ["Add item", "Update quantity", "Flag low stock", "Review categories"],
+            "outputs": ["Inventory list", "Low-stock alerts", "Category summary"],
+            "sections": ["Item entry", "Inventory table", "Low-stock summary"],
+        }
+    if "calendar" in text or "content" in text:
+        return {
+            "records": ["Content items"],
+            "fields": ["Title", "Channel", "Status", "Publish date", "Notes"],
+            "actions": ["Add content item", "Update status", "Review upcoming posts"],
+            "outputs": ["Weekly overview", "Status summary", "Upcoming content list"],
+            "sections": ["Content entry", "Calendar overview", "Status board"],
+        }
+    if "habit" in text:
+        return {
+            "records": ["Habits"],
+            "fields": ["Habit name", "Completion state", "Date", "Notes"],
+            "actions": ["Add habit", "Mark completion", "Reset day"],
+            "outputs": ["Habit list", "Daily progress summary"],
+            "sections": ["Habit entry", "Today list", "Progress summary"],
+        }
+    if "budget" in text or "expense" in text:
+        return {
+            "records": ["Monthly budget inputs"],
+            "fields": ["Income", "Expense category", "Expense amount", "Notes"],
+            "actions": ["Enter income", "Enter expenses", "Calculate budget"],
+            "outputs": ["Savings result", "Spending breakdown", "Recommendation"],
+            "sections": ["Budget inputs", "Snapshot results", "Recommendation"],
+        }
+    if "pricing" in text or "roi" in text:
+        return {
+            "records": ["Pricing scenario"],
+            "fields": ["Price", "Unit cost", "Customer count", "Investment"],
+            "actions": ["Enter scenario", "Calculate ROI", "Compare recommendation"],
+            "outputs": ["Revenue summary", "Margin breakdown", "Payback recommendation"],
+            "sections": ["Scenario inputs", "ROI results", "Assumptions"],
+        }
+    if "study" in text or "flashcard" in text:
+        return {
+            "records": ["Study notes"],
+            "fields": ["Notes", "Question", "Answer", "Card progress"],
+            "actions": ["Paste notes", "Build flashcards", "Review cards"],
+            "outputs": ["Flashcard list", "Review progress"],
+            "sections": ["Notes input", "Card output", "Review controls"],
+        }
+    if "decision" in text:
+        return {
+            "records": ["Decision options and criteria"],
+            "fields": ["Option", "Criterion", "Weight", "Score"],
+            "actions": ["Enter options", "Enter criteria", "Compare options"],
+            "outputs": ["Ranked list", "Recommendation", "Tradeoff notes"],
+            "sections": ["Decision inputs", "Ranking", "Tradeoffs"],
+        }
+    return {
+        "records": ["Local records"],
+        "fields": ["Name", "Status", "Priority", "Date", "Notes"],
+        "actions": ["Add record", "Update status", "Review next actions"],
+        "outputs": ["Record list", "Compact dashboard summary", "Next action view"],
+        "sections": ["Entry form", "Main list", "Summary panel"],
+    }
+
+
+def _extra_fields_from_text(text: str) -> list[str]:
+    candidates = {
+        "email": "Email",
+        "phone": "Phone",
+        "contact": "Contact",
+        "owner": "Owner",
+        "deadline": "Deadline",
+        "due": "Due date",
+        "priority": "Priority",
+        "location": "Location",
+        "supplier": "Supplier",
+        "channel": "Channel",
+        "publish date": "Publish date",
+        "reorder": "Reorder point",
+        "threshold": "Reorder threshold",
+        "completion": "Completion state",
+    }
+    lowered = text.lower()
+    return [label for marker, label in candidates.items() if marker in lowered]
+
+
+def _extra_outputs_from_text(text: str) -> list[str]:
+    candidates = {
+        "dashboard": "Dashboard",
+        "summary": "Summary",
+        "status view": "Status view",
+        "recommendation": "Recommendation",
+        "report": "Report",
+        "calendar": "Calendar view",
+        "overview": "Overview",
+    }
+    lowered = text.lower()
+    return [label for marker, label in candidates.items() if marker in lowered]
+
+
+def _local_state_recommendation(text: str) -> str:
+    lowered = text.lower()
+    if any(marker in lowered for marker in ("local storage", "localstorage", "between refreshes", "save sample", "persist")):
+        return "Use browser localStorage for sample records so entries survive refreshes."
+    return "Use browser-local state only; localStorage is acceptable for sample records when it helps the core workflow."
+
+
+def build_app_blueprint(
+    raw_prompt: str,
+    status: str,
+    app_name: str,
+    app_type: str,
+    assumptions: list[str],
+    answered_followups: list[dict[str, str]],
+) -> dict[str, Any]:
+    """Build a deterministic, local-only generation plan from intent review inputs."""
+    prompt = _clean_text(raw_prompt, 600)
+    detail_text = _combined_detail_text(prompt, answered_followups, assumptions)
+    defaults = _domain_defaults(app_type, detail_text)
+    assumption_items = list(assumptions)
+    target_user = _target_user(detail_text, app_type, answered_followups)
+    app_goal = _clean_text(f"Help {target_user} complete one local {app_type.lower()} workflow from input to useful output.", 180)
+    primary_workflow = _clean_text(
+        " -> ".join((defaults["actions"][0], defaults["actions"][1] if len(defaults["actions"]) > 1 else "Review result", defaults["outputs"][0])),
+        180,
+    )
+    fields = _dedupe(defaults["fields"] + _extra_fields_from_text(detail_text), 8)
+    records = _dedupe(defaults["records"], 4)
+    actions = _dedupe(defaults["actions"], 6)
+    outputs = _dedupe(defaults["outputs"] + _extra_outputs_from_text(detail_text), 6)
+    sections = _dedupe(defaults["sections"], 5)
+    followups_used = [{"question": item["question"], "answer": item["answer"]} for item in answered_followups]
+    limitations = [
+        "Local-first static prototype only.",
+        "No backend, account system, deployment, billing, provider call, or cloud sync.",
+        "Use deterministic browser logic and clearly label mocked or demo behavior.",
+    ]
+    safety_notes = [
+        "Keep all app data in the browser or static files.",
+        "Do not include API keys, provider calls, external scripts, or network requests.",
+        "Generate exactly index.html, style.css, app.js, README.md, and TEST_PLAN.md.",
+    ]
+    codex_next_steps = [
+        "Test the main input-action-output path locally.",
+        "Improve one workflow detail based on tester feedback while keeping the app static and local-first.",
+    ]
+    brief_lines = [
+        f"App Blueprint v1: Build {app_name} as a {app_type}.",
+        f"Target user: {target_user}.",
+        f"Goal: {app_goal}.",
+        f"Primary workflow: {primary_workflow}.",
+        f"Main records: {', '.join(records)}.",
+        f"Key fields: {', '.join(fields)}.",
+        f"Primary actions: {', '.join(actions)}.",
+        f"Main outputs: {', '.join(outputs)}.",
+        f"Screens or sections: {', '.join(sections)}.",
+        f"Local state: {_local_state_recommendation(detail_text)}",
+    ]
+    if followups_used:
+        brief_lines.append("Use answered follow-up details to make the app more specific than the original prompt.")
+    if assumption_items:
+        brief_lines.append("Explicit assumptions:")
+        brief_lines.extend(f"- {item}" for item in assumption_items)
+    brief_lines.append("Keep the scope to a small browser-previewable prototype with no external services.")
+    return {
+        "app_name": app_name,
+        "app_type_guess": app_type,
+        "target_user": target_user,
+        "app_goal": app_goal,
+        "primary_workflow": primary_workflow,
+        "main_records": records,
+        "key_fields": fields,
+        "primary_actions": actions,
+        "main_outputs": outputs,
+        "screens_or_sections": sections,
+        "local_state_recommendation": _local_state_recommendation(detail_text),
+        "assumptions": list(assumption_items),
+        "limitations": limitations,
+        "follow_up_answers_used": followups_used,
+        "safety_notes": safety_notes,
+        "codex_next_steps": codex_next_steps,
+        "generation_brief": "\n".join(brief_lines),
+    }
+
+
 def _brief(
     prompt: str,
     status: str,
@@ -329,6 +583,8 @@ def review_app_intent(raw_prompt: str, answered_followups: Any = None, generate_
     elif status == GENERATE_WITH_ASSUMPTIONS_AVAILABLE:
         confidence = min(max(confidence, 0.52), 0.74)
 
+    brief_assumptions = assumptions if status != READY_TO_GENERATE or generate_with_assumptions else []
+    app_blueprint = build_app_blueprint(prompt, status, app_name, app_type, brief_assumptions, answered)
     return {
         "status": status,
         "app_name_guess": app_name,
@@ -338,13 +594,15 @@ def review_app_intent(raw_prompt: str, answered_followups: Any = None, generate_
         "assumptions": assumptions,
         "follow_up_questions": questions[:5],
         "answered_followups": answered,
-        "enriched_generation_brief": _brief(prompt, status, app_name, app_type, assumptions if status != READY_TO_GENERATE or generate_with_assumptions else [], answered),
+        "enriched_generation_brief": _brief(prompt, status, app_name, app_type, brief_assumptions, answered),
+        "app_blueprint": app_blueprint,
         "can_generate_with_assumptions": True,
     }
 
 
 def app_intent_report_summary(review: dict[str, Any]) -> dict[str, Any]:
     """Return a compact version safe for generated reports."""
+    blueprint = review.get("app_blueprint") if isinstance(review.get("app_blueprint"), dict) else {}
     return {
         "status": str(review.get("status") or ""),
         "app_name_guess": str(review.get("app_name_guess") or ""),
@@ -353,4 +611,12 @@ def app_intent_report_summary(review: dict[str, Any]) -> dict[str, Any]:
         "missing_details": list(review.get("missing_details") or []),
         "follow_up_questions": list(review.get("follow_up_questions") or [])[:5],
         "can_generate_with_assumptions": bool(review.get("can_generate_with_assumptions")),
+        "app_blueprint": {
+            "app_goal": str(blueprint.get("app_goal") or ""),
+            "target_user": str(blueprint.get("target_user") or ""),
+            "main_records": list(blueprint.get("main_records") or [])[:4],
+            "primary_actions": list(blueprint.get("primary_actions") or [])[:4],
+            "main_outputs": list(blueprint.get("main_outputs") or [])[:4],
+            "assumption_count": len(list(blueprint.get("assumptions") or [])),
+        } if blueprint else {},
     }

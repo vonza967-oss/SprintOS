@@ -847,6 +847,8 @@ class DashboardFlowTests(SprintOSTestCase):
         self.assertGreaterEqual(len(review["follow_up_questions"]), 3)
         self.assertLessEqual(len(review["follow_up_questions"]), 5)
         self.assertIn("enriched_generation_brief", review)
+        self.assertIn("app_blueprint", review)
+        self.assertIn("generation_brief", review["app_blueprint"])
 
     def test_today_dashboard_returns_empty_state_when_no_projects_exist(self) -> None:
         summary = sprintos.build_today_dashboard_summary()

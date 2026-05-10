@@ -5728,11 +5728,19 @@ class AppIntentReviewTests(SprintOSTestCase):
         review = sprintos.review_app_intent(
             "Build a local mini CRM for freelancers to track leads, status, next follow-up date, and notes."
         )
+        blueprint = review["app_blueprint"]
 
         self.assertEqual(review["status"], "ready_to_generate")
         self.assertEqual(review["app_type_guess"], "Mini CRM")
         self.assertLessEqual(len(review["follow_up_questions"]), 1)
         self.assertIn("mini CRM", review["enriched_generation_brief"])
+        self.assertIn("freelancer", blueprint["target_user"].lower())
+        self.assertIn("Leads or clients", blueprint["main_records"])
+        self.assertIn("Status", blueprint["key_fields"])
+        self.assertIn("Add lead", blueprint["primary_actions"])
+        self.assertIn("Pipeline summary", blueprint["main_outputs"])
+        self.assertIn("App Blueprint v1", blueprint["generation_brief"])
+        self.assertFalse(blueprint["assumptions"])
 
     def test_app_intent_review_needs_clarification_for_vague_business_app(self) -> None:
         review = sprintos.review_app_intent("Build me an app for my business.")
@@ -5745,6 +5753,19 @@ class AppIntentReviewTests(SprintOSTestCase):
         for forbidden in ("deployment", "auth", "billing", "cloud sync", "github", "production infrastructure"):
             self.assertNotIn(forbidden, combined)
         self.assertIn("business workflow", review["app_type_guess"].lower())
+
+    def test_app_blueprint_generate_with_assumptions_marks_assumptions(self) -> None:
+        review = sprintos.review_app_intent(
+            "Build me an app for my business.",
+            generate_with_assumptions=True,
+        )
+        blueprint = review["app_blueprint"]
+
+        self.assertEqual(review["status"], "generate_with_assumptions_available")
+        self.assertGreaterEqual(len(blueprint["assumptions"]), 3)
+        self.assertIn("Explicit assumptions", blueprint["generation_brief"])
+        self.assertIn("local business workflow tracker", " ".join(blueprint["assumptions"]).lower())
+        self.assertIn("local-first", " ".join(blueprint["limitations"]).lower())
 
     def test_app_intent_review_client_tracker_gets_practical_questions_and_assumptions(self) -> None:
         review = sprintos.review_app_intent("Build a tracker for my clients.")
@@ -5786,6 +5807,33 @@ class AppIntentReviewTests(SprintOSTestCase):
         self.assertIn("Answered follow-up details", brief)
         self.assertIn("overdue follow-ups", brief)
         self.assertIn("overdue follow-ups", user_input)
+        self.assertIn("App blueprint generation brief", user_input)
+        self.assertIn("Use answered follow-up details", review["app_blueprint"]["generation_brief"])
+        self.assertEqual(review["app_blueprint"]["follow_up_answers_used"], answers)
+        self.assertIn("Email", review["app_blueprint"]["key_fields"])
+        self.assertIn("Dashboard", " ".join(review["app_blueprint"]["main_outputs"]))
+
+    def test_app_blueprint_questions_avoid_external_service_topics(self) -> None:
+        review = sprintos.review_app_intent("Build me an app for my business.")
+        combined_questions = " ".join(review["follow_up_questions"]).lower()
+        combined_next_steps = " ".join(review["app_blueprint"]["codex_next_steps"]).lower()
+
+        for forbidden in ("deployment", "auth", "billing", "cloud", "github"):
+            self.assertNotIn(forbidden, combined_questions)
+            self.assertNotIn(forbidden, combined_next_steps)
+
+    def test_app_blueprint_preserves_app_file_contract_and_shape_paths(self) -> None:
+        canonical_project = self.create_project(
+            raw_idea="Create a personal budget calculator where users enter income and expenses and see savings."
+        )
+        generic_project = self.create_project(
+            raw_idea="Create a local mini CRM for freelancers to track leads, status, next follow-up date, and notes."
+        )
+        self.assertEqual(sprintos.offline_app_template_shape(canonical_project, "auto"), "budget_calculator")
+        self.assertEqual(set(sprintos.APP_FILE_GENERATION_REQUIRED_FILES), {"index.html", "style.css", "app.js", "README.md", "TEST_PLAN.md"})
+        self.assertNotIn("manifest.json", sprintos.app_file_generation_instructions(""))
+        generic_review = sprintos.review_app_intent(str(generic_project["raw_idea"]))
+        self.assertEqual(generic_review["app_blueprint"]["app_type_guess"], "Mini CRM")
 
     def test_quick_launch_generate_with_assumptions_stores_intent_review_metadata(self) -> None:
         quick_launch = sprintos.run_quick_launch(
@@ -5797,6 +5845,8 @@ class AppIntentReviewTests(SprintOSTestCase):
 
         self.assertEqual(review["status"], "generate_with_assumptions_available")
         self.assertIn("Safe assumptions", review["enriched_generation_brief"])
+        self.assertIn("app_blueprint", review)
+        self.assertIn("app_blueprint", quick_launch["app_intent_review"])
         self.assertEqual(quick_launch["app_intent_review"]["status"], "generate_with_assumptions_available")
 
 
