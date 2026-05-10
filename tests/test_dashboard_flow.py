@@ -586,7 +586,7 @@ class DashboardFlowTests(SprintOSTestCase):
         self.assertIn("Older Outputs", sprintos.INDEX_HTML)
         self.assertIn("Launches", sprintos.INDEX_HTML)
         self.assertIn("Build chain", sprintos.INDEX_HTML)
-        self.assertIn("Developer Tools", sprintos.INDEX_HTML)
+        self.assertIn("Test & Download / Codex Handoff", sprintos.INDEX_HTML)
         self.assertIn("Verification", sprintos.INDEX_HTML)
         self.assertIn("Release", sprintos.INDEX_HTML)
         self.assertIn("Focus", sprintos.INDEX_HTML)
@@ -1001,7 +1001,9 @@ class DashboardFlowTests(SprintOSTestCase):
         self.assertIn("Advanced / Plan Only", page_html)
         self.assertIn("Projects", page_html)
         self.assertNotIn('<h3 style="margin:0">AI Status</h3>', page_html)
-        self.assertIn("Start with one raw idea", page_html)
+        self.assertIn("Local app-generation workbench", page_html)
+        self.assertIn("workbench-panel-nav", page_html)
+        self.assertIn("Start with one prompt", page_html)
         self.assertIn("Create Sample App", page_html)
         self.assertIn("Create your first app", page_html)
         self.assertIn("homeQuickLaunchIdea", page_html)
@@ -1031,11 +1033,11 @@ class DashboardFlowTests(SprintOSTestCase):
         self.assertEqual(summary["stats"]["total_projects"], 0)
         html = sprintos.INDEX_HTML
         self.assertIn("Create your first app", html)
-        self.assertIn("Paste a prompt and SprintOS will generate a local-first prototype app.", html)
-        self.assertIn("If the idea is vague, answer follow-up questions or generate with assumptions.", html)
+        self.assertIn("Paste a prompt. SprintOS creates a local-first app draft", html)
+        self.assertIn("Follow-up questions appear here only when needed.", html)
         self.assertIn('id="homeQuickLaunchIdea"', html)
         self.assertIn('class="large-idea"', html)
-        self.assertIn("Example Prompt Gallery", html)
+        self.assertIn("Example Prompts", html)
         self.assertIn("Create App preflight", html)
         self.assertIn("Generation mode", html)
         self.assertIn("App type", html)
@@ -1081,7 +1083,7 @@ class DashboardFlowTests(SprintOSTestCase):
         self.assertLess(html.index("Open Preview"), html.index("Project Command Center"))
         self.assertLess(html.index("Project Command Center"), html.index("Add Feedback"))
         self.assertLess(html.index("Project Command Center"), html.index("Start Focus Session"))
-        for label in ("Project Guidance", "Advanced App Tools", "Developer Tools", "Feedback", "Technical Details", "AI"):
+        for label in ("Project Guidance", "Generated Apps / History", "Test & Download / Codex Handoff", "Feedback", "Technical Details", "AI", "Advanced Tools"):
             self.assertIn(label, html)
         for label in ("AI Provider", "AI Routing", "Create Testing Package", "Add Feedback", "Test App"):
             self.assertIn(label, html)

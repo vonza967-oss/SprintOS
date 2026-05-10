@@ -873,6 +873,8 @@ class _MovedDashboardFlowTests:
         self.assertIn("Create App", page_html)
         self.assertIn("Advanced / Plan Only", page_html)
         self.assertIn("Projects", page_html)
+        self.assertIn("Local app-generation workbench", page_html)
+        self.assertIn("workbench-panel-nav", page_html)
         self.assertIn("Create your first app", page_html)
         self.assertIn("homeQuickLaunchIdea", page_html)
         self.assertIn("runQuickLaunch('home')", page_html)
@@ -887,7 +889,7 @@ class _MovedDashboardFlowTests:
         self.assertLess(html.index("Open Preview"), html.index("Project Command Center"))
         self.assertLess(html.index("Project Command Center"), html.index("Add Feedback"))
         self.assertLess(html.index("Project Command Center"), html.index("Start Focus Session"))
-        for label in ("Project Guidance", "Advanced App Tools", "Developer Tools", "Feedback", "Technical Details", "AI"):
+        for label in ("Project Guidance", "Generated Apps / History", "Test & Download / Codex Handoff", "Feedback", "Technical Details", "AI", "Advanced Tools"):
             self.assertIn(label, html)
         for label in ("AI Provider", "AI Routing", "Create Testing Package", "Add Feedback", "Test App"):
             self.assertIn(label, html)

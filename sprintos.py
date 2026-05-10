@@ -24522,134 +24522,139 @@ INDEX_HTML = r"""
   <title>SprintOS</title>
   <style>
     :root {
-      --bg: #0b1017;
-      --bg-2: #111827;
-      --panel: rgba(17, 24, 39, 0.9);
-      --panel-2: rgba(12, 18, 29, 0.95);
-      --panel-3: rgba(8, 13, 22, 0.92);
-      --text: #f4f7fb;
-      --muted: #99a6ba;
-      --line: rgba(130, 146, 170, 0.22);
-      --line-strong: rgba(154, 169, 190, 0.36);
-      --accent: #f4efe4;
-      --accent-ink: #10151f;
-      --danger: #f28b82;
-      --danger-bg: rgba(104, 35, 39, 0.38);
-      --ok: #8de3a7;
-      --ok-bg: rgba(31, 72, 53, 0.38);
-      --warn: #ffd479;
-      --warn-bg: rgba(99, 76, 23, 0.36);
-      --blue: #97beff;
-      --blue-bg: rgba(34, 61, 111, 0.38);
-      --shadow: rgba(0,0,0,.34);
-      --radius: 18px;
+      --bg: #eef2f5;
+      --bg-2: #f8fafc;
+      --panel: #ffffff;
+      --panel-2: #f8fafc;
+      --panel-3: #f1f5f9;
+      --text: #16202b;
+      --muted: #627084;
+      --line: #d9e0e8;
+      --line-strong: #aeb9c7;
+      --accent: #223a5f;
+      --accent-ink: #ffffff;
+      --danger: #b42318;
+      --danger-bg: #fff1f0;
+      --ok: #087443;
+      --ok-bg: #ecfdf3;
+      --warn: #a15c07;
+      --warn-bg: #fff7e6;
+      --blue: #255f99;
+      --blue-bg: #eef6ff;
+      --shadow: rgba(29, 41, 57, .08);
+      --radius: 8px;
       font-family: "Avenir Next", "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
     body { margin: 0; background:
-      radial-gradient(circle at top left, rgba(95, 132, 198, 0.16), transparent 28%),
-      radial-gradient(circle at top right, rgba(151, 190, 255, 0.08), transparent 24%),
-      linear-gradient(180deg, var(--bg-2), var(--bg) 42%);
+      linear-gradient(180deg, var(--bg-2), var(--bg) 44%);
       color: var(--text);
+      font-size: 14px;
+      line-height: 1.45;
     }
-    header { padding: 22px 28px; border-bottom: 1px solid var(--line); background: rgba(10,14,21,.82); backdrop-filter: blur(14px); position: sticky; top: 0; z-index: 20; }
-    h1 { margin: 0; font-size: 22px; letter-spacing: -.02em; }
-    .tagline { color: var(--muted); font-size: 13px; margin-top: 4px; }
-    .layout { display: grid; grid-template-columns: 350px minmax(0, 1fr); min-height: calc(100vh - 76px); }
-    aside { border-right: 1px solid var(--line); padding: 20px; background: rgba(7,10,17,.56); }
-    main { padding: 24px; }
-    .card, .section-group, .subcard, .overview-rail { background: linear-gradient(180deg, var(--panel), rgba(9,14,22,.95)); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 16px 44px var(--shadow); }
-    .card { padding: 18px; margin-bottom: 18px; }
-    label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 7px; text-transform: uppercase; letter-spacing: .08em; }
-    textarea, input, select { width: 100%; background: rgba(7,11,18,.9); color: var(--text); border: 1px solid var(--line); border-radius: 12px; padding: 12px 13px; outline: none; font: inherit; }
-    textarea { min-height: 130px; resize: vertical; line-height: 1.4; }
-    textarea.large-idea { min-height: 180px; }
-    textarea:focus, input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(151, 190, 255, 0.14); }
-    .field { margin-bottom: 14px; }
-    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    button, .button-link { border: 1px solid transparent; background: var(--accent); color: var(--accent-ink); padding: 11px 14px; border-radius: 12px; font-weight: 750; cursor: pointer; font: inherit; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; min-height: 44px; transition: transform .16s ease, border-color .16s ease, background .16s ease, color .16s ease; }
+    header { padding: 12px 22px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.92); backdrop-filter: blur(14px); position: sticky; top: 0; z-index: 20; }
+    .header-shell { display: flex; justify-content: space-between; gap: 18px; align-items: center; max-width: 1440px; margin: 0 auto; }
+    .brand-block { display: flex; flex-direction: column; gap: 2px; min-width: 180px; }
+    h1 { margin: 0; font-size: 19px; letter-spacing: 0; }
+    .tagline { color: var(--muted); font-size: 12px; margin-top: 0; }
+    .top-nav { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .top-nav a { color: var(--muted); border: 1px solid transparent; border-radius: 999px; padding: 7px 10px; text-decoration: none; font-size: 12px; font-weight: 750; }
+    .top-nav a:hover { color: var(--text); border-color: var(--line); background: var(--panel-2); }
+    .layout { display: grid; grid-template-columns: 300px minmax(0, 1fr); min-height: calc(100vh - 62px); max-width: 1440px; margin: 0 auto; }
+    aside { border-right: 1px solid var(--line); padding: 14px; background: rgba(248,250,252,.78); }
+    main { padding: 16px; }
+    .card, .section-group, .subcard, .overview-rail { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 10px 26px var(--shadow); }
+    .card { padding: 14px; margin-bottom: 14px; }
+    label { display: block; font-size: 11px; color: var(--muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 800; }
+    textarea, input, select { width: 100%; background: #ffffff; color: var(--text); border: 1px solid var(--line); border-radius: 7px; padding: 9px 10px; outline: none; font: inherit; font-size: 13px; }
+    textarea { min-height: 104px; resize: vertical; line-height: 1.4; }
+    textarea.large-idea { min-height: 128px; }
+    textarea:focus, input:focus, select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37, 95, 153, 0.12); }
+    .field { margin-bottom: 10px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    button, .button-link { border: 1px solid transparent; background: var(--accent); color: var(--accent-ink); padding: 8px 11px; border-radius: 7px; font-weight: 750; cursor: pointer; font: inherit; font-size: 13px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; min-height: 34px; transition: transform .12s ease, border-color .12s ease, background .12s ease, color .12s ease; }
     button:hover, .button-link:hover { transform: translateY(-1px); }
-    button.secondary, .button-link.secondary { background: rgba(11,17,28,.96); color: var(--text); border-color: var(--line); }
-    button.warning, .button-link.warning { background: var(--warn-bg); color: #ffedbb; border-color: rgba(255, 212, 121, 0.28); }
-    button.success, .button-link.success { background: var(--ok-bg); color: #dbffe8; border-color: rgba(141, 227, 167, 0.28); }
-    button.danger, .button-link.danger { background: var(--danger-bg); color: #ffd7d6; border-color: rgba(242, 139, 130, 0.28); }
+    button.secondary, .button-link.secondary { background: #ffffff; color: var(--text); border-color: var(--line); }
+    button.warning, .button-link.warning { background: var(--warn-bg); color: var(--warn); border-color: #f7d79d; }
+    button.success, .button-link.success { background: var(--ok-bg); color: var(--ok); border-color: #abefc6; }
+    button.danger, .button-link.danger { background: var(--danger-bg); color: var(--danger); border-color: #fecdca; }
     button:disabled, .button-link.disabled { opacity: .52; cursor: not-allowed; transform: none; }
-    button:focus-visible, .button-link:focus-visible, summary:focus-visible, .project:focus-visible, .mode-chip:focus-visible { outline: 3px solid rgba(151, 190, 255, 0.42); outline-offset: 2px; }
-    .button-row { display: flex; gap: 10px; flex-wrap: wrap; }
-    .pill { display: inline-flex; align-items: center; gap: 6px; background: rgba(8,12,20,.94); border: 1px solid var(--line); border-radius: 999px; padding: 7px 10px; color: var(--muted); font-size: 12px; }
+    button:focus-visible, .button-link:focus-visible, summary:focus-visible, .project:focus-visible, .mode-chip:focus-visible, .nav-panel:focus-visible { outline: 3px solid rgba(37, 95, 153, 0.24); outline-offset: 2px; }
+    .button-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pill { display: inline-flex; align-items: center; gap: 5px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 4px 8px; color: var(--muted); font-size: 11px; }
     .pill strong { color: var(--text); }
-    .project-list { display: flex; flex-direction: column; gap: 10px; }
-    .project { padding: 13px; border: 1px solid var(--line); background: rgba(11,16,26,.92); border-radius: 16px; cursor: pointer; transition: transform .16s ease, border-color .16s ease, background .16s ease; }
+    .project-list { display: flex; flex-direction: column; gap: 8px; }
+    .project { padding: 10px; border: 1px solid var(--line); background: #ffffff; border-radius: var(--radius); cursor: pointer; transition: transform .12s ease, border-color .12s ease, background .12s ease; }
     .project:hover { border-color: var(--line-strong); transform: translateY(-1px); }
-    .project.selected { border-color: rgba(151, 190, 255, 0.42); background: linear-gradient(180deg, rgba(17, 28, 47, 0.98), rgba(11, 17, 28, 0.98)); box-shadow: inset 0 0 0 1px rgba(151, 190, 255, 0.12); }
+    .project.selected { border-color: #8fb4d8; background: var(--blue-bg); box-shadow: inset 0 0 0 1px rgba(37, 95, 153, 0.1); }
     .project-head { display: flex; justify-content: space-between; gap: 10px; align-items: start; }
     .project-title { font-weight: 750; font-size: 14px; margin-bottom: 6px; line-height: 1.35; }
     .project-title, .project-summary, .today-item strong, .muted-line { overflow-wrap: anywhere; }
     .project-meta, .project-summary { color: var(--muted); font-size: 12px; line-height: 1.45; }
     .project-summary { margin-top: 7px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-    .empty { color: var(--muted); padding: 22px; text-align: center; border: 1px dashed var(--line); border-radius: 14px; background: rgba(6, 10, 17, 0.42); }
-    .topline { display: flex; justify-content: space-between; gap: 14px; align-items: start; margin-bottom: 14px; }
-    h2 { margin: 0 0 10px; font-size: 24px; letter-spacing: -.025em; }
-    h3 { margin: 22px 0 10px; font-size: 16px; }
+    .empty { color: var(--muted); padding: 16px; text-align: center; border: 1px dashed var(--line); border-radius: var(--radius); background: var(--panel-2); }
+    .topline { display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 10px; }
+    h2 { margin: 0 0 8px; font-size: 22px; letter-spacing: 0; }
+    h3 { margin: 16px 0 8px; font-size: 15px; }
     h4 { margin: 0; font-size: 14px; }
     .muted { color: var(--muted); }
     .muted-line { color: var(--muted); font-size: 13px; }
     .scores { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; margin: 14px 0; }
-    .score { background: rgba(8, 13, 21, 0.96); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+    .score { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
     .score-value { font-size: 22px; font-weight: 850; }
     .score-label { color: var(--muted); font-size: 12px; text-transform: capitalize; }
     .plan { display: grid; gap: 12px; }
-    .plan-item { display: grid; grid-template-columns: 120px 1fr; gap: 14px; padding: 14px; border: 1px solid var(--line); border-radius: 14px; background: rgba(7, 11, 18, 0.92); }
+    .plan-item { display: grid; grid-template-columns: 120px 1fr; gap: 12px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); }
     .slot { color: var(--blue); font-weight: 800; font-size: 13px; }
-    .artifact { border: 1px solid var(--line); border-radius: 14px; background: rgba(7, 11, 18, 0.94); margin: 10px 0; overflow: hidden; }
+    .artifact { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); margin: 8px 0; overflow: hidden; }
     .artifact-head { padding: 12px 14px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 12px; align-items: center; }
-    .artifact pre, .handoff pre, .text-block pre { margin: 0; padding: 14px; white-space: pre-wrap; color: #dce5f2; font-size: 13px; line-height: 1.48; overflow: auto; background: rgba(3, 7, 13, 0.82); border-top: 1px solid var(--line); }
+    .artifact pre, .handoff pre, .text-block pre { margin: 0; padding: 12px; white-space: pre-wrap; color: #243447; font-size: 12px; line-height: 1.48; overflow: auto; background: #f8fafc; border-top: 1px solid var(--line); }
     .artifact pre { max-height: 340px; }
-    .handoff { border: 1px solid var(--line); border-radius: 14px; background: rgba(7, 11, 18, 0.94); overflow: hidden; }
+    .handoff { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); overflow: hidden; }
     .handoff pre { max-height: 520px; }
-    .mini { font-size: 12px; padding: 7px 9px; border-radius: 10px; }
-    .note { background: var(--warn-bg); border: 1px solid rgba(255, 212, 121, 0.26); color: #ffe7a3; padding: 12px; border-radius: 12px; margin: 12px 0; }
+    .mini { font-size: 12px; padding: 5px 8px; border-radius: 7px; min-height: 28px; }
+    .note { background: var(--warn-bg); border: 1px solid #f7d79d; color: #664500; padding: 10px; border-radius: var(--radius); margin: 10px 0; }
     .restart { border-left: 4px solid var(--ok); padding-left: 14px; }
     .resume-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
-    .resume-item, .resume-plan, .subcard { background: rgba(7, 11, 18, 0.92); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+    .resume-item, .resume-plan, .subcard { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
     .resume-item strong { display: block; margin-bottom: 8px; }
     .resume-plan { margin-top: 12px; }
-    .command-center-panel { background: linear-gradient(180deg, rgba(19, 31, 49, 0.98), rgba(12, 18, 30, 0.98)); border: 1px solid rgba(151, 190, 255, 0.28); border-radius: 18px; padding: 18px; }
+    .command-center-panel { background: #fbfdff; border: 1px solid #c9d8e8; border-radius: var(--radius); padding: 14px; }
     .command-center-grid { display: grid; grid-template-columns: 1.08fr .92fr; gap: 14px; }
     .command-chain { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 14px; }
-    .command-node { border-radius: 999px; padding: 8px 11px; border: 1px solid var(--line); background: rgba(7, 11, 18, 0.88); font-size: 12px; color: var(--muted); }
-    .command-node.done { border-color: rgba(123,216,143,.45); color: var(--ok); }
-    .command-node.current { border-color: rgba(138,180,255,.5); color: var(--blue); }
+    .command-node { border-radius: 999px; padding: 6px 9px; border: 1px solid var(--line); background: #ffffff; font-size: 12px; color: var(--muted); }
+    .command-node.done { border-color: #abefc6; color: var(--ok); }
+    .command-node.current { border-color: #b2d7f5; color: var(--blue); }
     .command-node.missing { color: var(--muted); }
-    .command-node.blocked { border-color: rgba(255,107,107,.45); color: #ffd6d6; background: rgba(36,20,25,.84); }
-    .command-recommendation, .callout-card { background: rgba(7, 11, 18, 0.9); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+    .command-node.blocked { border-color: #fecdca; color: var(--danger); background: var(--danger-bg); }
+    .command-recommendation, .callout-card { background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
     .command-kicker { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
-    .outcome-banner { background: linear-gradient(180deg, rgba(18, 33, 56, 0.98), rgba(10, 16, 27, 0.98)); border: 1px solid rgba(151, 190, 255, 0.28); border-radius: 16px; padding: 16px; margin-bottom: 18px; }
-    .today-dashboard-panel { background: linear-gradient(180deg, rgba(18, 33, 55, 0.98), rgba(12, 19, 31, 0.98)); border-color: rgba(151, 190, 255, 0.28); }
+    .outcome-banner { background: #fbfdff; border: 1px solid #c9d8e8; border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
+    .today-dashboard-panel { background: #ffffff; border-color: var(--line); }
     .today-dashboard-grid { display: grid; gap: 10px; }
-    .today-hero { padding: 14px; border: 1px solid rgba(151, 190, 255, 0.24); border-radius: 16px; background: linear-gradient(180deg, rgba(10, 18, 30, 0.96), rgba(8, 12, 20, 0.96)); }
-    .today-card { background: rgba(12,18,29,.9); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+    .today-hero { padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); }
+    .today-card { background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
     .today-stats { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 8px; }
-    .today-stat { background: rgba(8,13,22,.96); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+    .today-stat { background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius); padding: 9px; }
     .today-stat strong { display: block; font-size: 18px; margin-bottom: 4px; }
     .today-stat span { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; }
     .today-list { display: grid; gap: 8px; }
-    .today-item { background: rgba(8,13,22,.96); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+    .today-item { background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius); padding: 9px; }
     .today-item-head, .project-badges { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
     .today-item-head { justify-content: space-between; margin-bottom: 6px; }
-    .tiny-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 8px; border: 1px solid var(--line); color: var(--muted); font-size: 11px; }
-    .status-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 8px; border: 1px solid var(--line); font-size: 11px; text-transform: capitalize; background: rgba(8, 12, 20, 0.72); }
-    .status-badge.success { color: var(--ok); border-color: rgba(123,216,143,.45); }
-    .status-badge.warning { color: var(--warn); border-color: rgba(255,209,102,.45); }
-    .status-badge.blocked, .status-badge.failed { color: #ffd6d6; border-color: rgba(255,107,107,.45); }
-    .status-badge.info { color: var(--blue); border-color: rgba(138,180,255,.45); }
-    .activity-list { display: grid; gap: 10px; }
-    .activity-item { background: rgba(7, 11, 18, 0.92); border: 1px solid var(--line); border-radius: 14px; padding: 12px; }
+    .tiny-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 7px; border: 1px solid var(--line); color: var(--muted); font-size: 11px; background: #ffffff; }
+    .status-badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 3px 7px; border: 1px solid var(--line); font-size: 11px; text-transform: capitalize; background: #ffffff; }
+    .status-badge.success { color: var(--ok); border-color: #abefc6; background: var(--ok-bg); }
+    .status-badge.warning { color: var(--warn); border-color: #f7d79d; background: var(--warn-bg); }
+    .status-badge.blocked, .status-badge.failed { color: var(--danger); border-color: #fecdca; background: var(--danger-bg); }
+    .status-badge.info { color: var(--blue); border-color: #b2d7f5; background: var(--blue-bg); }
+    .activity-list { display: grid; gap: 8px; }
+    .activity-item { background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; }
     .activity-item-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; margin-bottom: 6px; }
     .activity-meta { color: var(--muted); font-size: 12px; margin-top: 6px; }
     .feedback-list { display: grid; gap: 10px; }
-    .feedback-item { background: rgba(7, 11, 18, 0.92); border: 1px solid var(--line); border-radius: 14px; padding: 14px; }
+    .feedback-item { background: #ffffff; border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; }
     .feedback-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
     .text-actions { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
     .text-actions .muted { margin: 0; }
@@ -24660,14 +24665,14 @@ INDEX_HTML = r"""
     .hero-copy { max-width: 760px; }
     .hero-actions { justify-content: flex-end; }
     .project-mode-nav { display: flex; flex-wrap: wrap; gap: 10px; }
-    .mode-chip { border: 1px solid var(--line); border-radius: 999px; background: rgba(7, 11, 18, 0.94); color: var(--text); padding: 10px 14px; font: inherit; font-weight: 700; cursor: pointer; min-height: 40px; }
-    .mode-chip.active, .mode-chip:hover { border-color: var(--line-strong); background: rgba(17, 28, 47, 0.98); }
-    .section-stack { display: grid; gap: 16px; margin-top: 18px; }
+    .mode-chip { border: 1px solid var(--line); border-radius: 999px; background: #ffffff; color: var(--text); padding: 8px 11px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; min-height: 34px; }
+    .mode-chip.active, .mode-chip:hover { border-color: var(--line-strong); background: var(--panel-2); }
+    .section-stack { display: grid; gap: 12px; margin-top: 14px; }
     .section-group { overflow: hidden; scroll-margin-top: 110px; }
-    .section-group-header { display: flex; justify-content: space-between; gap: 14px; align-items: start; padding: 16px 18px; border-bottom: 1px solid var(--line); background: linear-gradient(180deg, rgba(13, 18, 28, 0.96), rgba(8, 12, 20, 0.96)); }
+    .section-group-header { display: flex; justify-content: space-between; gap: 12px; align-items: start; padding: 12px 14px; border-bottom: 1px solid var(--line); background: var(--panel-2); }
     .section-group-header p { margin: 6px 0 0; }
     .section-group-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
-    .section-body { padding: 18px; display: grid; gap: 14px; }
+    .section-body { padding: 14px; display: grid; gap: 12px; }
     .section-group.is-collapsed .section-body { display: none; }
     .section-group.is-collapsed .section-group-header { border-bottom: none; }
     .subcard-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
@@ -24678,15 +24683,15 @@ INDEX_HTML = r"""
     .support-details summary, .text-block summary { list-style: none; cursor: pointer; }
     .support-details summary::-webkit-details-marker, .text-block summary::-webkit-details-marker { display: none; }
     .support-details > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-    .text-block { border: 1px solid var(--line); border-radius: 14px; background: rgba(7, 11, 18, 0.92); overflow: hidden; }
+    .text-block { border: 1px solid var(--line); border-radius: var(--radius); background: #ffffff; overflow: hidden; }
     .text-block + .text-block { margin-top: 10px; }
     .text-block summary { display: flex; align-items: start; justify-content: space-between; gap: 12px; padding: 12px 14px; }
     .text-block-actions { display: flex; gap: 10px; flex-wrap: wrap; padding: 0 14px 12px; }
     .preview-copy { color: var(--muted); font-size: 13px; line-height: 1.45; }
     .callout-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
-    .callout-card.primary { border-color: rgba(151, 190, 255, 0.24); background: linear-gradient(180deg, rgba(12, 20, 33, 0.98), rgba(7, 11, 18, 0.96)); }
-    .callout-card.warning { border-color: rgba(255, 212, 121, 0.26); background: var(--warn-bg); }
-    .callout-card.success { border-color: rgba(141, 227, 167, 0.26); background: var(--ok-bg); }
+    .callout-card.primary { border-color: #b2d7f5; background: var(--blue-bg); }
+    .callout-card.warning { border-color: #f7d79d; background: var(--warn-bg); }
+    .callout-card.success { border-color: #abefc6; background: var(--ok-bg); }
     .disabled-note { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
     .inline-list { display: flex; flex-wrap: wrap; gap: 8px; }
     .sidebar-intro { margin-top: 8px; }
@@ -24696,17 +24701,38 @@ INDEX_HTML = r"""
     .compact-activity-list .activity-item:nth-child(n+5) { display: none; }
     .button-label-muted { color: var(--muted); font-size: 12px; }
     .support-line { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; line-height: 1.5; }
-    .lane-steps { display: grid; gap: 12px; }
-    .lane-step { border: 1px solid var(--line); border-radius: 14px; background: rgba(7, 11, 18, 0.92); padding: 14px; }
-    .app-first-lane { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 14px 0; }
-    .app-first-lane .lane-step p { margin: 6px 0 0; }
+    .lane-steps { display: grid; gap: 10px; }
+    .lane-step { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel-2); padding: 10px; }
+    .app-first-lane { grid-template-columns: repeat(auto-fit, minmax(128px, 1fr)); margin: 12px 0; }
+    .app-first-lane .lane-step p { margin: 5px 0 0; font-size: 12px; line-height: 1.35; }
     .lane-step-head { display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 8px; }
     .lane-step-number { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; }
-    .example-prompt-gallery { margin-top: 14px; }
+    .example-prompt-gallery { margin-top: 10px; }
     .example-prompt-group { border-top: 1px solid var(--line); padding-top: 12px; margin-top: 12px; }
     .example-prompt-group-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .example-prompt-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
     .example-prompt-button { text-align: left; }
+    .workbench-panel-nav { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin: 0 0 12px; }
+    .nav-panel { display: grid; gap: 5px; align-content: start; min-height: 86px; padding: 11px; border: 1px solid var(--line); border-radius: var(--radius); background: #ffffff; color: var(--text); text-decoration: none; cursor: pointer; text-align: left; box-shadow: 0 8px 18px var(--shadow); }
+    .nav-panel:hover { transform: translateY(-1px); border-color: var(--line-strong); }
+    .nav-panel strong { font-size: 13px; }
+    .nav-panel span { color: var(--muted); font-size: 12px; line-height: 1.35; }
+    .home-hero, .app-draft-hero { scroll-margin-top: 86px; }
+    .create-app-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(260px, .8fr); gap: 14px; align-items: start; }
+    .create-copy { margin: 0 0 10px; max-width: 760px; }
+    .create-actions { align-items: center; justify-content: space-between; }
+    .latest-app-card { border-color: #c9d8e8; background: #fbfdff; }
+    .latest-app-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; align-items: start; margin-bottom: 10px; }
+    .latest-app-title { display: grid; gap: 5px; }
+    .latest-app-title h3 { margin: 0; font-size: 17px; }
+    .latest-app-meta { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
+    .latest-app-summary-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin: 10px 0; }
+    .app-stat { border: 1px solid var(--line); border-radius: var(--radius); background: #ffffff; padding: 9px; }
+    .app-stat strong { display: block; font-size: 12px; margin-bottom: 3px; }
+    .app-stat span { color: var(--muted); font-size: 12px; }
+    .latest-actions { padding: 10px; border: 1px solid var(--line); border-radius: var(--radius); background: #ffffff; }
+    .latest-actions .button-row { margin: 0; }
+    .technical-disclosure { margin-top: 10px; }
     .visually-hidden { position: absolute; left: -9999px; }
     ul { margin-top: 8px; }
     li { margin: 5px 0; }
@@ -24714,6 +24740,8 @@ INDEX_HTML = r"""
     @media (max-width: 920px) {
       .layout { grid-template-columns: 1fr; }
       aside { border-right: none; border-bottom: 1px solid var(--line); }
+      .header-shell { align-items: flex-start; flex-direction: column; gap: 10px; }
+      .top-nav { justify-content: flex-start; }
       .scores { grid-template-columns: repeat(2, minmax(0,1fr)); }
       .plan-item { grid-template-columns: 1fr; }
       .topline { flex-direction: column; }
@@ -24724,13 +24752,36 @@ INDEX_HTML = r"""
       .overview-grid, .subcard-grid, .callout-grid { grid-template-columns: 1fr; }
       .hero-topline { flex-direction: column; }
       .project-mode-nav { overflow-x: auto; padding-bottom: 2px; }
+      .workbench-panel-nav { grid-template-columns: repeat(2, minmax(0,1fr)); }
+      .create-app-grid { grid-template-columns: 1fr; }
+      .latest-app-head { grid-template-columns: 1fr; }
+      .latest-app-meta { justify-content: flex-start; }
+      .latest-app-summary-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    }
+    @media (max-width: 560px) {
+      header { padding: 10px 12px; }
+      aside, main { padding: 10px; }
+      .row, .workbench-panel-nav, .latest-app-summary-grid { grid-template-columns: 1fr; }
+      .nav-panel { min-height: auto; }
     }
   </style>
 </head>
 <body>
 <header>
-  <h1>SprintOS</h1>
-  <div class="tagline">Idea → create app → open preview → improve safely.</div>
+  <div class="header-shell">
+    <div class="brand-block">
+      <h1>SprintOS</h1>
+      <div class="tagline">Local app-generation workbench</div>
+    </div>
+    <nav class="top-nav" aria-label="Workbench sections">
+      <a href="#home-create-app" onclick="jumpToWorkbenchPanel('home-create-app')">Create</a>
+      <a href="#app-draft-card" onclick="jumpToWorkbenchPanel('app-draft-card')">Latest App</a>
+      <a href="#section-build" onclick="jumpToWorkbenchPanel('section-build')">History</a>
+      <a href="#section-workspace" onclick="jumpToWorkbenchPanel('section-workspace')">Test & Download</a>
+      <a href="#section-workspace" onclick="jumpToWorkbenchPanel('section-workspace')">Codex Handoff</a>
+      <a href="#section-details" onclick="jumpToWorkbenchPanel('section-details')">Advanced</a>
+    </nav>
+  </div>
 </header>
 <div class="layout">
   <aside>
@@ -24743,12 +24794,11 @@ INDEX_HTML = r"""
 
     <section class="card">
       <div class="topline" style="margin-bottom:10px"><h3 style="margin:0">Create App</h3><span class="pill"><strong>default</strong></span></div>
-      <p class="muted">Describe a local prototype app. SprintOS can ask follow-up questions when the prompt is vague, or you can generate with assumptions.</p>
-      <p class="muted">After creation, preview it, download it, test it, inspect the files, or prepare it for Codex.</p>
+      <p class="muted">Describe one local app. SprintOS will ask follow-up questions only when it needs clarity.</p>
       <div class="lane-steps app-first-lane">
-        <div class="lane-step"><div class="lane-step-number">1</div><strong>Create App</strong><p class="muted">Start with one raw idea and create a local app draft.</p></div>
-        <div class="lane-step"><div class="lane-step-number">2</div><strong>Follow-up questions / assumptions</strong><p class="muted">Answer clarifying questions or generate with safe assumptions.</p></div>
-        <div class="lane-step"><div class="lane-step-number">3</div><strong>Latest generated app</strong><p class="muted">Open the newest app, test it, download it, or prepare it for Codex.</p></div>
+        <div class="lane-step"><div class="lane-step-number">1</div><strong>Create App</strong><p class="muted">Start from one prompt.</p></div>
+        <div class="lane-step"><div class="lane-step-number">2</div><strong>Answer or assume</strong><p class="muted">Clarify only if needed.</p></div>
+        <div class="lane-step"><div class="lane-step-number">3</div><strong>Ship the draft</strong><p class="muted">Preview, test, download, or hand off.</p></div>
       </div>
       <div class="field">
         <label for="quickLaunchIdea">Raw idea</label>
@@ -24902,15 +24952,21 @@ INDEX_HTML = r"""
 
   <main>
     <div id="output">
+      <div class="workbench-panel-nav" aria-label="Workbench shortcuts">
+        <a class="nav-panel" href="#home-create-app" onclick="jumpToWorkbenchPanel('home-create-app')"><strong>Create App</strong><span>Prompt to local app draft.</span></a>
+        <a class="nav-panel" href="#app-draft-card" onclick="jumpToWorkbenchPanel('app-draft-card')"><strong>Latest App</strong><span>Status and primary actions.</span></a>
+        <a class="nav-panel" href="#section-build" onclick="jumpToWorkbenchPanel('section-build')"><strong>Generated Apps</strong><span>Older drafts and packages.</span></a>
+        <a class="nav-panel" href="#section-workspace" onclick="jumpToWorkbenchPanel('section-workspace')"><strong>Test & Download</strong><span>Checks, app ZIP, source pack.</span></a>
+        <a class="nav-panel" href="#section-details" onclick="jumpToWorkbenchPanel('section-details')"><strong>Advanced Tools</strong><span>Support and technical panels.</span></a>
+      </div>
       <section class="card home-hero">
         <div class="command-kicker">Create New App</div>
         <h2>Create your first app</h2>
-        <p class="muted">Paste a prompt and SprintOS will generate a local-first prototype app. If the idea is vague, answer follow-up questions or generate with assumptions.</p>
-        <p class="muted">Then open the preview, download the app, test it, inspect the files, or prepare it for Codex.</p>
+        <p class="muted create-copy">Paste a prompt. SprintOS creates a local-first app draft, then lets you preview, test, download, or prepare it for Codex.</p>
         <div class="lane-steps app-first-lane">
-          <div class="lane-step"><div class="lane-step-number">1</div><strong>Create App</strong><p class="muted">Start with one raw idea and create a local app draft.</p></div>
-          <div class="lane-step"><div class="lane-step-number">2</div><strong>Follow-up questions / assumptions</strong><p class="muted">Answer clarifying questions or generate with safe assumptions.</p></div>
-          <div class="lane-step"><div class="lane-step-number">3</div><strong>Latest generated app</strong><p class="muted">Open the newest app, test it, download it, or prepare it for Codex.</p></div>
+          <div class="lane-step"><div class="lane-step-number">1</div><strong>Create App</strong><p class="muted">Start with one raw idea.</p></div>
+          <div class="lane-step"><div class="lane-step-number">2</div><strong>Answer or assume</strong><p class="muted">Use follow-up answers or safe assumptions.</p></div>
+          <div class="lane-step"><div class="lane-step-number">3</div><strong>Use the app</strong><p class="muted">Open Preview, Test App, Download App, Source Pack.</p></div>
         </div>
         <div class="field">
           <label for="homeQuickLaunchIdea">Raw idea</label>
@@ -25071,8 +25127,8 @@ function safeUiStorage() {
 function renderExamplePromptGallery(prefix = 'quickLaunch') {
   return `
     <details class="resume-plan example-prompt-gallery">
-      <summary><strong>Example Prompt Gallery</strong></summary>
-      <p class="muted">Pick one to fill the Create App prompt. Examples do not call AI or create anything until you click Create App.</p>
+      <summary><strong>Example Prompts</strong></summary>
+      <p class="muted">Fill the prompt only. Nothing runs until you click Create App.</p>
       <div data-example-gallery-prefix="${esc(prefix)}">
         ${demoPromptGroups.map((group) => `
           <div class="example-prompt-group">
@@ -25101,6 +25157,64 @@ function fillExamplePrompt(button, prefix = 'quickLaunch') {
   target.value = prompt;
   target.dataset.userTouched = 'true';
   target.focus();
+}
+
+function jumpToWorkbenchPanel(targetId) {
+  const sectionMap = {
+    'section-build': 'build',
+    'section-workspace': 'workspace',
+    'section-feedback': 'feedback',
+    'section-quality': 'quality',
+    'section-ai': 'ai',
+    'section-details': 'details',
+    'section-execute': 'execute'
+  };
+  if (sectionMap[targetId]) setSectionDomState(sectionMap[targetId], true);
+  let target = document.getElementById(targetId);
+  if (!target && targetId === 'app-draft-card') {
+    target = document.getElementById('home-continue-app') || document.getElementById('home-create-app');
+  }
+  if (!target && targetId === 'section-build') {
+    target = document.getElementById('section-details') || document.getElementById('project-overview');
+  }
+  if (!target && targetId === 'section-workspace') {
+    target = document.getElementById('section-build') || document.getElementById('app-draft-card') || document.getElementById('home-create-app');
+  }
+  if (!target) {
+    target = document.getElementById('home-create-app') || document.getElementById('output');
+  }
+  if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderWorkbenchPanelNav(context = 'home', appState = null) {
+  const hasLatestApp = !!appState;
+  const latestCopy = hasLatestApp
+    ? `${appState.label || 'Ready'} · ${appState.app_name || 'latest app'}`
+    : 'Status and primary actions.';
+  return `
+    <div class="workbench-panel-nav" aria-label="Workbench shortcuts">
+      <a class="nav-panel" href="#home-create-app" onclick="jumpToWorkbenchPanel('home-create-app')">
+        <strong>Create App</strong>
+        <span>Prompt to local app draft.</span>
+      </a>
+      <a class="nav-panel" href="#app-draft-card" onclick="jumpToWorkbenchPanel('app-draft-card')">
+        <strong>Latest App</strong>
+        <span>${esc(latestCopy)}</span>
+      </a>
+      <a class="nav-panel" href="#section-build" onclick="jumpToWorkbenchPanel('section-build')">
+        <strong>Generated Apps</strong>
+        <span>Older drafts and package controls.</span>
+      </a>
+      <a class="nav-panel" href="#section-workspace" onclick="jumpToWorkbenchPanel('section-workspace')">
+        <strong>Test & Download</strong>
+        <span>Test App, Download App, Source Pack.</span>
+      </a>
+      <a class="nav-panel" href="#section-details" onclick="jumpToWorkbenchPanel('section-details')">
+        <strong>Advanced Tools</strong>
+        <span>Support, AI, and technical panels.</span>
+      </a>
+    </div>
+  `;
 }
 
 function readUiState() {
@@ -25373,65 +25487,72 @@ function renderTodayDashboard(summary) {
 
 function renderHomeCreateAppForm(prefix = 'homeQuickLaunch', title = 'Create your first app', includeRecentProjects = '') {
   return `
+    ${renderWorkbenchPanelNav('home')}
     <section class="card home-hero" id="home-create-app">
       <div class="command-kicker">Create New App</div>
       <h2>${esc(title)}</h2>
-      <p class="muted">Paste a prompt and SprintOS will generate a local-first prototype app. If the idea is vague, answer follow-up questions or generate with assumptions.</p>
-      <p class="muted">Then open the preview, download the app, test it, inspect the files, or prepare it for Codex.</p>
-      ${renderAppFirstLane()}
-      <div class="field">
-        <label for="${prefix}Idea">Raw idea</label>
-        <textarea id="${prefix}Idea" class="large-idea" placeholder="Example: Create a local habit tracker with habit entry, completion, daily progress, and reset."></textarea>
+      <p class="muted create-copy">Paste a prompt. SprintOS creates a local-first app draft, then keeps preview, testing, download, and Codex handoff in one workbench.</p>
+      <div class="create-app-grid">
+        <div>
+          <div class="field">
+            <label for="${prefix}Idea">App prompt</label>
+            <textarea id="${prefix}Idea" class="large-idea" placeholder="Example: Create a local habit tracker with habit entry, completion, daily progress, and reset."></textarea>
+          </div>
+          <div class="button-row create-actions" style="margin-top:10px">
+            <button onclick="runQuickLaunch('home')">Create App</button>
+            <span class="button-label-muted">Follow-up questions appear here only when needed.</span>
+          </div>
+          <div id="${prefix}Preflight" class="muted" style="margin-top:8px"></div>
+          <div id="${prefix}IntentReview" style="margin-top:10px"></div>
+        </div>
+        <div>
+          ${renderAppFirstLane()}
+          ${renderExamplePromptGallery(prefix)}
+          <details class="resume-plan">
+            <summary><strong>Advanced</strong></summary>
+            <div class="field" style="margin-top:12px">
+              <label for="${prefix}EndOutput">Target output</label>
+              <input id="${prefix}EndOutput" placeholder="optional target output" />
+            </div>
+            <div class="field">
+              <label for="${prefix}GenerationMode">Generation mode</label>
+              <select id="${prefix}GenerationMode" onchange="refreshQuickLaunchPreflight()">
+                <option value="auto" selected>Auto</option>
+                <option value="offline">Offline</option>
+                <option value="ai">AI</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="${prefix}FallbackMode">Fallback mode</label>
+              <select id="${prefix}FallbackMode" onchange="refreshQuickLaunchPreflight()">
+                <option value="template" selected>Use local template if AI fails</option>
+                <option value="report_only">Stop and show failure report</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="${prefix}PrototypeType">App type</label>
+              <select id="${prefix}PrototypeType">
+                <option value="auto" selected>Auto</option>
+                <option value="landing_page">Landing page</option>
+                <option value="ai_text_tool">AI text tool</option>
+                <option value="calculator">Calculator</option>
+                <option value="quiz_funnel">Quiz funnel</option>
+                <option value="codex_app_brief">Codex app brief</option>
+              </select>
+            </div>
+            <div class="field" style="margin-bottom:0">
+              <label for="${prefix}BuildTarget">Build target</label>
+              <select id="${prefix}BuildTarget">
+                <option value="auto" selected>Auto</option>
+                <option value="static_app">Static app</option>
+                <option value="python_stdlib_app">Python stdlib app</option>
+                <option value="ai_tool_stub">AI tool stub</option>
+                <option value="codex_repo_brief">Codex repo brief</option>
+              </select>
+            </div>
+          </details>
+        </div>
       </div>
-      ${renderExamplePromptGallery(prefix)}
-      <details class="resume-plan">
-        <summary><strong>Advanced</strong></summary>
-        <div class="field" style="margin-top:14px">
-          <label for="${prefix}EndOutput">Target output</label>
-          <input id="${prefix}EndOutput" placeholder="optional target output" />
-        </div>
-        <div class="field">
-          <label for="${prefix}GenerationMode">Generation mode</label>
-          <select id="${prefix}GenerationMode" onchange="refreshQuickLaunchPreflight()">
-            <option value="auto" selected>Auto</option>
-            <option value="offline">Offline</option>
-            <option value="ai">AI</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="${prefix}FallbackMode">Fallback mode</label>
-          <select id="${prefix}FallbackMode" onchange="refreshQuickLaunchPreflight()">
-            <option value="template" selected>Use local template if AI fails</option>
-            <option value="report_only">Stop and show failure report</option>
-          </select>
-        </div>
-        <div class="field">
-          <label for="${prefix}PrototypeType">App type</label>
-          <select id="${prefix}PrototypeType">
-            <option value="auto" selected>Auto</option>
-            <option value="landing_page">Landing page</option>
-            <option value="ai_text_tool">AI text tool</option>
-            <option value="calculator">Calculator</option>
-            <option value="quiz_funnel">Quiz funnel</option>
-            <option value="codex_app_brief">Codex app brief</option>
-          </select>
-        </div>
-        <div class="field" style="margin-bottom:0">
-          <label for="${prefix}BuildTarget">Build target</label>
-          <select id="${prefix}BuildTarget">
-            <option value="auto" selected>Auto</option>
-            <option value="static_app">Static app</option>
-            <option value="python_stdlib_app">Python stdlib app</option>
-            <option value="ai_tool_stub">AI tool stub</option>
-            <option value="codex_repo_brief">Codex repo brief</option>
-          </select>
-        </div>
-      </details>
-      <div class="button-row" style="margin-top:14px">
-        <button onclick="runQuickLaunch('home')">Create App</button>
-      </div>
-      <div id="${prefix}Preflight" class="muted" style="margin-top:10px"></div>
-      <div id="${prefix}IntentReview" style="margin-top:10px"></div>
       ${includeRecentProjects}
     </section>
   `;
@@ -25471,6 +25592,7 @@ function renderHomeContinueHero(summary) {
   const expectedOutput = action.expected_output || 'The selected project view with its current Command Center, Focus Session, and local artifacts.';
   $('output').className = '';
   $('output').innerHTML = `
+    ${renderWorkbenchPanelNav('home', appState)}
     <section class="card home-hero" id="home-continue-app">
       <div class="command-kicker">Continue This App</div>
       <h2>${esc(recommended.project_title || appState.app_name || 'Continue this app')}</h2>
@@ -25623,9 +25745,9 @@ function renderAppFirstLane(appState = null) {
   const downloadState = appState && (appState.download_app_url || appState.download_package_url) ? 'Runnable local app package is ready.' : 'Available after packaging.';
   const codexState = appState && ((appState.actions || {}).prepare_for_codex || {}).enabled ? 'Source handoff is ready.' : 'Available after source files exist.';
   const steps = [
-    ['1', 'Create App', appState ? 'Use Create App again when you want a new app draft.' : 'Start with one raw idea and create a local app draft.'],
-    ['2', 'Follow-up questions / assumptions', followupState],
-    ['3', 'Latest generated app', latest],
+    ['1', 'Create App', appState ? 'Start another local draft when needed.' : 'Start with one prompt.'],
+    ['2', 'Answer or assume', followupState],
+    ['3', 'Latest App', latest],
     ['4', 'Open Preview', previewState],
     ['5', 'Test App', testState],
     ['6', 'Download App', downloadState],
@@ -25711,36 +25833,57 @@ function renderAppDraftHero(project, appState) {
       : generationStatus.fallback_happened
         ? 'Local template fallback used'
         : 'No explicit assumptions recorded';
+  const statusClass = failed
+    ? 'failed'
+    : generationStatus.fallback_happened
+      ? 'warning'
+      : exists.preview_available
+        ? 'success'
+        : 'info';
+  const generationMode = generationStatus.fallback_happened
+    ? 'Template fallback'
+    : (appState.generated_by && appState.generated_by.toLowerCase() !== 'offline')
+      ? 'AI'
+      : 'Template';
   return `
-    <section class="card" id="app-draft-card">
-      <div class="topline" style="margin-bottom:10px">
-        <div>
-          <h3 style="margin:0">${esc(failed ? 'AI app generation stopped' : 'Latest Generated App')}</h3>
-          <div class="muted">${esc(failed ? 'AI app generation stopped' : (appState.plain_summary || ''))}</div>
+    <section class="card latest-app-card app-draft-hero" id="app-draft-card" aria-label="Latest Generated App">
+      <div class="latest-app-head">
+        <div class="latest-app-title">
+          <div class="command-kicker">${esc(failed ? 'Generation stopped' : 'Latest App')}</div>
+          <h3>${esc(failed ? 'No app created' : (appState.app_name || project.title || 'Untitled app'))}</h3>
+          <div class="muted">${esc(failed ? ((appState.technical_details || {}).failure_reason || 'AI app generation failed.') : (appState.plain_summary || appState.what_it_does || ''))}</div>
         </div>
-        <span class="pill"><strong>${esc(appState.label || '')}</strong></span>
+        <div class="latest-app-meta">
+          ${renderStatusBadge(statusClass)}
+          <span class="pill"><strong>${esc(appState.label || '')}</strong></span>
+          <span class="pill">${esc(generationMode)}</span>
+          <span class="pill">${esc(assumptionSummary)}</span>
+        </div>
       </div>
-      ${renderAppFirstLane(appState)}
-      <p><strong>${esc(failed ? 'AI app generation stopped' : (appState.app_name || project.title || ''))}</strong></p>
-      ${failed ? `<p><strong>Reason</strong><br />${esc((appState.technical_details || {}).failure_reason || 'AI app generation failed.')}</p>` : ''}
-      <p><strong>App generation status</strong><br />${esc(generationStatus.summary || (appState.generated_by ? `Using ${appState.generated_by}.` : 'Using local template.'))}</p>
-      <p><strong>Generation path</strong><br />${esc(assumptionSummary)}</p>
       ${fallbackBanner}
-      <p><strong>App type</strong><br />${esc(appState.app_type || 'App draft')}</p>
-      <p><strong>What it does</strong><br />${esc(appState.what_it_does || ((project.sprint || {}).one_sentence || ''))}</p>
-      <div class="feedback-grid">
-        <p><strong>Preview available</strong><br />${esc(exists.preview_available ? 'Yes' : 'No')}</p>
-        <p><strong>Source Pack available</strong><br />${esc(exists.source_package_available ? 'Yes' : 'No')}</p>
-        <p><strong>Ready for Codex</strong><br />${esc(exists.codex_workspace_available ? 'Yes' : 'No')}</p>
-        <p><strong>Testing package available</strong><br />${esc(exists.testing_package_available ? 'Yes' : 'No')}</p>
+      <div class="latest-app-summary-grid">
+        <div class="app-stat"><strong>App type</strong><span>${esc(appState.app_type || 'App draft')}</span></div>
+        <div class="app-stat"><strong>Preview</strong><span>${esc(exists.preview_available ? 'Ready' : 'Not ready')}</span></div>
+        <div class="app-stat"><strong>Source Pack</strong><span>${esc(exists.source_package_available ? 'Ready' : 'Not ready')}</span></div>
+        <div class="app-stat"><strong>Codex Handoff</strong><span>${esc(exists.codex_workspace_available ? 'Ready' : 'Not ready')}</span></div>
       </div>
+      <p><strong>What it does</strong><br />${esc(appState.what_it_does || ((project.sprint || {}).one_sentence || ''))}</p>
       ${notes}
       ${renderDownloadClarity(appState)}
-      <p><strong>Next step</strong><br />${esc(appState.next_step || '')}</p>
-      <div class="button-row">
-        ${renderAppFirstActionButtons(appState)}
+      <div class="latest-actions">
+        <div class="topline" style="margin-bottom:8px">
+          <div>
+            <strong>Next step</strong>
+            <div class="muted">${esc(appState.next_step || '')}</div>
+          </div>
+        </div>
+        <div class="button-row">
+          ${renderAppFirstActionButtons(appState)}
+        </div>
       </div>
-      ${renderDetailsBlock('Advanced / Technical Details', details, 'Paths, reports, package links, and internal IDs')}
+      <div class="technical-disclosure">
+        ${renderDetailsBlock('Technical Details', details, 'Paths, reports, package links, and internal IDs')}
+      </div>
     </section>
   `;
 }
@@ -26244,16 +26387,16 @@ function renderQuickLaunchIntentReview(source, review) {
     ? `<ul>${assumptions.map((item) => `<li>${esc(item)}</li>`).join('')}</ul>`
     : '';
   const headline = status === 'needs_clarification'
-    ? 'SprintOS recommends a few answers first.'
-    : 'SprintOS can generate now with assumptions.';
+    ? 'Answer a few questions'
+    : 'Ready to generate with assumptions';
   node.innerHTML = `
     <div class="resume-plan">
       <p><strong>${esc(headline)}</strong></p>
       <p class="muted">App guess: ${esc(review.app_name_guess || 'Local App')} · ${esc(review.app_type_guess || 'local app')}</p>
       ${questionFields}
-      ${assumptionHtml ? `<details><summary><strong>Assumptions SprintOS can use now</strong></summary>${assumptionHtml}</details>` : ''}
+      ${assumptionHtml ? `<details><summary><strong>Assumptions</strong></summary>${assumptionHtml}</details>` : ''}
       <div class="button-row" style="margin-top:12px">
-        <button onclick="runQuickLaunch('${source}', { intent_review_action: 'answer_followups' })">Answer and Generate</button>
+        <button onclick="runQuickLaunch('${source}', { intent_review_action: 'answer_followups' })">Generate With Answers</button>
         <button class="secondary" onclick="runQuickLaunch('${source}', { intent_review_action: 'generate_with_assumptions' })">Generate With Assumptions</button>
       </div>
     </div>
@@ -27479,6 +27622,7 @@ function renderSprint(project, quickLaunchOutcome = null) {
   );
   $('output').className = '';
   $('output').innerHTML = `
+    ${renderWorkbenchPanelNav('project', appState)}
     ${quickLaunchOutcomePanel}
     ${appDraftHero}
     <section class="card" id="project-overview">
@@ -27500,8 +27644,8 @@ function renderSprint(project, quickLaunchOutcome = null) {
       </div>
       ${note}
       <div class="section-stack">
-        ${renderProjectSection('execute', 'Project Guidance', 'Command Center, Focus Session, local memory, and older outputs are secondary to the app-first lane above.', `${commandCenterPanel}${focusSessionPanel}${activityTimelinePanel}${renderDetailsBlock('Advanced / Technical Details', artifactHistoryPanel, 'Older outputs and Artifact History')}`, getSectionOpenState(project.id, 'execute', false), commandCenter && commandCenter.stage_label ? commandCenter.stage_label : 'Secondary')}
-        ${renderProjectSection('build', 'Advanced App Tools', 'Generation and package controls stay available here without dominating the main lane.', `
+        ${renderProjectSection('execute', 'Project Guidance', 'Command Center, Focus Session, and local memory stay below the app-first lane.', `${commandCenterPanel}${focusSessionPanel}${activityTimelinePanel}${renderDetailsBlock('Technical Details', artifactHistoryPanel, 'Older outputs and Artifact History')}`, getSectionOpenState(project.id, 'execute', false), commandCenter && commandCenter.stage_label ? commandCenter.stage_label : 'Secondary')}
+        ${renderProjectSection('build', 'Generated Apps / History', 'Create or inspect generated drafts and packages without crowding the main lane.', `
           <div class="subcard">
             <h4>App Draft Builder</h4>
             <div class="feedback-grid" style="max-width:680px">
@@ -27527,14 +27671,14 @@ function renderSprint(project, quickLaunchOutcome = null) {
           <div class="subcard"><h4>App Source Package</h4>${buildPackPanel}</div>
           <div class="subcard"><h4>Create Testable App</h4>${pipelinePanel}</div>
         `, getSectionOpenState(project.id, 'build', false), 'Advanced')}
-        ${renderProjectSection('workspace', 'Developer Tools', 'Prepare source handoff files, check changes, test the app, package it for testers, and keep internal workspace tools secondary.', `
+        ${renderProjectSection('workspace', 'Test & Download / Codex Handoff', 'Test the app, download packages, and prepare source files for Codex.', `
           <div class="subcard">${workspaceLanePanel}</div>
           <div class="subcard"><h4>Prepare App for Codex</h4>${workspacePanel}</div>
           <div class="subcard"><h4>Check App Changes</h4>${workspaceSyncPanel}</div>
           <div class="subcard"><h4>Test App</h4>${verificationPanel}</div>
           <div class="subcard"><h4>Create Testing Package</h4>${workspaceReleasePanel}</div>
           <div class="subcard"><h4>Add Feedback</h4>${releaseFeedbackPanel}</div>
-          <div class="subcard">${renderDetailsBlock('Advanced / Technical Details', workspaceSnapshotPanel, 'Workspace snapshot and restore controls')}</div>
+          <div class="subcard">${renderDetailsBlock('Technical Details', workspaceSnapshotPanel, 'Snapshot and restore controls')}</div>
         `, getSectionOpenState(project.id, 'workspace', false), latestWorkspace ? 'Ready' : hasTestableDraftArtifact ? 'Draft testable' : '')}
         ${renderProjectSection('feedback', 'Feedback', 'Prototype and release feedback stay grouped with iteration controls instead of competing with execution panels.', `
           <div class="subcard">
@@ -27571,7 +27715,7 @@ function renderSprint(project, quickLaunchOutcome = null) {
             <div class="feedback-list">${feedbackItems || '<p class="muted">No feedback saved yet.</p>'}</div>
           </div>
         `, getSectionOpenState(project.id, 'feedback', !!(latestPrototype || latestWorkspaceRelease || feedback.count || releaseFeedback.feedback_count)), `${esc((feedback.count || 0) + (releaseFeedback.feedback_count || 0))} items`)}
-        ${renderProjectSection('quality', 'Technical Details', 'Inspect AI comparison or diagnostics without letting them dominate the default working surface.', `
+        ${renderProjectSection('quality', 'Technical Details', 'Inspect provider comparison and sanitized diagnostics when needed.', `
           ${renderDetailsBlock('AI Internals', `
             <div class="subcard">
               <div class="topline"><div><h4>Provider Comparison / Eval</h4><div class="muted">Run local-only evals and apply explainable route recommendations without real provider calls by default.</div></div></div>
@@ -27588,7 +27732,7 @@ function renderSprint(project, quickLaunchOutcome = null) {
             </div>
           `, 'Provider evals and sanitized diagnostics')}
         `, getSectionOpenState(project.id, 'quality', qualityNeedsAttention), qualityNeedsAttention ? 'Attention' : 'Collapsed by default')}
-        ${renderProjectSection('ai', 'AI', 'Provider and routing controls are grouped here so the project view stays self-contained.', `
+        ${renderProjectSection('ai', 'AI', 'Provider and routing controls stay contained and optional.', `
           <div class="subcard">
             <div class="topline"><h4>AI Provider</h4><span class="pill"><strong>Global</strong></span></div>
             <div class="resume-plan" style="margin-top:0; margin-bottom:12px">
@@ -27611,7 +27755,7 @@ function renderSprint(project, quickLaunchOutcome = null) {
             <div id="aiRoutesPanel" class="resume-plan" style="margin-top:0">Loading AI routes...</div>
           </div>
         `, getSectionOpenState(project.id, 'ai', false), 'Collapsed by default')}
-        ${renderProjectSection('details', 'Support Tools', 'All existing support panels remain available here without competing with the next action.', `
+        ${renderProjectSection('details', 'Advanced Tools', 'Support, status, reports, and older planning details stay secondary.', `
           <div class="field" style="max-width:260px">
             <label for="statusSelect">Project status</label>
             <select id="statusSelect">

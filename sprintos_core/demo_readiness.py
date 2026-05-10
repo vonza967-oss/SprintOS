@@ -138,8 +138,8 @@ def render_example_prompt_gallery(prefix: str) -> str:
         )
     return (
         '<details class="resume-plan example-prompt-gallery">'
-        '<summary><strong>Example Prompt Gallery</strong></summary>'
-        '<p class="muted">Pick one to fill the Create App prompt. Examples do not call AI or create anything until you click Create App.</p>'
+        '<summary><strong>Example Prompts</strong></summary>'
+        '<p class="muted">Fill the prompt only. Nothing runs until you click Create App.</p>'
         f'<div data-example-gallery-prefix="{prefix_attr}">'
         f'{"".join(groups_html)}'
         '</div>'
