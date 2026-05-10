@@ -726,8 +726,9 @@ def _app_file_generation_retry_instructions(instructions: str, retry_reason: str
         - Include exactly these files: index.html, style.css, app.js, README.md, TEST_PLAN.md.
         - Ensure index.html links style.css and app.js.
         - Ensure app.js contains real local browser interaction behavior.
-        - For custom apps, include a clear visible h1 title, purpose/use-case copy, app-specific sections, a visible local/demo limitation note, practical README, and practical TEST_PLAN.
-        - For interactive custom apps, include meaningful visible input fields when the idea implies tracking/planning, one primary action button, a visible output/result/list area, app.js reading at least one input value, app.js handling the primary action, and app.js updating the visible output.
+        - For custom apps, include a visible h1 title whose words match the requested app, purpose/use-case copy that says what the app helps the target user do, app-specific sections, a visible local/demo limitation note, practical README, and practical TEST_PLAN.
+        - For interactive custom apps, include meaningful visible input fields matching the requested fields/sections, one primary action button, a visible result/list/summary area, a useful empty state, app.js reading at least one input `.value`, app.js handling the primary action, and app.js updating the visible output.
+        - Read input `.value` inside the primary action handler or inside a render function called by that handler, then update the result/list/summary with text derived from those values.
         - TEST_PLAN.md must use practical app-specific sections for setup, happy path, edge cases, expected behavior, local-first/safety checks, limitations, and suggested Codex next improvements.
         - The local/demo limitation must be visible in index.html and must also be reflected in README.md and TEST_PLAN.md.
         - Preserve useful helper text, empty states, input-dependent outputs, and simple reset/clear behavior where appropriate.

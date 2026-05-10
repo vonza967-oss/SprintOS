@@ -141,6 +141,7 @@ from sprintos_core.text_utils import first_sentence, sanitize_filename, slugify,
 from sprintos_core.ui_helpers import UI_HELPERS_JS
 from sprintos_core.verification_utils import (
     external_network_markers,
+    has_budget_calculator_signal,
     infer_static_app_shape,
     is_vague_next_action as helper_is_vague_next_action,
     metadata_has_unsafe_path as helper_metadata_has_unsafe_path,
@@ -10131,7 +10132,7 @@ def offline_app_template_shape(project: Dict[str, Any], prototype_type: str) -> 
         )
     ):
         return "pricing_roi_calculator"
-    if any(marker in text for marker in ("budget", "expense", "expenses", "income", "savings", "save money", "spending")):
+    if has_budget_calculator_signal(text):
         return "budget_calculator"
     if any(marker in text for marker in ("decision matrix", "compare options", "choose between", "tradeoff", "tradeoffs", "criteria")):
         return "decision_matrix"
@@ -11054,9 +11055,13 @@ def app_file_generation_instructions(shape: str = "") -> str:
         - short_description must be one short sentence under 140 characters.
         - The app should expose a clear input, one primary action, and one visible output or result state.
         - For non-interactive informational apps, omit fake inputs/actions and instead make the purpose, target user/use case, sections, and next steps clear.
-        - Include a clear app title and purpose, target user or use case where inferable, meaningful helper text, useful empty states, and a primary action when interaction is appropriate.
+        - Include a visible h1 app title whose words match the requested app, plus purpose/use-case copy that explicitly says what the app helps the target user do.
+        - Include a meaningful local-first note in index.html and documentation: local/browser-only, deterministic or mocked where relevant, no backend, no network, no provider/API calls.
+        - Include meaningful helper text, useful empty states, and a primary action when interaction is appropriate.
         - For arbitrary/custom prompts, design a useful local static prototype for the user's idea; do not force canonical IDs unless the required app shape explicitly names them.
-        - Interactive custom apps must include an input -> action -> output flow, app.js must read at least one input value, the primary action must be wired, and app.js must update a visible output area.
+        - Interactive custom apps must include practical input fields matching the user's requested fields or sections, one primary action button, a visible result/list/summary area, a useful empty state, app.js reading at least one input `.value`, app.js handling the primary action, and app.js updating the visible result/list/summary area.
+        - In app.js, read input values inside the primary action handler or a render path called by that handler. Avoid only reading inputs at load time.
+        - Output text must use the user's input values and the requested domain terms so the result visibly changes after the primary action.
         - Include reset or clear behavior where it is simple and useful.
         - Outputs must depend on the user's input, not fixed canned text.
         - Include a visible local/demo limitation note. Make clear the app is local/browser-only, mocked or deterministic where relevant, and not backed by live providers.

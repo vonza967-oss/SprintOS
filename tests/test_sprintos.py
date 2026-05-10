@@ -5826,14 +5826,44 @@ class AppIntentReviewTests(SprintOSTestCase):
         canonical_project = self.create_project(
             raw_idea="Create a personal budget calculator where users enter income and expenses and see savings."
         )
+        budget_snapshot_project = self.create_project(
+            raw_idea="Create a Budget Snapshot where users enter monthly income and expenses and see savings, spending breakdown, and a recommendation."
+        )
         generic_project = self.create_project(
             raw_idea="Create a local mini CRM for freelancers to track leads, status, next follow-up date, and notes."
         )
         self.assertEqual(sprintos.offline_app_template_shape(canonical_project, "auto"), "budget_calculator")
+        self.assertEqual(sprintos.offline_app_template_shape(budget_snapshot_project, "auto"), "budget_calculator")
         self.assertEqual(set(sprintos.APP_FILE_GENERATION_REQUIRED_FILES), {"index.html", "style.css", "app.js", "README.md", "TEST_PLAN.md"})
         self.assertNotIn("manifest.json", sprintos.app_file_generation_instructions(""))
         generic_review = sprintos.review_app_intent(str(generic_project["raw_idea"]))
         self.assertEqual(generic_review["app_blueprint"]["app_type_guess"], "Mini CRM")
+
+    def test_app_intent_review_does_not_block_specific_broad_prompts(self) -> None:
+        prompts = [
+            "Create a local lesson planner for teachers with lesson topic, objectives, activities, materials, homework, and class notes.",
+            "Create a local booking tracker for a barber to manage client names, service type, appointment time, status, and daily schedule.",
+            "Create a local client onboarding checklist for an agency with client name, onboarding tasks, owner, due date, status, and progress summary.",
+            "Create a local project tracker for a small agency with project name, client, deadline, status, owner, next action, and workload summary.",
+        ]
+
+        for prompt in prompts:
+            with self.subTest(prompt=prompt):
+                review = sprintos.review_app_intent(prompt)
+                self.assertNotEqual(review["status"], "needs_clarification")
+                self.assertIn(review["status"], {"ready_to_generate", "generate_with_assumptions_available"})
+                self.assertTrue(review["app_blueprint"]["main_records"])
+                self.assertTrue(review["app_blueprint"]["key_fields"])
+                self.assertTrue(review["app_blueprint"]["primary_actions"])
+
+    def test_app_intent_review_budget_notes_do_not_create_budget_blueprint(self) -> None:
+        review = sprintos.review_app_intent(
+            "Create a local event planner with event name, date, tasks, vendors, budget notes, and readiness summary."
+        )
+
+        self.assertNotEqual(review["status"], "needs_clarification")
+        self.assertNotEqual(review["app_type_guess"], "Budget Calculator")
+        self.assertNotEqual(review["app_blueprint"]["app_type_guess"], "Budget Calculator")
 
     def test_quick_launch_generate_with_assumptions_stores_intent_review_metadata(self) -> None:
         quick_launch = sprintos.run_quick_launch(

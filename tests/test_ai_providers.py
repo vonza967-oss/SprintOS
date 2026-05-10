@@ -489,6 +489,88 @@ class AIProviderTests(SprintOSTestCase):
         files = self.app_file_contents(payload)
         self.assertEqual(sprintos.infer_static_app_shape("Create a local content calendar planner.", files=files), "")
 
+    def test_budget_notes_do_not_infer_budget_calculator_shape(self) -> None:
+        cases = [
+            "Create a local event planner with event name, date, tasks, vendors, budget notes, and readiness summary.",
+            "Create a local agency project tracker with client, deadline, owner, status, budget notes, and workload summary.",
+            "Create a local event planner with a budget field for reference.",
+            "Create a local tracker with a budget column and status section.",
+        ]
+
+        for prompt in cases:
+            with self.subTest(prompt=prompt):
+                self.assertEqual(sprintos.infer_static_app_shape(prompt), "")
+
+    def test_real_budget_calculator_prompts_still_infer_budget_calculator(self) -> None:
+        cases = [
+            "Create a personal budget calculator where users enter income and expenses and see savings.",
+            "Build a monthly budget app with expense breakdown and surplus or deficit calculation.",
+            "Create a Budget Snapshot for income, expenses, savings, spending breakdown, and recommendation.",
+        ]
+
+        for prompt in cases:
+            with self.subTest(prompt=prompt):
+                self.assertEqual(sprintos.infer_static_app_shape(prompt), "budget_calculator")
+
+    def test_broad_style_custom_apps_pass_universal_contract_without_canonical_shape(self) -> None:
+        cases = [
+            (
+                "Barber Booking Tracker",
+                "barber bookings with client names, service type, appointment time, status, and daily schedule",
+                "booking-client",
+                "add-booking",
+                "booking-summary",
+                "Create a local booking tracker for a barber to manage client names, service type, appointment time, status, and daily schedule.",
+            ),
+            (
+                "Client Onboarding Checklist",
+                "client onboarding tasks with owner, due date, status, and progress summary",
+                "onboarding-task",
+                "add-task",
+                "onboarding-progress",
+                "Create a local client onboarding checklist for an agency with client name, onboarding tasks, owner, due date, status, and progress summary.",
+            ),
+            (
+                "Event Planner",
+                "events with date, tasks, vendors, budget notes, and readiness summary",
+                "event-task",
+                "add-event-task",
+                "event-readiness",
+                "Create a local event planner with event name, date, tasks, vendors, budget notes, and readiness summary.",
+            ),
+            (
+                "Lesson Planner",
+                "teacher lesson topics, objectives, activities, materials, homework, and class notes",
+                "lesson-topic",
+                "add-lesson",
+                "lesson-summary",
+                "Create a local lesson planner for teachers with lesson topic, objectives, activities, materials, homework, and class notes.",
+            ),
+            (
+                "Agency Project Tracker",
+                "agency projects with client, deadline, status, owner, next action, and workload summary",
+                "project-name",
+                "add-project",
+                "project-summary",
+                "Create a local project tracker for a small agency with project name, client, deadline, status, owner, next action, and workload summary.",
+            ),
+        ]
+
+        for app_name, subject, field_id, action_id, output_id, prompt in cases:
+            with self.subTest(app_name=app_name):
+                payload = self.generic_tracker_payload(
+                    app_name=app_name,
+                    subject=subject,
+                    field_id=field_id,
+                    action_id=action_id,
+                    output_id=output_id,
+                )
+                result = sprintos.validate_app_file_payload_for_shape(payload, "")
+                files = self.app_file_contents(payload)
+
+                self.assertTrue(result["ok"], result)
+                self.assertEqual(sprintos.infer_static_app_shape(prompt, files=files), "")
+
     def test_custom_app_with_placeholder_test_plan_fails_universal_contract(self) -> None:
         payload = self.custom_app_file_generation_payload()
         payload["files"][4]["content"] = "# Test Plan\n\n- Open the app.\n"

@@ -81,6 +81,48 @@ def _has_any(text: str, markers: Iterable[str]) -> bool:
     return any(marker.lower() in lowered for marker in markers)
 
 
+def has_budget_calculator_signal(text: str) -> bool:
+    """Return true only for budget-calculator intent, not incidental budget fields."""
+    lowered = _lower_join(text)
+    if not lowered.strip():
+        return False
+    weak_incidental_phrases = (
+        "budget note",
+        "budget notes",
+        "budget field",
+        "budget fields",
+        "budget column",
+        "budget columns",
+        "budget section",
+        "budget sections",
+    )
+    strong_phrases = (
+        "budget calculator",
+        "calculate budget",
+        "calculate a budget",
+        "budget snapshot",
+        "monthly budget",
+        "personal budget",
+        "household budget",
+        "expense breakdown",
+        "spending breakdown",
+        "savings calculation",
+        "surplus/deficit",
+        "surplus or deficit",
+    )
+    if _has_any(lowered, strong_phrases):
+        return True
+    if re.search(r"\bincome\b.*\bexpenses?\b|\bexpenses?\b.*\bincome\b", lowered):
+        return True
+    if _has_any(lowered, weak_incidental_phrases) and not _has_any(lowered, ("income", "expense", "expenses", "savings", "spending")):
+        return False
+    return bool(
+        _has_any(lowered, ("budget", "income", "expense", "expenses", "spending"))
+        and _has_any(lowered, ("savings", "surplus", "deficit"))
+        and _has_any(lowered, ("calculate", "calculator", "breakdown", "recommendation", "snapshot"))
+    )
+
+
 def _html_has_tag(html_text: str, tag_name: str) -> bool:
     return bool(re.search(rf"<\s*{re.escape(tag_name)}\b", html_text, flags=re.I))
 
@@ -468,7 +510,7 @@ def infer_static_app_shape(
         return "pricing_roi_calculator"
     if _has_any(project_signal, ("decision matrix", "compare options", "choose between", "tradeoff", "tradeoffs", "criteria")):
         return "decision_matrix"
-    if _has_any(project_signal, ("budget", "expense", "expenses", "income", "savings", "spending")):
+    if has_budget_calculator_signal(project_signal):
         return "budget_calculator"
     if _has_any(project_signal, ("flashcard", "flash card", "study notes", "exam", "memorize", "revision")):
         return "flashcard_helper"

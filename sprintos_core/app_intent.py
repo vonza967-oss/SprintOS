@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from .verification_utils import has_budget_calculator_signal
+
 
 READY_TO_GENERATE = "ready_to_generate"
 NEEDS_CLARIFICATION = "needs_clarification"
@@ -32,6 +34,13 @@ _FIELD_WORDS = (
     "date",
     "notes",
     "note",
+    "objective",
+    "objectives",
+    "activity",
+    "activities",
+    "material",
+    "materials",
+    "homework",
     "lead",
     "leads",
     "client",
@@ -40,6 +49,16 @@ _FIELD_WORDS = (
     "customers",
     "task",
     "tasks",
+    "owner",
+    "deadline",
+    "service",
+    "appointment",
+    "appointments",
+    "project",
+    "vendor",
+    "vendors",
+    "workload",
+    "readiness",
     "inventory",
     "quantity",
     "category",
@@ -62,6 +81,9 @@ _WORKFLOW_WORDS = (
     "score",
     "plan",
     "schedule",
+    "book",
+    "booking",
+    "checklist",
     "organize",
     "prioritize",
     "follow-up",
@@ -78,11 +100,14 @@ _OUTPUT_WORDS = (
     "report",
     "list",
     "calendar",
+    "schedule",
     "breakdown",
     "recommendation",
     "score",
     "status",
     "pipeline",
+    "progress",
+    "overview",
 )
 
 _APP_TYPE_HINTS = (
@@ -93,13 +118,17 @@ _APP_TYPE_HINTS = (
     ("content calendar", "Content Calendar"),
     ("calendar", "Calendar Planner"),
     ("habit", "Habit Tracker"),
-    ("budget", "Budget Calculator"),
-    ("expense", "Budget Calculator"),
     ("pricing", "Pricing Calculator"),
     ("roi", "ROI Calculator"),
     ("flashcard", "Study Card Builder"),
     ("study", "Study Card Builder"),
     ("decision", "Decision Matrix"),
+    ("booking", "Booking Tracker"),
+    ("checklist", "Checklist Tracker"),
+    ("lesson", "Lesson Planner"),
+    ("event", "Event Planner"),
+    ("project", "Project Tracker"),
+    ("planner", "Planner"),
     ("tracker", "Tracker"),
     ("dashboard", "Dashboard"),
 )
@@ -124,6 +153,8 @@ def _title_guess(prompt: str, fallback: str = "Local App") -> str:
 
 def _app_type_guess(prompt: str) -> str:
     lowered = prompt.lower()
+    if has_budget_calculator_signal(lowered):
+        return "Budget Calculator"
     for marker, label in _APP_TYPE_HINTS:
         if marker in lowered:
             return label
@@ -138,7 +169,7 @@ def _has_any(text: str, markers: tuple[str, ...]) -> bool:
 
 def _extract_missing_details(lowered: str) -> list[str]:
     missing: list[str] = []
-    if not re.search(r"\b(for|freelancer|student|owner|team|client|customer|user|creator|manager|operator)s?\b", lowered):
+    if not re.search(r"\b(for|freelancer|student|teacher|barber|agency|owner|team|client|customer|user|creator|manager|operator)s?\b", lowered):
         missing.append("target user")
     if not _has_any(lowered, _FIELD_WORDS):
         missing.append("records or fields to track")
@@ -333,7 +364,7 @@ def _domain_defaults(app_type: str, prompt: str) -> dict[str, list[str]]:
             "outputs": ["Habit list", "Daily progress summary"],
             "sections": ["Habit entry", "Today list", "Progress summary"],
         }
-    if "budget" in text or "expense" in text:
+    if "budget calculator" in text or has_budget_calculator_signal(text):
         return {
             "records": ["Monthly budget inputs"],
             "fields": ["Income", "Expense category", "Expense amount", "Notes"],
