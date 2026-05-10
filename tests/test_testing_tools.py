@@ -106,19 +106,40 @@ class TestingToolTests(SprintOSTestCase):
             args = live_acceptance.parse_args()
 
         self.assertEqual(args.case_set, "canonical")
+        self.assertEqual(args.max_cases, 0)
         self.assertEqual(live_acceptance._case_sets(args.case_set), live_acceptance.CANONICAL_CASES)
         self.assertNotIn("habit_tracker", [item["name"] for item in live_acceptance._case_sets(args.case_set)])
+        self.assertNotIn("tattoo_studio_crm", [item["name"] for item in live_acceptance._case_sets(args.case_set)])
 
-    def test_live_acceptance_can_select_generic_or_all_cases(self) -> None:
+    def test_live_acceptance_can_select_generic_all_or_broad_cases(self) -> None:
         with mock.patch.object(sys, "argv", ["live_app_generation_acceptance.py", "--case-set", "generic"]):
             generic_args = live_acceptance.parse_args()
         with mock.patch.object(sys, "argv", ["live_app_generation_acceptance.py", "--case-set", "all"]):
             all_args = live_acceptance.parse_args()
+        with mock.patch.object(sys, "argv", ["live_app_generation_acceptance.py", "--case-set", "broad"]):
+            broad_args = live_acceptance.parse_args()
 
         self.assertEqual([item["name"] for item in live_acceptance._case_sets(generic_args.case_set)], [item["name"] for item in live_acceptance.GENERIC_CUSTOM_CASES])
         all_names = [item["name"] for item in live_acceptance._case_sets(all_args.case_set)]
         self.assertIn("idea_scorer", all_names)
         self.assertIn("habit_tracker", all_names)
+        self.assertNotIn("tattoo_studio_crm", all_names)
+        broad_cases = live_acceptance._case_sets(broad_args.case_set)
+        self.assertEqual(len(broad_cases), 10)
+        self.assertIn("tattoo_studio_crm", [item["name"] for item in broad_cases])
+        self.assertTrue(all(item.get("contract") == "universal_app_contract_v1" for item in broad_cases))
+        self.assertTrue(all(not item.get("shape") for item in broad_cases))
+
+    def test_live_acceptance_max_cases_limits_selected_cases(self) -> None:
+        with mock.patch.object(sys, "argv", ["live_app_generation_acceptance.py", "--case-set", "broad", "--max-cases", "5"]):
+            args = live_acceptance.parse_args()
+
+        selected = live_acceptance._selected_cases(args.case_set, args.max_cases)
+
+        self.assertEqual(args.max_cases, 5)
+        self.assertEqual(len(selected), 5)
+        self.assertEqual(selected[0]["name"], "tattoo_studio_crm")
+        self.assertEqual(selected[-1]["name"], "meal_planner")
 
     def test_live_acceptance_generic_shape_uses_universal_verifier(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -137,6 +158,46 @@ class TestingToolTests(SprintOSTestCase):
         self.assertEqual(result["contract"], "universal_app_contract_v1")
         self.assertFalse(result["canonical_shape_applied"])
         universal.assert_called_once()
+
+    def test_live_acceptance_broad_shape_rejects_canonical_inference(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            for name in ("index.html", "app.js", "README.md", "TEST_PLAN.md"):
+                (base / name).write_text("", encoding="utf-8")
+            with mock.patch.object(live_acceptance, "infer_static_app_shape", return_value="budget_calculator"), \
+                 mock.patch.object(
+                     live_acceptance,
+                     "universal_app_contract_verification_checks",
+                     return_value=[{"name": "universal app: marker", "status": "pass", "message": "ok", "path": str(base / "index.html")}],
+                 ):
+                result = live_acceptance._shape_result("", base, project_text="Create a local meal planner.", generic=True)
+
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["contract"], "universal_app_contract_v1")
+        self.assertTrue(result["canonical_shape_applied"])
+        self.assertEqual(result["inferred_canonical_shape"], "budget_calculator")
+        self.assertTrue(any("incorrectly inferred as canonical" in item["message"] for item in result["failures"]))
+
+    def test_live_acceptance_broad_shape_does_not_treat_prompt_keyword_as_canonical(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            for name in ("index.html", "app.js", "README.md", "TEST_PLAN.md"):
+                (base / name).write_text("", encoding="utf-8")
+            with mock.patch.object(
+                live_acceptance,
+                "universal_app_contract_verification_checks",
+                return_value=[{"name": "universal app: marker", "status": "pass", "message": "ok", "path": str(base / "index.html")}],
+            ):
+                result = live_acceptance._shape_result(
+                    "",
+                    base,
+                    project_text="Create a local event planner with budget notes.",
+                    generic=True,
+                    include_project_text_for_inference=False,
+                )
+
+        self.assertTrue(result["ok"], result)
+        self.assertFalse(result["canonical_shape_applied"])
 
     def test_live_acceptance_canonical_shape_uses_canonical_verifier(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -179,7 +240,10 @@ class TestingToolTests(SprintOSTestCase):
                         "preview": {"ok": True},
                         "package": {"ok": True},
                         "safety": {"ok": False},
+                        "intent_blueprint": {"ok": True},
                         "shape_checks": {"ok": True},
+                        "quality_observation": "broken",
+                        "safe_failure_types": ["safety issue"],
                         "failure_reasons": ["Authorization: Bearer unsafe-token sk-live-unsafe1234567890"],
                     }
                 ],
@@ -193,8 +257,49 @@ class TestingToolTests(SprintOSTestCase):
         self.assertEqual(report_json["raw_prompt"], "[redacted]")
         self.assertEqual(report_json["raw_provider_response"], "[redacted]")
         self.assertIn("Safe local habit tracker summary.", report_md)
+        self.assertIn("Quality: broken", report_md)
+        self.assertIn("Safe failure type: safety issue", report_md)
         self.assertNotIn("sk-live-unsafe1234567890", report_md)
         self.assertNotIn("unsafe-token", report_md)
+
+    def test_live_acceptance_intent_blueprint_summary_is_redacted_metadata_only(self) -> None:
+        project = {
+            "sprint": {
+                "_app_intent_review": live_acceptance.sprintos.review_app_intent(
+                    "Create a local booking tracker for a barber to manage client names, service type, appointment time, status, and daily schedule."
+                )
+            }
+        }
+
+        result = live_acceptance._intent_blueprint_result(project, live_acceptance.BROAD_ARBITRARY_CASES[1])
+
+        self.assertTrue(result["ok"], result)
+        self.assertTrue(result["brief_available"])
+        self.assertIn("app_blueprint", result["summary"])
+        self.assertNotIn("raw_idea", result["summary"])
+
+    def test_live_acceptance_generation_failure_keeps_safe_diagnostic_and_failure_type(self) -> None:
+        case = live_acceptance.BROAD_ARBITRARY_CASES[0]
+        project = {
+            "id": "project-1",
+            "sprint": {
+                "_app_intent_review": live_acceptance.sprintos.review_app_intent(case["raw_idea"])
+            },
+        }
+        diagnostic = {"used_ai": True, "provider": "openai", "fallback_reason": "app_shape_validation_failed"}
+
+        with mock.patch.object(live_acceptance, "_diagnostic_for_project", return_value=diagnostic):
+            result = live_acceptance._case_generation_failure(
+                case,
+                project,
+                RuntimeError("Generic/custom app generation did not create app files: app_shape_validation_failed"),
+            )
+
+        self.assertFalse(result["ok"])
+        self.assertTrue(result["ai"]["used_ai"])
+        self.assertIn("provider output issue", result["safe_failure_types"])
+        self.assertIn("generic verification issue", result["safe_failure_types"])
+        self.assertNotIn("provider variance", result["safe_failure_types"])
 
     def test_readiness_script_runs_offline(self) -> None:
         with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):

@@ -114,6 +114,108 @@ GENERIC_CUSTOM_CASES = (
         "desired_output": "a local content calendar planner app",
     },
 )
+BROAD_ARBITRARY_CASES = (
+    {
+        "name": "tattoo_studio_crm",
+        "display_name": "Tattoo Studio CRM",
+        "shape": "",
+        "contract": "universal_app_contract_v1",
+        "case_summary": "Local tattoo studio CRM with clients, tattoo ideas, appointments, deposits, status, and follow-up notes.",
+        "quality_terms": ("tattoo", "client", "appointment", "deposit", "follow-up"),
+        "raw_idea": "Create a local CRM for a tattoo studio to track clients, tattoo ideas, appointment dates, deposits, status, and follow-up notes.",
+        "desired_output": "a local tattoo studio CRM app",
+    },
+    {
+        "name": "barber_booking_tracker",
+        "display_name": "Barber Booking Tracker",
+        "shape": "",
+        "contract": "universal_app_contract_v1",
+        "case_summary": "Local barber booking tracker with clients, service type, appointment time, status, and daily schedule.",
+        "quality_terms": ("barber", "client", "service", "appointment", "schedule"),
+        "raw_idea": "Create a local booking tracker for a barber to manage client names, service type, appointment time, status, and daily schedule.",
+        "desired_output": "a local barber booking tracker app",
+    },
+    {
+        "name": "landscaping_quote_estimator",
+        "display_name": "Landscaping Quote Estimator",
+        "shape": "",
+        "contract": "universal_app_contract_v1",
+        "case_summary": "Local landscaping quote estimator with job type, yard size, material cost, labor hours, and estimate.",
+        "quality_terms": ("landscaping", "quote", "yard", "material", "labor", "estimate"),
+        "raw_idea": "Create a local quote estimator for a landscaping business with job type, yard size, material cost, labor hours, and a final estimate.",
+        "desired_output": "a local landscaping quote estimator app",
+    },
+    {
+        "name": "client_onboarding_checklist",
+        "display_name": "Client Onboarding Checklist",
+        "shape": "",
+        "contract": "universal_app_contract_v1",
+        "case_summary": "Local agency onboarding checklist with client, tasks, owner, due date, status, and progress summary.",
+        "quality_terms": ("client", "onboarding", "task", "owner", "due", "progress"),
+        "raw_idea": "Create a local client onboarding checklist for an agency with client name, onboarding tasks, owner, due date, status, and progress summary.",
+        "desired_output": "a local client onboarding checklist app",
+    },
+    {
+        "name": "meal_planner",
+        "display_name": "Meal Planner",
+        "shape": "",
+        "contract": "universal_app_contract_v1",
+        "case_summary": "Local weekly meal planner with meals, ingredients, dietary notes, shopping list, and weekly overview.",
+        "quality_terms": ("meal", "ingredient", "dietary", "shopping", "weekly"),
+        "raw_idea": "Create a local weekly meal planner with meals, ingredients, dietary notes, shopping list, and weekly overview.",
+        "desired_output": "a local weekly meal planner app",
+    },
+    {
+        "name": "workout_planner",
+        "display_name": "Workout Planner",
+        "shape": "",
+        "contract": "universal_app_contract_v1",
+        "case_summary": "Local workout planner with exercises, sets, reps, target muscle group, weekly schedule, and progress notes.",
+        "quality_terms": ("workout", "exercise", "sets", "reps", "muscle", "schedule"),
+        "raw_idea": "Create a local workout planner with exercises, sets, reps, target muscle group, weekly schedule, and progress notes.",
+        "desired_output": "a local workout planner app",
+    },
+    {
+        "name": "event_planner",
+        "display_name": "Event Planner",
+        "shape": "",
+        "contract": "universal_app_contract_v1",
+        "case_summary": "Local event planner with event, date, tasks, vendors, budget notes, and readiness summary.",
+        "quality_terms": ("event", "date", "task", "vendor", "budget", "readiness"),
+        "raw_idea": "Create a local event planner with event name, date, tasks, vendors, budget notes, and readiness summary.",
+        "desired_output": "a local event planner app",
+    },
+    {
+        "name": "support_ticket_board",
+        "display_name": "Support Ticket Board",
+        "shape": "",
+        "contract": "universal_app_contract_v1",
+        "case_summary": "Local support ticket board with title, customer, priority, status, notes, and open issue summary.",
+        "quality_terms": ("support", "ticket", "customer", "priority", "status", "issue"),
+        "raw_idea": "Create a local support ticket board with ticket title, customer, priority, status, notes, and open issue summary.",
+        "desired_output": "a local support ticket board app",
+    },
+    {
+        "name": "lesson_planner",
+        "display_name": "Lesson Planner",
+        "shape": "",
+        "contract": "universal_app_contract_v1",
+        "case_summary": "Local teacher lesson planner with topic, objectives, activities, materials, homework, and class notes.",
+        "quality_terms": ("lesson", "teacher", "objective", "activity", "materials", "homework"),
+        "raw_idea": "Create a local lesson planner for teachers with lesson topic, objectives, activities, materials, homework, and class notes.",
+        "desired_output": "a local lesson planner app",
+    },
+    {
+        "name": "agency_project_tracker",
+        "display_name": "Agency Project Tracker",
+        "shape": "",
+        "contract": "universal_app_contract_v1",
+        "case_summary": "Local agency project tracker with project, client, deadline, status, owner, next action, and workload summary.",
+        "quality_terms": ("agency", "project", "client", "deadline", "owner", "workload"),
+        "raw_idea": "Create a local project tracker for a small agency with project name, client, deadline, status, owner, next action, and workload summary.",
+        "desired_output": "a local agency project tracker app",
+    },
+)
 
 
 def _redact(value: Any) -> Any:
@@ -177,6 +279,7 @@ def _create_offline_project(raw_idea: str, desired_output: str) -> dict[str, Any
         generation_mode="offline",
     )
     sprint["title"] = sprintos.title_from_idea(raw_idea)
+    sprint["_app_intent_review"] = sprintos.review_app_intent(raw_idea)
     workflow_id = str(sprint.get("_workflow_id") or sprintos.infer_workflow(raw_idea, "auto", workflows))
     project_id = sprintos.save_project(
         raw_idea,
@@ -280,14 +383,124 @@ def _case_sets(case_set: str) -> tuple[dict[str, str], ...]:
         return GENERIC_CUSTOM_CASES
     if case_set == "all":
         return CANONICAL_CASES + GENERIC_CUSTOM_CASES
+    if case_set == "broad":
+        return BROAD_ARBITRARY_CASES
     raise ValueError(f"Unknown case set: {case_set}")
+
+
+def _selected_cases(case_set: str, max_cases: int = 0) -> tuple[dict[str, str], ...]:
+    cases = _case_sets(case_set)
+    if max_cases <= 0:
+        return cases
+    return cases[:max_cases]
 
 
 def _case_contract(case: dict[str, str]) -> str:
     return str(case.get("contract") or ("canonical_app_shape_v1" if case.get("shape") else "universal_app_contract_v1"))
 
 
-def _shape_result(shape: str, prototype_path: Path, *, project_text: str = "", generic: bool = False) -> dict[str, Any]:
+def _intent_blueprint_result(project: dict[str, Any], case: dict[str, str] | None = None) -> dict[str, Any]:
+    sprint = project.get("sprint") or {}
+    review = sprint.get("_app_intent_review") if isinstance(sprint, dict) else {}
+    if not isinstance(review, dict):
+        review = {}
+    summary = sprintos.app_intent_report_summary(review)
+    blueprint = summary.get("app_blueprint") if isinstance(summary.get("app_blueprint"), dict) else {}
+    has_brief = bool(
+        str(review.get("enriched_generation_brief") or "").strip()
+        and (str((review.get("app_blueprint") or {}).get("generation_brief") or "").strip() if isinstance(review.get("app_blueprint"), dict) else "")
+    )
+    status = str(summary.get("status") or "")
+    terms = [str(term).lower() for term in ((case or {}).get("quality_terms") or []) if str(term).strip()]
+    summary_text = json.dumps(summary, sort_keys=True).lower()
+    term_hits = sum(1 for term in terms if term in summary_text)
+    app_specific_enough = not terms or term_hits >= 1
+    app_type_guess = str(summary.get("app_type_guess") or "")
+    canonical_type_guess = app_type_guess in {
+        "Budget Calculator",
+        "Pricing Calculator",
+        "ROI Calculator",
+        "Study Card Builder",
+        "Decision Matrix",
+    }
+    ok = bool(
+        status
+        and has_brief
+        and blueprint.get("target_user")
+        and blueprint.get("main_records")
+        and blueprint.get("primary_actions")
+        and app_specific_enough
+        and not (terms and canonical_type_guess)
+    )
+    return {
+        "ok": ok,
+        "summary": summary,
+        "brief_available": has_brief,
+        "app_specific_term_hits": term_hits,
+        "canonical_type_guess": canonical_type_guess,
+    }
+
+
+def _safe_failure_types(result: dict[str, Any]) -> list[str]:
+    types: list[str] = []
+    if not (result.get("intent_blueprint") or {}).get("ok"):
+        types.append("intent/blueprint issue")
+    if not (result.get("ai") or {}).get("used_ai"):
+        types.append("provider output issue")
+    if not (result.get("shape_checks") or {}).get("ok"):
+        types.append("generic verification issue" if result.get("contract") == "universal_app_contract_v1" else "provider output issue")
+    if not (result.get("safety") or {}).get("ok"):
+        types.append("safety issue")
+    if not (result.get("package") or {}).get("ok"):
+        types.append("package/Build Pack issue")
+    if not (result.get("preview") or {}).get("ok") or not (result.get("prototype_zip") or {}).get("ok"):
+        types.append("preview/ZIP issue")
+    if not types and not result.get("ok"):
+        types.append("provider variance")
+    return list(dict.fromkeys(types))
+
+
+def _safe_failure_types_for_exception(reason: str) -> list[str]:
+    lowered = reason.lower()
+    types: list[str] = []
+    if "app_safety_validation_failed" in lowered:
+        types.append("safety issue")
+    if "app_shape_validation_failed" in lowered:
+        types.extend(["provider output issue", "generic verification issue"])
+    if any(marker in lowered for marker in ("schema_validation_failed", "invalid_json", "json_shape", "missing_required_files")):
+        types.append("provider output issue")
+    if not types:
+        types.append("provider variance")
+    return list(dict.fromkeys(types))
+
+
+def _quality_observation(case: dict[str, str], prototype_path: Path, ok: bool) -> str:
+    if not ok:
+        return "broken"
+    terms = [str(term).lower() for term in (case.get("quality_terms") or []) if str(term).strip()]
+    if not terms:
+        return "useful"
+    combined = ""
+    for name in ("index.html", "README.md", "TEST_PLAN.md"):
+        path = prototype_path / name
+        if path.exists():
+            combined += "\n" + path.read_text(encoding="utf-8", errors="ignore").lower()
+    hits = sum(1 for term in terms if term in combined)
+    if hits >= min(4, len(terms)):
+        return "useful"
+    if hits >= 2:
+        return "generic but acceptable"
+    return "weak"
+
+
+def _shape_result(
+    shape: str,
+    prototype_path: Path,
+    *,
+    project_text: str = "",
+    generic: bool = False,
+    include_project_text_for_inference: bool = True,
+) -> dict[str, Any]:
     index_html = (prototype_path / "index.html").read_text(encoding="utf-8") if (prototype_path / "index.html").exists() else ""
     app_js = (prototype_path / "app.js").read_text(encoding="utf-8") if (prototype_path / "app.js").exists() else ""
     readme_text = (prototype_path / "README.md").read_text(encoding="utf-8") if (prototype_path / "README.md").exists() else ""
@@ -301,7 +514,8 @@ def _shape_result(shape: str, prototype_path: Path, *, project_text: str = "", g
     inferred_shape = ""
     canonical_shape_applied = False
     if generic or not shape:
-        inferred_shape = infer_static_app_shape(project_text, files=files)
+        inference_text = project_text if include_project_text_for_inference else ""
+        inferred_shape = infer_static_app_shape(inference_text, files=files)
         canonical_shape_applied = bool(inferred_shape)
         checks = universal_app_contract_verification_checks(
             index_html=index_html,
@@ -478,6 +692,7 @@ def _write_custom_ai_prototype_package(project: dict[str, Any], case: dict[str, 
 
 def _case_failure(case: dict[str, str], exc: Exception) -> dict[str, Any]:
     reason = f"{type(exc).__name__}: {sprintos.activity_redact_text(str(exc), limit=360)}"
+    safe_failure_types = _safe_failure_types_for_exception(reason)
     return {
         "name": case["name"],
         "display_name": case.get("display_name") or case["name"],
@@ -492,24 +707,80 @@ def _case_failure(case: dict[str, str], exc: Exception) -> dict[str, Any]:
         "prototype_zip": {"ok": False},
         "package": {"ok": False},
         "safety": {"ok": False, "blockers": [reason], "warnings": []},
+        "intent_blueprint": {"ok": False, "summary": {}, "brief_available": False},
         "shape_checks": {"ok": False, "shape": case.get("shape") or "", "checks": [], "failures": [reason]},
         "failure_reasons": [reason],
+        "quality_observation": "broken",
+        "safe_failure_types": safe_failure_types,
     }
+
+
+def _case_generation_failure(case: dict[str, str], project: dict[str, Any], exc: Exception) -> dict[str, Any]:
+    reason = f"{type(exc).__name__}: {sprintos.activity_redact_text(str(exc), limit=360)}"
+    diagnostic = _diagnostic_for_project(str(project.get("id") or ""))
+    ai = {
+        "ok": bool(diagnostic.get("used_ai") is True),
+        "used_ai": bool(diagnostic.get("used_ai") is True),
+        "diagnostic": diagnostic,
+    }
+    intent_blueprint = _intent_blueprint_result(project, case)
+    safe_failure_types = _safe_failure_types_for_exception(reason)
+    if not intent_blueprint.get("ok"):
+        safe_failure_types = list(dict.fromkeys(["intent/blueprint issue"] + safe_failure_types))
+    return _redact(
+        {
+            "name": case["name"],
+            "display_name": case.get("display_name") or case["name"],
+            "shape": case.get("shape") or "",
+            "contract": _case_contract(case),
+            "case_summary": case.get("case_summary") or "",
+            "status": "fail",
+            "ok": False,
+            "project_id": project.get("id"),
+            "prototype_id": "",
+            "prototype_path": "",
+            "intent_blueprint": intent_blueprint,
+            "ai": ai,
+            "files": {"ok": False, "missing": list(ACCEPTANCE_REQUIRED_APP_FILES)},
+            "preview": {"ok": False},
+            "prototype_zip": {"ok": False},
+            "package": {"ok": False},
+            "safety": {
+                "ok": "safety issue" not in safe_failure_types,
+                "blockers": [reason] if "safety issue" in safe_failure_types else [],
+                "warnings": [],
+            },
+            "shape_checks": {
+                "ok": "generic verification issue" not in safe_failure_types,
+                "shape": case.get("shape") or "",
+                "contract": _case_contract(case),
+                "checks": [],
+                "failures": [reason] if "generic verification issue" in safe_failure_types else [],
+            },
+            "failure_reasons": [reason],
+            "quality_observation": "broken",
+            "safe_failure_types": safe_failure_types,
+        }
+    )
 
 
 def _run_case(case: dict[str, str]) -> dict[str, Any]:
     project = _create_offline_project(case["raw_idea"], case["desired_output"])
     is_generic = _case_contract(case) == "universal_app_contract_v1"
-    if is_generic:
-        prototype = _write_custom_ai_prototype_package(project, case)
-    else:
-        prototype = sprintos.write_prototype_package(
-            project,
-            "landing_page",
-            generation_mode="ai",
-            fallback_mode="report_only",
-        )
+    try:
+        if is_generic:
+            prototype = _write_custom_ai_prototype_package(project, case)
+        else:
+            prototype = sprintos.write_prototype_package(
+                project,
+                "landing_page",
+                generation_mode="ai",
+                fallback_mode="report_only",
+            )
+    except Exception as exc:
+        return _case_generation_failure(case, project, exc)
     prototype_path = Path(str(prototype.get("path") or ""))
+    intent_blueprint = _intent_blueprint_result(project, case)
     readiness = sprintos.check_deploy_readiness(prototype)
     prototype_zip_name, prototype_zip_bytes = sprintos.build_prototype_zip(prototype)
     prototype_zip_safety = _zip_safety_result(prototype_zip_name, prototype_zip_bytes)
@@ -522,7 +793,14 @@ def _run_case(case: dict[str, str]) -> dict[str, Any]:
         "path": str(preview_path),
     }
     package = _package_result(project, prototype)
-    shape_checks = _shape_result(case.get("shape") or "", prototype_path, project_text=str(case.get("raw_idea") or ""), generic=is_generic)
+    is_broad = any(case.get("name") == broad_case.get("name") for broad_case in BROAD_ARBITRARY_CASES)
+    shape_checks = _shape_result(
+        case.get("shape") or "",
+        prototype_path,
+        project_text=str(case.get("raw_idea") or ""),
+        generic=is_generic,
+        include_project_text_for_inference=not is_broad,
+    )
     safety_blockers = [sprintos.activity_redact_text(str(item), limit=360) for item in (readiness.get("blockers") or [])]
     safety_warnings = [sprintos.activity_redact_text(str(item), limit=360) for item in (readiness.get("warnings") or [])]
     safety = {
@@ -544,6 +822,7 @@ def _run_case(case: dict[str, str]) -> dict[str, Any]:
     }
     failure_reasons: list[str] = []
     for label, result in (
+        ("Intent review or blueprint is weak", intent_blueprint),
         ("AI provider was not used", ai),
         ("Required app package files are missing", files),
         ("Preview path is missing", preview),
@@ -566,28 +845,30 @@ def _run_case(case: dict[str, str]) -> dict[str, Any]:
             else:
                 failure_reasons.append(label)
     ok = not failure_reasons
-    return _redact(
-        {
-            "name": case["name"],
-            "display_name": case.get("display_name") or case["name"],
-            "shape": case.get("shape") or "",
-            "contract": _case_contract(case),
-            "case_summary": case.get("case_summary") or "",
-            "status": "pass" if ok else "fail",
-            "ok": ok,
-            "project_id": project.get("id"),
-            "prototype_id": prototype.get("id"),
-            "prototype_path": str(prototype_path),
-            "ai": ai,
-            "files": files,
-            "preview": preview,
-            "prototype_zip": prototype_zip,
-            "package": package,
-            "safety": safety,
-            "shape_checks": shape_checks,
-            "failure_reasons": [sprintos.activity_redact_text(item, limit=360) for item in failure_reasons],
-        }
-    )
+    result = {
+        "name": case["name"],
+        "display_name": case.get("display_name") or case["name"],
+        "shape": case.get("shape") or "",
+        "contract": _case_contract(case),
+        "case_summary": case.get("case_summary") or "",
+        "status": "pass" if ok else "fail",
+        "ok": ok,
+        "project_id": project.get("id"),
+        "prototype_id": prototype.get("id"),
+        "prototype_path": str(prototype_path),
+        "intent_blueprint": intent_blueprint,
+        "ai": ai,
+        "files": files,
+        "preview": preview,
+        "prototype_zip": prototype_zip,
+        "package": package,
+        "safety": safety,
+        "shape_checks": shape_checks,
+        "failure_reasons": [sprintos.activity_redact_text(item, limit=360) for item in failure_reasons],
+    }
+    result["quality_observation"] = _quality_observation(case, prototype_path, ok)
+    result["safe_failure_types"] = _safe_failure_types(result)
+    return _redact(result)
 
 
 def _markdown_case(item: dict[str, Any]) -> list[str]:
@@ -596,6 +877,9 @@ def _markdown_case(item: dict[str, Any]) -> list[str]:
         "",
         f"- Case: `{item['name']}` / `{item.get('contract') or item.get('shape')}`",
         f"- Overall: {'PASS' if item.get('ok') else 'FAIL'}",
+        f"- Quality: {item.get('quality_observation') or 'n/a'}",
+        f"- Safe failure type: {', '.join(item.get('safe_failure_types') or []) or 'n/a'}",
+        f"- Intent review / blueprint: {'PASS' if (item.get('intent_blueprint') or {}).get('ok') else 'FAIL'}",
         f"- AI used: {'PASS' if (item.get('ai') or {}).get('used_ai') else 'FAIL'}",
         f"- Required files: {'PASS' if (item.get('files') or {}).get('ok') else 'FAIL'}",
         f"- Preview path: {'PASS' if (item.get('preview') or {}).get('ok') else 'FAIL'}",
@@ -626,6 +910,7 @@ def _write_reports(run_root: Path, payload: dict[str, Any]) -> None:
         f"- Provider: {redacted['provider']}",
         f"- Model: {redacted['model']}",
         f"- Case set: {redacted.get('case_set') or 'canonical'}",
+        f"- Max cases: {redacted.get('max_cases') or 'all'}",
         f"- Overall: {'PASS' if redacted['ok'] else 'FAIL'}",
         f"- JSON report: `{report_json}`",
         f"- Artifact root: `{run_root}`",
@@ -641,8 +926,11 @@ def _write_reports(run_root: Path, payload: dict[str, Any]) -> None:
             "- `generated_at`: ISO timestamp for the acceptance run.",
             "- `provider` / `model`: resolved live provider configuration.",
             "- `run_root`: local export folder containing reports and generated artifacts.",
-            "- `cases[]`: one result per selected canonical or generic/custom case.",
+            "- `cases[]`: one result per selected canonical, generic/custom, or broad arbitrary case.",
             "- `cases[].ai`: redacted provider diagnostic with `used_ai`.",
+            "- `cases[].intent_blueprint`: compact local intent review and App Blueprint summary.",
+            "- `cases[].quality_observation`: one of useful, generic but acceptable, weak, or broken.",
+            "- `cases[].safe_failure_types`: redacted failure category labels for triage.",
             "- `cases[].files`: required app package file existence result for `index.html`, `style.css`, `app.js`, `README.md`, and `TEST_PLAN.md`.",
             "- `cases[].preview`: local preview route and resolved index path.",
             "- `cases[].prototype_zip`: generated prototype ZIP metadata and ZIP safety result.",
@@ -665,10 +953,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model", default="", help="Optional model override for this acceptance run.")
     parser.add_argument(
         "--case-set",
-        choices=("canonical", "generic", "all"),
+        choices=("canonical", "generic", "all", "broad"),
         default="canonical",
-        help="Acceptance cases to run. Defaults to canonical for backward compatibility.",
+        help="Acceptance cases to run. Defaults to canonical for backward compatibility. Broad is opt-in arbitrary app coverage.",
     )
+    parser.add_argument("--max-cases", type=int, default=0, help="Optional positive limit for running a smaller prefix of the selected case set.")
     return parser.parse_args()
 
 
@@ -700,6 +989,7 @@ def main() -> int:
                 "provider": config.provider,
                 "model": config.model,
                 "case_set": args.case_set,
+                "max_cases": int(args.max_cases or 0),
                 "run_root": str(run_root),
                 "cases": [],
                 "failure_reasons": ["Configured provider is not enabled or its API key is missing."],
@@ -721,7 +1011,7 @@ def main() -> int:
     )
 
     cases = []
-    for case in _case_sets(args.case_set):
+    for case in _selected_cases(args.case_set, args.max_cases):
         try:
             cases.append(_run_case(case))
         except Exception as exc:
@@ -739,6 +1029,7 @@ def main() -> int:
             "provider": config.provider,
             "model": config.model,
             "case_set": args.case_set,
+            "max_cases": int(args.max_cases or 0),
             "run_root": str(run_root),
             "cases": cases,
             "failure_reasons": failure_reasons,
